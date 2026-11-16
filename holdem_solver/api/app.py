@@ -182,8 +182,9 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=f"bad spot: {exc}") from exc
 
+        dtype = (request.solver_options or {}).get("dtype", "float32")
         try:
-            estimate = scheduler.estimate(spot)
+            estimate = scheduler.estimate(spot, dtype=dtype)
         except RemoteEngineError as exc:
             raise HTTPException(status_code=422, detail=_engine_error_detail(exc)) from exc
         except Exception as exc:

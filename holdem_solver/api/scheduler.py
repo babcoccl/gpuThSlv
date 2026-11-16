@@ -27,6 +27,10 @@ LOG = logging.getLogger("holdem_solver.api")
 
 _POLL_SECONDS = 1.0
 
+# Worker ids may legitimately be ``None`` (a no-GPU engine), so dispatch uses
+# this sentinel rather than ``None`` for "no idle worker".
+_NO_IDLE = object()
+
 
 class Scheduler:
     def __init__(
@@ -60,7 +64,10 @@ class Scheduler:
     def start(self) -> None:
         for gpu in self._gpus:
             self._clients[gpu] = self._client_factory(
-                gpu, engine=self._engine, auto_restart=False, **self._client_kwargs.get(gpu, {})
+                # auto_restart=True: a fresh unbuilt worker is spawned before
+                # WorkerDiedError propagates, so a crash does not permanently
+                # disable the GPU for later jobs.
+                gpu, engine=self._engine, auto_restart=True, **self._client_kwargs.get(gpu, {})
             )
             self._completed[gpu] = 0
         self._dispatcher.start()
@@ -110,15 +117,15 @@ class Scheduler:
         info["job_id"] = None if running is None else running["id"]
         return info
 
-    def estimate(self, spot: dict[str, Any]) -> dict[str, Any]:
-        """Node count + VRAM estimate for a spot, from any live worker."""
+    def estimate(self, spot: dict[str, Any], dtype: str = "float32") -> dict[str, Any]:
+        """Node count + VRAM estimate for a spot at ``dtype``, from any live worker."""
         last_error: Exception | None = None
         for gpu in self._gpus:
             client = self._clients.get(gpu)
             if client is None:
                 continue
             try:
-                return client.estimate_spot(spot)
+                return client.estimate_spot(spot, dtype=dtype)
             except RemoteEngineError:
                 raise
             except Exception as exc:  # worker down — try the next GPU
@@ -134,7 +141,7 @@ class Scheduler:
             job = self._store.next_queued()
             if job is not None:
                 gpu = self._idle_gpu()
-                if gpu is not None and self._store.claim(job["id"], gpu):
+                if gpu is not _NO_IDLE and self._store.claim(job["id"], gpu):
                     with self._lock:
                         self._busy.add(gpu)
                     thread = threading.Thread(
@@ -146,12 +153,12 @@ class Scheduler:
             self._wake.wait(timeout=_POLL_SECONDS)
             self._wake.clear()
 
-    def _idle_gpu(self) -> int | None:
+    def _idle_gpu(self) -> Any:
         """Least-loaded idle GPU (fewest finished jobs, lowest index on ties)."""
         with self._lock:
             idle = [gpu for gpu in self._gpus if gpu not in self._busy]
         if not idle:
-            return None
+            return _NO_IDLE
         return min(idle, key=lambda gpu: self._completed.get(gpu, 0))
 
     # -- runner ---------------------------------------------------------------

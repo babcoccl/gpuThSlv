@@ -7,6 +7,7 @@ and replayed on the same thread); socket threads only read job state, so
 
 import dataclasses
 import itertools
+import math
 import os
 import threading
 import time
@@ -156,7 +157,7 @@ class EngineService:
         finally:
             self._engine_busy.release()
 
-    def rpc_estimate_spot(self, spot: Any) -> Dict[str, Any]:
+    def rpc_estimate_spot(self, spot: Any, dtype: str = "float32") -> Dict[str, Any]:
         """Node count and estimated VRAM for a spot dict, without building.
 
         Deliberately not run on the engine executor: building the one-deal
@@ -166,7 +167,7 @@ class EngineService:
         if not isinstance(spot, dict):
             raise RpcError(protocol.ERROR_INVALID_PARAMS, "spot must be a SpotConfig object")
         try:
-            return self._engine.estimate_spot(spot)
+            return self._engine.estimate_spot(spot, dtype=dtype)
         except Exception as exc:
             raise _engine_error(exc)
 
@@ -188,14 +189,19 @@ class EngineService:
 
     def _run_job(self, job: _Job) -> None:
         def on_progress(snapshot: Any) -> None:
-            job.exploitability = float(snapshot.exploitability)
+            # NaN samples would make every later progress response
+            # unserializable (the wire format rejects non-finite floats).
+            exploitability = float(snapshot.exploitability)
+            if not math.isfinite(exploitability):
+                return
+            job.exploitability = exploitability
             job.exploitability_iteration = int(snapshot.iteration)
             job.exploitability_history.append(
                 {
                     "iteration": int(snapshot.iteration),
                     "iterations_run": int(snapshot.iterations_run),
                     "elapsed_seconds": float(snapshot.elapsed_seconds),
-                    "exploitability": float(snapshot.exploitability),
+                    "exploitability": exploitability,
                 }
             )
 
@@ -205,8 +211,11 @@ class EngineService:
         try:
             result = self._engine.solve(should_stop=job.cancel.is_set, **kwargs)
             job.result = dataclasses.asdict(result)
+            if not math.isfinite(job.result.get("exploitability") or 0.0):
+                job.result["exploitability"] = None
             job.result["vram"] = self._vram_stats()
-            job.exploitability = float(result.exploitability)
+            if math.isfinite(result.exploitability):
+                job.exploitability = float(result.exploitability)
             job.exploitability_iteration = int(result.total_iterations)
             job.state = "cancelled" if result.cancelled else "done"
         except Exception as exc:

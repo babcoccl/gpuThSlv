@@ -81,7 +81,7 @@ class FakeEngine:
         self._built = True
         return self
 
-    def estimate_spot(self, spot: Any) -> Dict[str, Any]:
+    def estimate_spot(self, spot: Any, dtype: str = "float32") -> Dict[str, Any]:
         """Resolve the spot and report a plausible node count and VRAM estimate."""
         from .memory import estimate_vram_bytes
 
@@ -90,7 +90,7 @@ class FakeEngine:
         num_nodes = 1 + resolved.num_deals * 15
         return {
             "num_nodes": num_nodes,
-            "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes)),
+            "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes, dtype=dtype)),
             "spot": resolved.summary(),
         }
 

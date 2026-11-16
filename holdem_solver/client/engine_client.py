@@ -299,9 +299,11 @@ class EngineClient:
         result = self._call("build", {"game": game, "options": options}, timeout=self.build_timeout)
         return _from_wire(BuildInfo, result)
 
-    def estimate_spot(self, spot: dict[str, Any] | protocol.SpotConfig) -> dict[str, Any]:
-        """Node count and estimated VRAM for a spot, without building it."""
-        return self._call("estimate_spot", {"spot": protocol.as_spot_dict(spot)})
+    def estimate_spot(
+        self, spot: dict[str, Any] | protocol.SpotConfig, dtype: str = "float32"
+    ) -> dict[str, Any]:
+        """Node count and estimated VRAM for a spot at ``dtype`` precision, without building it."""
+        return self._call("estimate_spot", {"spot": protocol.as_spot_dict(spot), "dtype": dtype})
 
     def solve(
         self,

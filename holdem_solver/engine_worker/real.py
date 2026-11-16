@@ -28,7 +28,7 @@ class RealEngine(SolverEngine):
         self._spot_info = built.info
         return self
 
-    def estimate_spot(self, spot: Any) -> Dict[str, Any]:
+    def estimate_spot(self, spot: Any, dtype: str = "float32") -> Dict[str, Any]:
         """Exact node count and estimated VRAM of a spot, without building it."""
         from .memory import estimate_vram_bytes
         from .spot_builder import estimate_spot_nodes
@@ -37,7 +37,7 @@ class RealEngine(SolverEngine):
         num_nodes = estimate_spot_nodes(config)
         return {
             "num_nodes": num_nodes,
-            "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes)),
+            "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes, dtype=dtype)),
             "spot": config.resolve().summary(),
         }
 
