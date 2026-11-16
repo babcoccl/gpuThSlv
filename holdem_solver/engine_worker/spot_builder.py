@@ -31,7 +31,7 @@ class BuiltSpot:
 
 
 def _engine_builder(street: str) -> Any:
-    from holdem_solver.engine.solver import _load_gpu_cfr
+    from holdem_solver.engine_worker.solver import _load_gpu_cfr
 
     _load_gpu_cfr()  # puts the vendored GPU-CFR on sys.path
     if street == "river":

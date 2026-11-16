@@ -472,6 +472,16 @@ class SolverEngine:
         solver = self._require_solver()
         return solver.average_strategy_flat()
 
+    def strategy_action_names(self) -> Dict[str, Any]:
+        """``{infoset key: action names}`` in the engine's action order."""
+        spec = self._game_spec
+        if spec is None:
+            raise RuntimeError("SolverEngine is not built; call build() first")
+        return {
+            key: [getattr(action, "name", str(action)) for action in infoset.actions]
+            for key, infoset in spec.infosets.items()
+        }
+
     def get_strategy_for_kuhn_oracle(self) -> Dict[Any, Any]:
         """Return Kuhn-oracle-keyed average strategy (Kuhn games only)."""
         solver = self._require_solver()

@@ -5,7 +5,8 @@ This module is only imported when the worker runs with ``--engine real``.
 
 from typing import Any, Dict
 
-from holdem_solver.engine import SolverEngine
+from holdem_solver.engine_worker import SolverEngine
+from holdem_solver.protocol import SpotConfig
 
 
 class RealEngine(SolverEngine):
@@ -27,6 +28,19 @@ class RealEngine(SolverEngine):
         self._spot_info = built.info
         return self
 
+    def estimate_spot(self, spot: Any, dtype: str = "float32") -> Dict[str, Any]:
+        """Exact node count and estimated VRAM of a spot, without building it."""
+        from .memory import estimate_vram_bytes
+        from .spot_builder import estimate_spot_nodes
+
+        config = SpotConfig.from_dict(spot)
+        num_nodes = estimate_spot_nodes(config)
+        return {
+            "num_nodes": num_nodes,
+            "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes, dtype=dtype)),
+            "spot": config.resolve().summary(),
+        }
+
     def describe(self) -> Dict[str, Any]:
         spec = self.game_spec
         if spec is None:
@@ -44,7 +58,7 @@ class RealEngine(SolverEngine):
 
 def runtime_info() -> Dict[str, Any]:
     """Import torch/gpu_cfr now so a ready worker is a usable worker."""
-    from holdem_solver.engine.solver import _load_gpu_cfr
+    from holdem_solver.engine_worker.solver import _load_gpu_cfr
 
     torch = _load_gpu_cfr().torch
     info: Dict[str, Any] = {
@@ -59,7 +73,7 @@ def runtime_info() -> Dict[str, Any]:
 
 
 def vram_stats() -> Dict[str, int]:
-    from holdem_solver.engine.solver import _load_gpu_cfr
+    from holdem_solver.engine_worker.solver import _load_gpu_cfr
 
     torch = _load_gpu_cfr().torch
     if not torch.cuda.is_available():
@@ -73,7 +87,7 @@ def vram_stats() -> Dict[str, int]:
 
 
 def reset_peak_vram() -> None:
-    from holdem_solver.engine.solver import _load_gpu_cfr
+    from holdem_solver.engine_worker.solver import _load_gpu_cfr
 
     torch = _load_gpu_cfr().torch
     if torch.cuda.is_available():

@@ -23,7 +23,7 @@ STATIC_TURN = ("As", "Ks", "7s", "2s")
 
 
 def _torch():
-    from holdem_solver.engine.solver import _load_gpu_cfr
+    from holdem_solver.engine_worker.solver import _load_gpu_cfr
 
     return _load_gpu_cfr().torch
 

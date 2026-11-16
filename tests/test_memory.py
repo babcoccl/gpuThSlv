@@ -1,6 +1,6 @@
 import pytest
 
-from holdem_solver.engine import estimate_vram_bytes
+from holdem_solver.engine_worker import estimate_vram_bytes
 
 MIB = 1024 * 1024
 

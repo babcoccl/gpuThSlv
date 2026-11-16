@@ -4,3 +4,4 @@ __pycache__/
 *.npy
 scripts/phase0/scratch/
 benchmark-scratch/
+api-data/

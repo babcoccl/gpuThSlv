@@ -158,7 +158,7 @@ def test_killed_worker_restarts_cleanly(client, dirs):
     client.solve(iterations=50)
     # Leave an uncollected strategy behind so the restart has something to clean.
     client._call("get_strategy")
-    assert len(os.listdir(client.shm_dir)) == 3
+    assert len(os.listdir(client.shm_dir)) == 4
     old_pid = client.worker_pid
 
     os.kill(old_pid, signal.SIGKILL)

@@ -81,6 +81,19 @@ class FakeEngine:
         self._built = True
         return self
 
+    def estimate_spot(self, spot: Any, dtype: str = "float32") -> Dict[str, Any]:
+        """Resolve the spot and report a plausible node count and VRAM estimate."""
+        from .memory import estimate_vram_bytes
+
+        config = SpotConfig.from_dict(spot)
+        resolved = config.resolve()
+        num_nodes = 1 + resolved.num_deals * 15
+        return {
+            "num_nodes": num_nodes,
+            "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes, dtype=dtype)),
+            "spot": resolved.summary(),
+        }
+
     def _require_built(self) -> None:
         if not self._built:
             raise RuntimeError("SolverEngine is not built; call build() first")
@@ -195,6 +208,11 @@ class FakeEngine:
             row = 1.0 + weight * np.roll(base, index)
             strategy[key] = (row / row.sum()).astype(np.float32)
         return strategy
+
+    def strategy_action_names(self) -> Dict[str, Any]:
+        self._require_built()
+        names = ["a%d" % index for index in range(self._num_actions)]
+        return {"fake/%05d" % index: list(names) for index in range(self._num_infosets)}
 
     def reset(self) -> "FakeEngine":
         self._require_built()

@@ -7,6 +7,7 @@ and replayed on the same thread); socket threads only read job state, so
 
 import dataclasses
 import itertools
+import math
 import os
 import threading
 import time
@@ -53,6 +54,7 @@ class _Job:
         self.error: Optional[RpcError] = None
         self.exploitability: Optional[float] = None
         self.exploitability_iteration: Optional[int] = None
+        self.exploitability_history: List[Dict[str, Any]] = []
 
 
 class EngineService:
@@ -155,6 +157,20 @@ class EngineService:
         finally:
             self._engine_busy.release()
 
+    def rpc_estimate_spot(self, spot: Any, dtype: str = "float32") -> Dict[str, Any]:
+        """Node count and estimated VRAM for a spot dict, without building.
+
+        Deliberately not run on the engine executor: building the one-deal
+        probe tree is CPU-only and never touches the solver, so this stays
+        responsive while a solve occupies the engine thread.
+        """
+        if not isinstance(spot, dict):
+            raise RpcError(protocol.ERROR_INVALID_PARAMS, "spot must be a SpotConfig object")
+        try:
+            return self._engine.estimate_spot(spot, dtype=dtype)
+        except Exception as exc:
+            raise _engine_error(exc)
+
     def rpc_solve(self, **params: Any) -> Dict[str, Any]:
         unknown = sorted(set(params) - set(_SOLVE_PARAMS))
         if unknown:
@@ -173,8 +189,21 @@ class EngineService:
 
     def _run_job(self, job: _Job) -> None:
         def on_progress(snapshot: Any) -> None:
-            job.exploitability = float(snapshot.exploitability)
+            # NaN samples would make every later progress response
+            # unserializable (the wire format rejects non-finite floats).
+            exploitability = float(snapshot.exploitability)
+            if not math.isfinite(exploitability):
+                return
+            job.exploitability = exploitability
             job.exploitability_iteration = int(snapshot.iteration)
+            job.exploitability_history.append(
+                {
+                    "iteration": int(snapshot.iteration),
+                    "iterations_run": int(snapshot.iterations_run),
+                    "elapsed_seconds": float(snapshot.elapsed_seconds),
+                    "exploitability": exploitability,
+                }
+            )
 
         kwargs = dict(job.params)
         if kwargs.get("progress_every") is not None:
@@ -182,8 +211,11 @@ class EngineService:
         try:
             result = self._engine.solve(should_stop=job.cancel.is_set, **kwargs)
             job.result = dataclasses.asdict(result)
+            if not math.isfinite(job.result.get("exploitability") or 0.0):
+                job.result["exploitability"] = None
             job.result["vram"] = self._vram_stats()
-            job.exploitability = float(result.exploitability)
+            if math.isfinite(result.exploitability):
+                job.exploitability = float(result.exploitability)
             job.exploitability_iteration = int(result.total_iterations)
             job.state = "cancelled" if result.cancelled else "done"
         except Exception as exc:
@@ -230,6 +262,7 @@ class EngineService:
             "elapsed_seconds": end - job.started,
             "exploitability": job.exploitability,
             "exploitability_iteration": job.exploitability_iteration,
+            "exploitability_history": list(job.exploitability_history),
             "cancel_requested": job.cancel.is_set(),
             "error": None if job.error is None else job.error.message,
         }
@@ -245,7 +278,12 @@ class EngineService:
         self._acquire_engine()
         try:
             self._require_built()
-            strategy = self._on_engine(self._engine.get_strategy)
+
+            def export() -> Any:
+                names = getattr(self._engine, "strategy_action_names", None)
+                return self._engine.get_strategy(), None if names is None else names()
+
+            strategy, action_names = self._on_engine(export)
             iteration = int(self._engine.iterations)
         finally:
             self._engine_busy.release()
@@ -259,11 +297,14 @@ class EngineService:
         else:
             values = np.zeros(0, dtype=np.float32)
         key_bytes = np.array([key.encode("utf-8") for key in keys], dtype=np.bytes_)
+        name_bytes = np.array(
+            [",".join((action_names or {}).get(key, ())).encode("utf-8") for key in keys], dtype=np.bytes_
+        )
 
         # A strategy the client never collected is replaced, not accumulated.
         self._remove_files(self._strategy_files)
         token = "%d-%d" % (os.getpid(), next(self._file_ids))
-        arrays = {"keys": key_bytes, "offsets": offsets, "values": values}
+        arrays = {"keys": key_bytes, "offsets": offsets, "values": values, "actions": name_bytes}
         names = {part: "strategy-%s-%s.npy" % (part, token) for part in arrays}
         self._strategy_files = [os.path.join(self._shm_dir, name) for name in names.values()]
         try:

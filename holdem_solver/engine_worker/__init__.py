@@ -7,6 +7,16 @@ import torch or ``gpu_cfr``.
 """
 
 from .fake import FakeEngine
+from .memory import estimate_vram_bytes
 from .service import EngineService, RpcError
+from .solver import SolveResult, SolverEngine, SolverProgress
 
-__all__ = ["EngineService", "FakeEngine", "RpcError"]
+__all__ = [
+    "EngineService",
+    "FakeEngine",
+    "RpcError",
+    "SolveResult",
+    "SolverEngine",
+    "SolverProgress",
+    "estimate_vram_bytes",
+]

@@ -60,7 +60,7 @@ def test_build_solve_strategy_reset(service):
     first_files = sorted(os.listdir(os.path.dirname(refs["values"][protocol.ARRAY_REF_KEY])))
     service.dispatch("get_strategy", {})
     second_files = sorted(os.listdir(os.path.dirname(refs["values"][protocol.ARRAY_REF_KEY])))
-    assert len(first_files) == len(second_files) == 3 and first_files != second_files
+    assert len(first_files) == len(second_files) == 4 and first_files != second_files
 
     assert service.dispatch("reset", {}) == {"iteration": 0}
     assert service.dispatch("progress", {})["state"] == "idle"
