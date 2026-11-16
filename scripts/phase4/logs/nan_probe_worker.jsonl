@@ -1,0 +1,32 @@
+{"event": "built", "nodes": 9631711, "build_seconds": 100.01855819199955}
+{"event": "poll", "state": "solving", "iteration": 3, "exploitability": null, "exploitability_iteration": null, "evals_so_far": 0}
+{"event": "poll", "state": "solving", "iteration": 250, "exploitability": null, "exploitability_iteration": null, "evals_so_far": 0}
+{"event": "poll", "state": "solving", "iteration": 250, "exploitability": null, "exploitability_iteration": null, "evals_so_far": 0}
+{"event": "poll", "state": "solving", "iteration": 250, "exploitability": null, "exploitability_iteration": null, "evals_so_far": 0}
+{"event": "poll", "state": "solving", "iteration": 500, "exploitability": 0.041555434465408325, "exploitability_iteration": 250, "evals_so_far": 1}
+{"event": "poll", "state": "solving", "iteration": 750, "exploitability": 0.0173664391040802, "exploitability_iteration": 500, "evals_so_far": 2}
+{"event": "poll", "state": "solving", "iteration": 750, "exploitability": 0.0173664391040802, "exploitability_iteration": 500, "evals_so_far": 2}
+{"event": "poll", "state": "solving", "iteration": 1000, "exploitability": 0.01437261700630188, "exploitability_iteration": 750, "evals_so_far": 3}
+{"event": "poll", "state": "solving", "iteration": 1250, "exploitability": 0.00919237732887268, "exploitability_iteration": 1000, "evals_so_far": 4}
+{"event": "poll", "state": "solving", "iteration": 1250, "exploitability": 0.00919237732887268, "exploitability_iteration": 1000, "evals_so_far": 4}
+{"event": "poll", "state": "solving", "iteration": 1500, "exploitability": 0.005767077207565308, "exploitability_iteration": 1250, "evals_so_far": 5}
+{"event": "poll", "state": "solving", "iteration": 1500, "exploitability": 0.005767077207565308, "exploitability_iteration": 1250, "evals_so_far": 5}
+{"event": "poll", "state": "solving", "iteration": 1750, "exploitability": 0.004731595516204834, "exploitability_iteration": 1500, "evals_so_far": 6}
+{"event": "poll", "state": "solving", "iteration": 2000, "exploitability": 0.0025432705879211426, "exploitability_iteration": 1750, "evals_so_far": 7}
+{"event": "poll", "state": "solving", "iteration": 2000, "exploitability": 0.0025432705879211426, "exploitability_iteration": 1750, "evals_so_far": 7}
+{"event": "poll", "state": "solving", "iteration": 2250, "exploitability": 0.0015532970428466797, "exploitability_iteration": 2000, "evals_so_far": 8}
+{"event": "poll", "state": "solving", "iteration": 2500, "exploitability": 0.0016839206218719482, "exploitability_iteration": 2250, "evals_so_far": 9}
+{"event": "poll", "state": "solving", "iteration": 2500, "exploitability": 0.0016839206218719482, "exploitability_iteration": 2250, "evals_so_far": 9}
+{"event": "poll", "state": "solving", "iteration": 2750, "exploitability": 0.002003997564315796, "exploitability_iteration": 2500, "evals_so_far": 10}
+{"event": "poll", "state": "solving", "iteration": 2750, "exploitability": 0.002003997564315796, "exploitability_iteration": 2500, "evals_so_far": 10}
+{"event": "poll", "state": "solving", "iteration": 3000, "exploitability": 0.001248687505722046, "exploitability_iteration": 2750, "evals_so_far": 11}
+{"event": "poll", "state": "solving", "iteration": 3250, "exploitability": 0.0014693140983581543, "exploitability_iteration": 3000, "evals_so_far": 12}
+{"event": "poll", "state": "solving", "iteration": 3250, "exploitability": 0.0014693140983581543, "exploitability_iteration": 3000, "evals_so_far": 12}
+{"event": "poll", "state": "solving", "iteration": 3500, "exploitability": 0.0013809502124786377, "exploitability_iteration": 3250, "evals_so_far": 13}
+{"event": "poll", "state": "solving", "iteration": 3750, "exploitability": 0.0018900036811828613, "exploitability_iteration": 3500, "evals_so_far": 14}
+{"event": "poll", "state": "solving", "iteration": 3750, "exploitability": 0.0018900036811828613, "exploitability_iteration": 3500, "evals_so_far": 14}
+{"event": "poll", "state": "solving", "iteration": 4000, "exploitability": 0.0007807314395904541, "exploitability_iteration": 3750, "evals_so_far": 15}
+{"event": "poll", "state": "solving", "iteration": 4000, "exploitability": 0.0007807314395904541, "exploitability_iteration": 3750, "evals_so_far": 15}
+{"event": "poll", "state": "done", "iteration": 4000, "exploitability": 0.0, "exploitability_iteration": 4000, "evals_so_far": 16}
+{"event": "history", "history": [{"iteration": 250, "iterations_run": 250, "elapsed_seconds": 18.447586240999954, "exploitability": 0.041555434465408325}, {"iteration": 500, "iterations_run": 500, "elapsed_seconds": 21.657607426999675, "exploitability": 0.0173664391040802}, {"iteration": 750, "iterations_run": 750, "elapsed_seconds": 24.869529806001083, "exploitability": 0.01437261700630188}, {"iteration": 1000, "iterations_run": 1000, "elapsed_seconds": 28.081602350999674, "exploitability": 0.00919237732887268}, {"iteration": 1250, "iterations_run": 1250, "elapsed_seconds": 31.291974554000262, "exploitability": 0.005767077207565308}, {"iteration": 1500, "iterations_run": 1500, "elapsed_seconds": 34.501685870000074, "exploitability": 0.004731595516204834}, {"iteration": 1750, "iterations_run": 1750, "elapsed_seconds": 37.70909449800092, "exploitability": 0.0025432705879211426}, {"iteration": 2000, "iterations_run": 2000, "elapsed_seconds": 40.917313056999774, "exploitability": 0.0015532970428466797}, {"iteration": 2250, "iterations_run": 2250, "elapsed_seconds": 44.126789830001144, "exploitability": 0.0016839206218719482}, {"iteration": 2500, "iterations_run": 2500, "elapsed_seconds": 47.34291602600024, "exploitability": 0.002003997564315796}, {"iteration": 2750, "iterations_run": 2750, "elapsed_seconds": 50.550416784000845, "exploitability": 0.001248687505722046}, {"iteration": 3000, "iterations_run": 3000, "elapsed_seconds": 53.77479898599995, "exploitability": 0.0014693140983581543}, {"iteration": 3250, "iterations_run": 3250, "elapsed_seconds": 56.989702467000825, "exploitability": 0.0013809502124786377}, {"iteration": 3500, "iterations_run": 3500, "elapsed_seconds": 60.19065505599974, "exploitability": 0.0018900036811828613}, {"iteration": 3750, "iterations_run": 3750, "elapsed_seconds": 63.42175395000049, "exploitability": 0.0007807314395904541}, {"iteration": 4000, "iterations_run": 4000, "elapsed_seconds": 66.64310931299951, "exploitability": 0.0}]}
+{"event": "done", "exploitability": 0.0, "total_iterations": 4000}
