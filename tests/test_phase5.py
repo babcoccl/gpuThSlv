@@ -367,3 +367,27 @@ def test_external_workers_survive_api_restart_and_crash_recovery(tmp_path):
             wait_for(lambda: worker_pid(client, 0) not in (None, hung), message="new worker after hang")
             assert poll_until(client, submit(client, body()))["status"] == "done"
             assert client.app.state.scheduler.gpu_metrics()[0]["restarts"] >= 1
+
+
+def test_crash_during_solve_counts_as_restart(tmp_path):
+    with make_client(tmp_path) as client:
+        job_id = submit(client, slow())
+        poll_until(client, job_id, statuses=("solving",))
+        os.kill(worker_pid(client, 0), signal.SIGKILL)
+        assert poll_until(client, job_id, timeout=30)["error_code"] == "worker_died"
+        wait_for(lambda: client.app.state.scheduler.gpu_metrics()[0]["healthy"], message="worker back")
+        assert client.app.state.scheduler.gpu_metrics()[0]["restarts"] == 1
+        assert _metric(client.get("/metrics").text, "holdem_worker_restarts_total", gpu="0") == 1
+
+
+def test_missing_external_worker_does_not_block_startup(tmp_path):
+    runtime = Path("/tmp") / ("hs_late_%d" % os.getpid())
+    sup = Supervisor(runtime)
+    t0 = time.monotonic()
+    with make_client(tmp_path, config=EXTERNAL, client_kwargs=sup.kwargs()) as client:
+        assert time.monotonic() - t0 < 5.0
+        assert client.get("/healthz").status_code == 200
+        assert client.app.state.scheduler.gpu_metrics()[0]["healthy"] is False
+        with sup:  # the worker unit comes up after the API
+            wait_for(lambda: client.app.state.scheduler.gpu_metrics()[0]["healthy"], timeout=30, message="attached")
+            assert poll_until(client, submit(client, body()), timeout=30)["status"] == "done"

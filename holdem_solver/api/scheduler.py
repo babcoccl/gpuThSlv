@@ -111,7 +111,6 @@ class _Gpu:
     healthy: bool = True
     last_heartbeat: float | None = None
     last_heartbeat_seconds: float | None = None
-    restarts: int = 0
     completed: int = 0
     capacity: int | None = None
     iterations_per_second: float | None = None
@@ -170,14 +169,21 @@ class Scheduler:
                 **self._client_kwargs.get(gpu, {})
             )
             if external:
-                self._attach(st)
+                # Attaching can wait up to start_timeout for the worker; do it on
+                # the watchdog thread so startup (and /healthz) is not blocked.
+                st.healthy = False
             st.last_heartbeat = time.monotonic()
             st.capacity = self._capacity(gpu)
-            thread = threading.Thread(target=self._watchdog_loop, args=(st,), name=f"watchdog-{gpu}", daemon=True)
+            target = self._attach_then_watch if external else self._watchdog_loop
+            thread = threading.Thread(target=target, args=(st,), name=f"watchdog-{gpu}", daemon=True)
             self._watchdogs.append(thread)
         self._dispatcher.start()
         for thread in self._watchdogs:
             thread.start()
+
+    def _attach_then_watch(self, st: _Gpu) -> None:
+        self._attach(st)
+        self._watchdog_loop(st)
 
     def _attach(self, st: _Gpu) -> None:
         try:
@@ -185,9 +191,11 @@ class Scheduler:
             LOG.info("gpu %s: attached to external worker pid %s", st.gpu, info.get("pid"))
             # A previous API process may have left a built solver behind.
             st.client.close()
+            st.healthy = True
         except Exception as exc:
             LOG.warning("gpu %s: external worker not available (%s); marked unhealthy", st.gpu, exc)
             st.healthy = False
+        self._wake.set()
 
     def stop(self) -> None:
         self._stop.set()
@@ -252,7 +260,7 @@ class Scheduler:
                 info["state"] = "unavailable"
         info["job_id"] = st.job_id
         info["healthy"] = st.healthy
-        info["restarts"] = st.restarts
+        info["restarts"] = self._restarts(st)
         info["vram_capacity_bytes"] = st.capacity
         info["heartbeat_age_seconds"] = (
             None if st.last_heartbeat is None else round(time.monotonic() - st.last_heartbeat, 3)
@@ -260,11 +268,17 @@ class Scheduler:
         info["heartbeat_latency_seconds"] = st.last_heartbeat_seconds
         return info
 
+    @staticmethod
+    def _restarts(st: _Gpu) -> int:
+        # The client bumps its generation on every worker restart, whichever
+        # path (watchdog, runner, OOM respawn, external supervisor) caused it.
+        return 0 if st.client is None else st.client.generation
+
     def gpu_metrics(self) -> dict[int | None, dict[str, Any]]:
         """Scheduler-side per-GPU state for /metrics (no worker RPCs)."""
         return {
             gpu: {
-                "restarts": st.restarts,
+                "restarts": self._restarts(st),
                 "job_id": st.job_id,
                 "healthy": st.healthy and not st.killing,
                 "iterations_per_second": st.iterations_per_second,
@@ -392,7 +406,6 @@ class Scheduler:
     def _kill_and_restart(self, st: _Gpu) -> None:
         try:
             st.client.kill_and_restart()
-            st.restarts += 1
             st.healthy = True
             st.last_heartbeat = time.monotonic()
         except WorkerStartError:
@@ -418,8 +431,6 @@ class Scheduler:
             except WorkerDiedError:
                 # auto_restart already spawned a fresh worker (or failed to).
                 st.healthy = st.client.is_alive()
-                if st.job_id is None and st.healthy:
-                    st.restarts += 1
                 continue
             except Exception:
                 LOG.warning("heartbeat failed on gpu %s", st.gpu, exc_info=True)
@@ -549,7 +560,6 @@ class Scheduler:
             with self._lock:
                 st.killing = True
             st.client.restart()
-            st.restarts += 1
         except Exception:
             LOG.exception("worker respawn after OOM failed on gpu %s", st.gpu)
             st.healthy = False
