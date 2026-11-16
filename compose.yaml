@@ -12,6 +12,8 @@ services:
       - path: .env
         required: false
     environment:
+      # Required: compose refuses to start without a key rather than run unauthenticated.
+      HOLDEM_API_KEY: ${HOLDEM_API_KEY:?set HOLDEM_API_KEY in .env or the shell}
       HOLDEM_GPUS: "0,1"
       HOLDEM_WORKER_MODE: spawn
       NVIDIA_VISIBLE_DEVICES: all
