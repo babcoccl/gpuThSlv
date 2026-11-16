@@ -194,10 +194,12 @@ class EngineService:
             self._engine_busy.release()
             job.done.set()
 
-    def rpc_solve_wait(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+    def rpc_solve_wait(self, timeout: Optional[float] = None, job_id: Optional[int] = None) -> Dict[str, Any]:
         job = self._job
         if job is None:
             raise RpcError(protocol.ERROR_NO_JOB, "no solve has been started")
+        if job_id is not None and job.job_id != job_id:
+            raise RpcError(protocol.ERROR_NO_JOB, "solve job %s was replaced by job %d" % (job_id, job.job_id))
         wait = _MAX_WAIT_SECONDS if timeout is None else max(0.0, min(float(timeout), _MAX_WAIT_SECONDS))
         if not job.done.wait(wait):
             return {"done": False, "job_id": job.job_id, "state": job.state}

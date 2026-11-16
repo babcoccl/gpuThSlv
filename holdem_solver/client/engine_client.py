@@ -125,6 +125,7 @@ class EngineClient:
         self._owns_worker = spawn
         self._ids = itertools.count(1)
         self._restart_lock = threading.Lock()
+        self._job_id: int | None = None
         if spawn:
             self.start()
 
@@ -302,25 +303,34 @@ class EngineClient:
             "progress_every": progress_every,
             "chunk_iterations": chunk_iterations,
         }
-        self._call("solve", {key: value for key, value in params.items() if value is not None})
+        job_id = self._call("solve", {key: value for key, value in params.items() if value is not None})["job_id"]
+        self._job_id = job_id
         if not wait:
             return None
-        return self.wait(timeout=timeout, on_progress=on_progress)
+        return self._wait(job_id, timeout, on_progress)
 
     def wait(
         self, timeout: float | None = None, on_progress: Callable[[Progress], None] | None = None
     ) -> SolveResult:
         """Block until the current solve ends (finished or cancelled).
 
-        Raises ``EngineTimeoutError`` after ``timeout`` seconds; the solve
-        keeps running and can still be cancelled or waited on again.
+        Waits for the solve this client started last (or, for a client that
+        started none, whatever solve the worker has). Raises
+        ``EngineTimeoutError`` after ``timeout`` seconds; the solve keeps
+        running and can still be cancelled or waited on again.
         """
+        return self._wait(self._job_id, timeout, on_progress)
+
+    def _wait(
+        self, job_id: int | None, timeout: float | None, on_progress: Callable[[Progress], None] | None
+    ) -> SolveResult:
+        params: dict[str, Any] = {} if job_id is None else {"job_id": job_id}
         deadline = None if timeout is None else time.monotonic() + timeout
         while True:
             poll = _WAIT_POLL_SECONDS
             if deadline is not None:
                 poll = min(poll, max(0.0, deadline - time.monotonic()))
-            answer = self._call("solve_wait", {"timeout": poll}, timeout=poll + self.rpc_timeout)
+            answer = self._call("solve_wait", dict(params, timeout=poll), timeout=poll + self.rpc_timeout)
             if answer["done"]:
                 return _from_wire(SolveResult, answer["result"])
             if on_progress is not None:
