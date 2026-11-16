@@ -126,6 +126,8 @@ class EngineClient:
         self._ids = itertools.count(1)
         self._restart_lock = threading.Lock()
         self._job_id: int | None = None
+        self._generation = 0
+        self._strategy_lock = threading.Lock()
         if spawn:
             self.start()
 
@@ -196,8 +198,13 @@ class EngineClient:
         if not self._owns_worker:
             raise RuntimeError("this client did not spawn the worker; restart it where it was started")
         with self._restart_lock:
-            self._worker.stop()
-            return self.start()
+            return self._restart_locked()
+
+    def _restart_locked(self) -> dict[str, Any]:
+        self._worker.stop()
+        self._generation += 1
+        self._job_id = None
+        return self.start()
 
     def shutdown(self, timeout: float = 10.0) -> None:
         """Stop the worker process. Only for a worker this client spawned."""
@@ -228,6 +235,7 @@ class EngineClient:
         restart_on_death: bool = True,
     ) -> Any:
         request_id = next(self._ids)
+        generation = self._generation
         payload = protocol.encode_message(protocol.make_request(method, params, request_id))
         timeout = self.rpc_timeout if timeout is None else timeout
         try:
@@ -240,9 +248,9 @@ class EngineClient:
         except TimeoutError as exc:
             raise EngineTimeoutError(f"{method}: no answer from worker within {timeout:.1f}s") from exc
         except (OSError, protocol.ProtocolError) as exc:
-            raise self._died(method, exc, restart_on_death) from exc
+            raise self._died(method, exc, restart_on_death, generation) from exc
         if message is None:
-            raise self._died(method, None, restart_on_death)
+            raise self._died(method, None, restart_on_death, generation)
         response_id, result, error = protocol.parse_response(message)
         if error is not None:
             raise remote_error(error)
@@ -250,7 +258,7 @@ class EngineClient:
             raise protocol.ProtocolError(protocol.ERROR_INVALID_REQUEST, "response id does not match request")
         return result
 
-    def _died(self, method: str, cause: BaseException | None, restart: bool) -> WorkerDiedError:
+    def _died(self, method: str, cause: BaseException | None, restart: bool, generation: int) -> WorkerDiedError:
         detail = "connection closed" if cause is None else f"{type(cause).__name__}: {cause}"
         message = f"{method}: engine worker for gpu {self.gpu} is not reachable ({detail})"
         if self._owns_worker:
@@ -259,7 +267,10 @@ class EngineClient:
                 message += f"; worker exited with code {code}"
             if restart and self.auto_restart:
                 try:
-                    self.restart()
+                    # Several calls can see the same death; only the first restarts.
+                    with self._restart_lock:
+                        if self._generation == generation:
+                            self._restart_locked()
                     message += "; a fresh worker was started and must be rebuilt"
                 except WorkerStartError as exc:
                     message += f"; restart failed: {exc}"
