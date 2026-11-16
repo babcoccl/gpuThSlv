@@ -34,6 +34,8 @@ ERROR_ENGINE = -32000
 ERROR_NOT_BUILT = -32001
 ERROR_BUSY = -32002
 ERROR_NO_JOB = -32003
+# CUDA ran out of memory; the worker should be respawned before reuse.
+ERROR_OOM = -32004
 
 
 class ProtocolError(Exception):

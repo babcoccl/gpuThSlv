@@ -7,8 +7,17 @@ Configuration is by environment variable:
 * ``HOLDEM_GPUS``: comma-separated GPU ids (default ``0,1``).
 * ``HOLDEM_SOLVER_ENGINE``: ``real`` (default) or ``fake``.
 * ``HOLDEM_API_DATA_DIR``: job DB and strategy files (default ``./api-data``).
-* ``HOLDEM_API_MAX_VRAM_BYTES``: VRAM budget for the 1.15x gate
-  (default 14 GiB).
+* ``HOLDEM_API_MAX_VRAM_BYTES``: VRAM budget for the predicted peak
+  (default 14 GiB); also capped by each GPU's capacity minus the reserve.
+* ``HOLDEM_MAX_QUEUE_DEPTH``: queued jobs before POST returns 429 (default 64).
+* ``HOLDEM_JOB_TIMEOUT_SECONDS``: default per-job timeout (default none).
+* ``HOLDEM_HEARTBEAT_SECONDS`` / ``HOLDEM_HUNG_WORKER_SECONDS``: watchdog ping
+  interval and the no-answer time before a worker is killed (5 / 120).
+* ``HOLDEM_CANCEL_GRACE_SECONDS``: after a timeout cancel, seconds before the
+  worker is killed (30).
+* ``HOLDEM_STRATEGY_RETENTION_SECONDS``: strategy .npz lifetime after the job
+  finishes (default 7 days; ``0`` or empty disables cleanup).
+* ``HOLDEM_VRAM_RESERVE_BYTES``: per-GPU headroom left free (512 MiB).
 """
 
 from __future__ import annotations
@@ -17,11 +26,10 @@ import json
 import logging
 import os
 import sys
-import time
 from typing import Any
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -31,14 +39,14 @@ from holdem_solver.protocol import SpotConfig
 
 from . import gpus as gpu_stats
 from .models import GpuInfo, HealthResponse, SolveAccepted, SolveRequest, SolveStatus, StrategyResponse
-from .scheduler import Scheduler
-from .store import JobStore
+from .scheduler import Scheduler, SchedulerConfig
+from .store import IdempotencyConflictError, JobStore, QueueFullError, request_hash
 from .strategy import map_strategy
 
 LOG = logging.getLogger("holdem_solver.api")
 
 DEFAULT_MAX_VRAM_BYTES = 14 * 1024**3
-VRAM_SAFETY_FACTOR = 1.15
+DEFAULT_MAX_QUEUE_DEPTH = 64
 
 ACTIVE_STATES = ("queued", "building", "solving")
 
@@ -107,11 +115,44 @@ def _status(job: dict[str, Any]) -> SolveStatus:
         target_reached=job["target_reached"],
         profile_value_p0=job["profile_value_p0"],
         error=job["error"],
+        error_code=job.get("error_code"),
+        priority=job.get("priority") or 0,
+        timeout_seconds=job.get("timeout_seconds"),
+        predicted_vram_bytes=job.get("predicted_vram_bytes"),
+        peak_vram_bytes=job.get("peak_vram_bytes"),
+        strategy_available=bool(job["strategy_path"]) and os.path.exists(job["strategy_path"]),
+        strategy_expired_at=job.get("strategy_expired_at"),
     )
 
 
 def _engine_error_detail(exc: RemoteEngineError) -> str:
     return str(exc)
+
+
+def _queue_full(exc: QueueFullError) -> HTTPException:
+    return HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "30"})
+
+
+def _env_float(name: str, default: float | None) -> float | None:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    value = value.strip()
+    if not value or float(value) <= 0:
+        return None
+    return float(value)
+
+
+def _config_from_env() -> SchedulerConfig:
+    base = SchedulerConfig()
+    return SchedulerConfig(
+        heartbeat_seconds=_env_float("HOLDEM_HEARTBEAT_SECONDS", base.heartbeat_seconds),
+        hung_worker_seconds=_env_float("HOLDEM_HUNG_WORKER_SECONDS", base.hung_worker_seconds),
+        default_timeout_seconds=_env_float("HOLDEM_JOB_TIMEOUT_SECONDS", None),
+        cancel_grace_seconds=_env_float("HOLDEM_CANCEL_GRACE_SECONDS", base.cancel_grace_seconds),
+        retention_seconds=_env_float("HOLDEM_STRATEGY_RETENTION_SECONDS", base.retention_seconds),
+        vram_reserve_bytes=int(os.environ.get("HOLDEM_VRAM_RESERVE_BYTES", base.vram_reserve_bytes)),
+    )
 
 
 def create_app(
@@ -122,6 +163,8 @@ def create_app(
     data_dir: str | None = None,
     max_vram_bytes: int | None = None,
     client_kwargs: dict[int | None, dict[str, Any]] | None = None,
+    max_queue_depth: int | None = None,
+    scheduler_config: SchedulerConfig | None = None,
 ) -> FastAPI:
     """Build the app; keyword args override the environment (tests use them)."""
     configure_logging()
@@ -136,23 +179,33 @@ def create_app(
     if max_vram_bytes is None:
         max_vram_bytes = int(os.environ.get("HOLDEM_API_MAX_VRAM_BYTES", DEFAULT_MAX_VRAM_BYTES))
 
+    if max_queue_depth is None:
+        max_queue_depth = int(os.environ.get("HOLDEM_MAX_QUEUE_DEPTH", DEFAULT_MAX_QUEUE_DEPTH))
+    if scheduler_config is None:
+        scheduler_config = _config_from_env()
+
     os.makedirs(data_dir, exist_ok=True)
     store = JobStore(os.path.join(data_dir, "solves.db"))
-    scheduler = Scheduler(gpus, store, data_dir, engine=engine, client_kwargs=client_kwargs)
+    scheduler = Scheduler(
+        gpus, store, data_dir, engine=engine, client_kwargs=client_kwargs, config=scheduler_config
+    )
 
     from contextlib import asynccontextmanager
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        failed = store.fail_in_flight("api restarted before the job finished")
+        failed = store.recover_after_restart()
         if failed:
-            LOG.warning("marked %d in-flight jobs failed on startup", failed)
+            LOG.warning("API restart: failed %d interrupted jobs (not replayed): %s", len(failed), failed)
+        queued = store.queue_depth()
+        if queued:
+            LOG.info("API restart: %d queued jobs kept in the persistent queue", queued)
         scheduler.start()
         yield
         scheduler.stop()
         store.close()
 
-    app = FastAPI(title="holdem-solver", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title="holdem-solver", version="0.4.0", lifespan=lifespan)
     app.state.store = store
     app.state.scheduler = scheduler
     auth = _auth_dependency(api_key)
@@ -175,7 +228,29 @@ def create_app(
         return infos
 
     @app.post("/v1/solves", status_code=202, response_model=SolveAccepted, dependencies=[Depends(auth)])
-    def post_solve(request: SolveRequest) -> SolveAccepted:
+    def post_solve(
+        request: SolveRequest,
+        response: Response,
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=200),
+    ) -> SolveAccepted:
+        body_hash = request_hash(request.model_dump(mode="json"))
+        if idempotency_key is not None:
+            # Retries of an accepted request are answered before any engine
+            # work or queue-depth check: the job already exists.
+            try:
+                existing = store.find_idempotent(idempotency_key, body_hash)
+            except IdempotencyConflictError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            if existing is not None:
+                response.headers["Idempotent-Replayed"] = "true"
+                return SolveAccepted(
+                    id=existing["id"], status=existing["status"], replayed=True,
+                    predicted_vram_bytes=existing.get("predicted_vram_bytes"),
+                )
+        depth = store.queue_depth()
+        if depth >= max_queue_depth:
+            raise _queue_full(QueueFullError(depth, max_queue_depth))
+
         spot = request.spot_dict()
         try:
             config = SpotConfig.from_dict(spot)
@@ -198,12 +273,21 @@ def create_app(
                 "narrow the ranges or bet sizes, or raise max_nodes",
             )
         est_vram = int(estimate["estimated_vram_bytes"])
-        if est_vram * VRAM_SAFETY_FACTOR > max_vram_bytes:
+        factor, source, samples = scheduler.vram.factor(dtype)
+        predicted = int(est_vram * factor)
+        limit = max_vram_bytes
+        gpu_limit = scheduler.max_usable_vram()
+        if gpu_limit is not None:
+            limit = min(limit, gpu_limit)
+        if predicted > limit:
             gib = 1024**3
+            basis = (
+                f"x{factor:.3f} from {samples} measured peak(s)" if source == "measured" else f"x{factor:.2f} static"
+            )
             raise HTTPException(
                 status_code=422,
-                detail=f"estimated VRAM {est_vram / gib:.1f} GiB x{VRAM_SAFETY_FACTOR} "
-                f"exceeds the {max_vram_bytes / gib:.0f} GiB budget; narrow the spot",
+                detail=f"predicted peak VRAM {predicted / gib:.2f} GiB (estimate {est_vram / gib:.2f} GiB "
+                f"{basis}) exceeds the {limit / gib:.2f} GiB per-GPU budget; narrow the spot",
             )
 
         params = request.solve_params()
@@ -212,10 +296,35 @@ def create_app(
             params["solver_options"] = request.solver_options
         if request.max_iterations is not None:
             params["max_iterations"] = request.max_iterations
-        job_id = store.create(spot, params)
+        try:
+            job, replayed = store.create(
+                spot,
+                params,
+                priority=request.priority,
+                timeout_seconds=request.timeout_seconds,
+                idempotency_key=idempotency_key,
+                body_hash=body_hash,
+                max_queue_depth=max_queue_depth,
+                num_nodes=num_nodes,
+                estimated_vram_bytes=est_vram,
+                predicted_vram_bytes=predicted,
+                dtype=dtype,
+            )
+        except QueueFullError as exc:
+            raise _queue_full(exc) from exc
+        except IdempotencyConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if replayed:
+            response.headers["Idempotent-Replayed"] = "true"
         scheduler.wake()
-        LOG.info("job %s queued: %s nodes, est %.1f GiB", job_id, num_nodes, est_vram / 1024**3)
-        return SolveAccepted(id=job_id)
+        LOG.info(
+            "job %s queued: %s nodes, priority %s, predicted %.2f GiB",
+            job["id"], num_nodes, request.priority, predicted / 1024**3,
+        )
+        return SolveAccepted(
+            id=job["id"], status=job["status"], replayed=replayed, queue_depth=depth + (0 if replayed else 1),
+            predicted_vram_bytes=predicted,
+        )
 
     @app.get("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)])
     def get_solve(job_id: str) -> SolveStatus:
@@ -231,6 +340,8 @@ def create_app(
             raise HTTPException(status_code=404, detail="unknown job id")
         if job["status"] in ACTIVE_STATES:
             raise HTTPException(status_code=409, detail=f"job is still {job['status']}")
+        if job.get("strategy_expired_at"):
+            raise HTTPException(status_code=410, detail="the strategy was deleted by the retention policy")
         path = job["strategy_path"]
         if not path or not os.path.exists(path):
             raise HTTPException(status_code=404, detail="no strategy was exported for this job")
@@ -244,12 +355,9 @@ def create_app(
 
     @app.delete("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)])
     def delete_solve(job_id: str) -> SolveStatus:
-        job = store.request_cancel(job_id)
+        job = store.cancel(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="unknown job id")
-        if job["status"] == "queued":
-            store.update(job_id, status="cancelled", finished_at=time.time())
-            job = store.get(job_id)
         scheduler.wake()
         return _status(job)
 

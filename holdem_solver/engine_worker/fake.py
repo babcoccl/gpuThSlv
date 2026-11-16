@@ -39,12 +39,19 @@ class FakeProgress:
     exploitability: float
 
 
+class OutOfMemoryError(RuntimeError):
+    """Stands in for ``torch.cuda.OutOfMemoryError`` (matched by class name)."""
+
+
 class FakeEngine:
     """Deterministic fake engine.
 
     Build options (all optional): ``fake_iter_seconds`` sleeps per iteration
     so progress and cancel can be observed, ``fake_infosets``/``fake_actions``
-    size the strategy, ``fake_fail_solve`` makes ``solve`` raise. Real solver
+    size the strategy, ``fake_fail_solve`` makes ``solve`` raise. Phase 4 failure injection:
+    ``fake_build_seconds`` sleeps in ``build``; ``fake_oom_on_build`` /
+    ``fake_oom_at_iteration`` raise a CUDA-style ``OutOfMemoryError``;
+    ``fake_peak_vram_bytes`` is reported as the worker's peak VRAM. Real solver
     options (``variant``, ``seed``, ...) are accepted and ignored.
     """
 
@@ -57,6 +64,8 @@ class FakeEngine:
         self._num_actions = 2
         self._fail_solve = False
         self._default_iterations = 1000
+        self._oom_at_iteration: Optional[int] = None
+        self._peak_vram = 0
 
     def build(self, game_spec: Any, **options: Any) -> "FakeEngine":
         self._spot = None
@@ -70,6 +79,16 @@ class FakeEngine:
             self._name = "kuhn_poker" if game_spec != "fake" else "fake"
         else:
             raise ValueError("FakeEngine only builds 'kuhn', 'kuhn_poker', 'fake', or a spot, got %r" % (game_spec,))
+        self._peak_vram = int(options.get("fake_peak_vram_bytes", 0))
+        if options.get("fake_build_seconds"):
+            time.sleep(float(options["fake_build_seconds"]))
+        if options.get("fake_oom_on_build"):
+            self._built = False
+            raise OutOfMemoryError(
+                "CUDA out of memory. Tried to allocate 2.00 GiB (fake_oom_on_build)"
+            )
+        oom_at = options.get("fake_oom_at_iteration")
+        self._oom_at_iteration = None if oom_at is None else int(oom_at)
         self._iter_seconds = float(options.get("fake_iter_seconds", 0.0))
         self._num_infosets = int(options.get("fake_infosets", _KUHN_INFOSETS))
         self._num_actions = int(options.get("fake_actions", 2))
@@ -134,6 +153,15 @@ class FakeEngine:
         if self._iter_seconds > 0:
             time.sleep(self._iter_seconds * n)
         self._iterations += n
+        if self._oom_at_iteration is not None and self._iterations >= self._oom_at_iteration:
+            raise OutOfMemoryError(
+                "CUDA out of memory. Tried to allocate 512.00 MiB (fake_oom_at_iteration)"
+            )
+
+    def vram_stats(self) -> Dict[str, int]:
+        if not self._peak_vram:
+            return {}
+        return {"peak_reserved_bytes": self._peak_vram, "peak_allocated_bytes": self._peak_vram}
 
     def solve(
         self,

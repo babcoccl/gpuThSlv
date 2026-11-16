@@ -9,6 +9,7 @@ from .engine_client import BuildInfo, EngineClient, Progress, SolveResult, Strat
 from .errors import (
     EngineBusyError,
     EngineError,
+    EngineOOMError,
     EngineTimeoutError,
     NotBuiltError,
     RemoteEngineError,
@@ -25,6 +26,7 @@ __all__ = [
     "EngineBusyError",
     "EngineClient",
     "EngineError",
+    "EngineOOMError",
     "EngineTimeoutError",
     "NotBuiltError",
     "Progress",

@@ -63,6 +63,7 @@ class Progress:
     exploitability_history: list[dict[str, Any]] = field(default_factory=list)
     cancel_requested: bool = False
     error: str | None = None
+    error_code: int | None = None
 
 
 @dataclass(frozen=True)
@@ -212,6 +213,18 @@ class EngineClient:
         self._generation += 1
         return info
 
+    def kill_and_restart(self) -> dict[str, Any]:
+        """SIGKILL the worker and start a fresh one (hung-worker recovery).
+
+        Holds the restart lock throughout, so calls that fail because of the
+        kill see a new generation and do not restart a second time.
+        """
+        if not self._owns_worker:
+            raise RuntimeError("this client did not spawn the worker; restart it where it was started")
+        with self._restart_lock:
+            self._worker.kill()
+            return self._restart_locked()
+
     def shutdown(self, timeout: float = 10.0) -> None:
         """Stop the worker process. Only for a worker this client spawned."""
         if not self._owns_worker:
@@ -284,9 +297,9 @@ class EngineClient:
 
     # -- engine API -------------------------------------------------------
 
-    def ping(self) -> dict[str, Any]:
+    def ping(self, timeout: float | None = None) -> dict[str, Any]:
         """Worker facts: pid, gpu, python/torch versions, device name, state, VRAM."""
-        return self._call("ping")
+        return self._call("ping", timeout=timeout)
 
     def build(self, game: str | dict[str, Any] | protocol.SpotConfig, **options: Any) -> BuildInfo:
         """Build ``game`` on the worker, replacing any existing solver.
@@ -370,9 +383,9 @@ class EngineClient:
     def progress(self) -> Progress:
         return _from_wire(Progress, self._call("progress"))
 
-    def cancel(self) -> bool:
+    def cancel(self, timeout: float | None = None) -> bool:
         """Ask a running solve to stop at its next chunk; true if one was running."""
-        return bool(self._call("cancel")["cancel_requested"])
+        return bool(self._call("cancel", timeout=timeout)["cancel_requested"])
 
     def get_strategy(self, *, flat: bool = False) -> dict[str, np.ndarray] | Strategy:
         """Average strategy keyed by infoset; ``flat=True`` skips the dict."""

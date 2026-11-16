@@ -39,6 +39,10 @@ class EngineBusyError(RemoteEngineError):
     """A solve or build is running; only progress/cancel/close are allowed."""
 
 
+class EngineOOMError(RemoteEngineError):
+    """CUDA ran out of memory on the worker; respawn it before reusing the GPU."""
+
+
 def remote_error(error: dict) -> RemoteEngineError:
     code = int(error["code"])
     match code:
@@ -46,6 +50,8 @@ def remote_error(error: dict) -> RemoteEngineError:
             cls = NotBuiltError
         case protocol.ERROR_BUSY:
             cls = EngineBusyError
+        case protocol.ERROR_OOM:
+            cls = EngineOOMError
         case _:
             cls = RemoteEngineError
     return cls(code, str(error.get("message", "")), error.get("data"))
