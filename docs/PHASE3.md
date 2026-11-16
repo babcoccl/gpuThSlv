@@ -42,7 +42,7 @@ Date: 2026-11-16. Branch: `devin/phase3-rest-api`.
 
 ## Convergence: full-range river
 
-`scripts/phase3/record_convergence.py` on GPU 0, `{"board":"KsJsTh7d2c","range0":"*","range1":"*","pot":20,"stack":100,"bet_sizes":"pot"}` — the whole `*`x`*` range is 9,631,711 nodes / 4,324 infosets, build 96.4 s, est. VRAM 3.19 GiB, measured peak reserved 3.55 GiB. Raw log: `scripts/phase3/logs/river_full_convergence.jsonl` (a few lines have `exploitability: null` — the engine reports NaN/duplicate evals mid-run; the table uses the real values).
+`scripts/phase3/record_convergence.py` on GPU 0, `{"board":"KsJsTh7d2c","range0":"*","range1":"*","pot":20,"stack":100,"bet_sizes":"pot"}` — the whole `*`x`*` range is 9,631,711 nodes / 4,324 infosets, build 96.4 s, est. VRAM 3.19 GiB, measured peak reserved 3.55 GiB. Raw log: `scripts/phase3/logs/river_full_convergence.jsonl` (a few lines have `exploitability: null` and some values repeat. Phase 4 traced both to this script's polling, not the engine: `null` means no eval has finished yet, and repeats are 2 s polls between evals. The rows are also labelled one eval late. See `docs/PHASE4.md`.).
 
 | Iterations | Elapsed (solve) s | Exploitability |
 | --- | --- | --- |

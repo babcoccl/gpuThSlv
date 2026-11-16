@@ -534,6 +534,7 @@ class Scheduler:
         solver_options = dict(params.pop("solver_options", {}) or {})
         solver_options["variant"] = params.pop("variant", "cfr_plus")
         st.phase = "building"
+        generation = client.generation
         built = client.build(spot, **solver_options)
         st.phase = "solving"
         store.transition(
@@ -560,6 +561,13 @@ class Scheduler:
         while True:
             time.sleep(_POLL_SECONDS)
             progress = client.progress()
+            if client.generation != generation:
+                # Another caller (the watchdog's ping) saw the death first
+                # and restarted the worker: this poll reached the new one.
+                raise WorkerDiedError(
+                    f"progress: engine worker for gpu {st.gpu} was lost; worker exited with code "
+                    f"{client.last_exit_code}; a fresh worker was started"
+                )
             store.update(
                 job_id,
                 iteration=progress.iteration,
