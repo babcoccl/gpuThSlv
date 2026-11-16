@@ -2,7 +2,10 @@ Project: GPU-accelerated Texas Hold'em CFR solver exposed via REST API (Linux).
 Core engine: https://github.com/lbn187/GPU-CFR (fork it into our org; vendor as a git submodule at third_party/GPU-CFR).
 Critical facts:
 - The engine ships only COMPILED .so modules (CPython 3.9 x86_64-linux ABI). No source. Learn the API via help(), README, and tests. Never try to edit or decompile it.
-- Use Python 3.9 for the whole project.
+- Python versions: two runtimes, never mixed.
+- API/orchestrator: Python 3.15.2 (.venv-api). Torch only if needed, installed from https://download.pytorch.org/whl/cu130 (cp315 wheels are not on PyPI). Pin and verify triton/other deps resolve; report any metadata or Requires-Python conflicts.
+- Engine: Python 3.9 (.venv-engine, via uv python install 3.9) because GPU-CFR ships only cpython-39 .so files. Only holdem_solver/engine_worker/ may import gpu_cfr.
+- Communication between them: JSON-RPC over a Unix socket, bulk arrays via .npy files in /dev/shm. No shared imports besides a tiny pure-python protocol package that must be 3.9-compatible syntax (no match statements, no X | Y types).
 - Hardware: 2x RTX 5060 Ti 16GB (Blackwell). Treat as two independent workers. Pin via CUDA_VISIBLE_DEVICES.
 - Engine provides: efg/ (game spec + compiler), solvers/stagewise (CFR, CFR+, DCFR, PCFR+; reset/set_payoffs/set_root_ranges), games/ (kuhn, hunl river/turn, libratus loader), eval/ (exploitability, best response, strategy export).
 Rules:
