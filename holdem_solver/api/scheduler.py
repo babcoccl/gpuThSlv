@@ -543,7 +543,9 @@ class Scheduler:
             ("building",),
             num_nodes=built.num_nodes,
             num_infosets=built.num_infosets,
-            estimated_vram_bytes=built.estimated_vram_bytes or job.get("estimated_vram_bytes"),
+            # Keep the admission-time estimate: VramModel calibrates peak/estimate
+            # against it, so it must be the same number admission multiplies.
+            estimated_vram_bytes=job.get("estimated_vram_bytes") or built.estimated_vram_bytes,
             measured_vram=built.vram,
             build_seconds=built.build_seconds,
         )
