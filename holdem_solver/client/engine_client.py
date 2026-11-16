@@ -31,6 +31,7 @@ class BuildInfo:
     device: str | None
     build_seconds: float
     vram: dict[str, int] = field(default_factory=dict)
+    spot: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -285,8 +286,14 @@ class EngineClient:
         """Worker facts: pid, gpu, python/torch versions, device name, state, VRAM."""
         return self._call("ping")
 
-    def build(self, game: str | dict[str, Any], **options: Any) -> BuildInfo:
-        """Build ``game`` on the worker, replacing any existing solver."""
+    def build(self, game: str | dict[str, Any] | protocol.SpotConfig, **options: Any) -> BuildInfo:
+        """Build ``game`` on the worker, replacing any existing solver.
+
+        ``game`` is a registry name (``"kuhn_poker"``) or a river/turn spot: a
+        ``SpotConfig`` or its dict form, validated here before it is sent.
+        """
+        if not isinstance(game, str):
+            game = protocol.as_spot_dict(game)
         result = self._call("build", {"game": game, "options": options}, timeout=self.build_timeout)
         return _from_wire(BuildInfo, result)
 

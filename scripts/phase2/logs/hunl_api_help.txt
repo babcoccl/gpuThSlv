@@ -1,0 +1,248 @@
+==================== gpu_cfr.games.hunl_river ====================
+Python Library Documentation: module gpu_cfr.games.hunl_river in gpu_cfr.games
+
+NAME
+    gpu_cfr.games.hunl_river - HUNL river endgame GameSpec builder.
+
+DESCRIPTION
+    Models a single-street river subgame as a chance-rooted EFG: the root chance
+    node deals one (hand0, hand1) combination from the two players' ranges
+    (uniform over non-conflicting pairs), followed by a one-street betting tree
+    (check / bet / fold / call, no raises — the structure used by
+    project_1_1/tree.py). Payoffs are in the same chip units as ``pot``/``stack``.
+    
+    Payoff convention (player 0 view): the pot before river action is split
+    half/half as sunk contributions, so winning a showdown or a fold is worth
+    ``pot/2`` plus whatever additional chips the opponent put in.
+
+FUNCTIONS
+    build_default_hunl_river_game() -> 'GameSpec'
+        Build the registered benchmark instance of the river endgame.
+        
+        The build allocates ~137k NodeSpec objects (tens of seconds), so the
+        deterministic default instance is cached; callers must not mutate it.
+    
+    build_hunl_river_game(board: 'Sequence[str]', pot: 'float' = 20.0, stack: 'float' = 100.0, bet_fractions: 'Sequence[float]' = (0.5, 1.0), num_hands_per_player: 'int' = 100, seed: 'int' = 0, hands0: 'Sequence[Hand] | None' = None, hands1: 'Sequence[Hand] | None' = None, name: 'str' = 'hunl_river') -> 'GameSpec'
+        Build a HUNL river endgame as a chance-rooted GameSpec.
+        
+        Args:
+            board: Five board cards as strings, e.g. ("Ks", "Js", "Th", "7d", "2c").
+            pot: Total pot (chips) before river action.
+            stack: Effective stack behind (same for both players); bets are capped
+                at this amount.
+            bet_fractions: Bet sizes as fractions of the pot.
+            num_hands_per_player: Range size sampled uniformly per player (ignored
+                for a player whose explicit hand list is given).
+            seed: Seed for the deterministic range sampling.
+            hands0: Optional explicit range for player 0 (overrides sampling).
+                Hands are sorted (low, high) card-id pairs as produced by
+                enumerate_hunl_hands.
+            hands1: Optional explicit range for player 1 (overrides sampling).
+            name: GameSpec name.
+        
+        Returns:
+            A two-player zero-sum GameSpec.
+        
+        Raises:
+            ValueError: If the board is invalid or the ranges admit no valid deal.
+
+DATA
+    DEFAULT_BET_FRACTIONS = (0.5, 1.0)
+    DEFAULT_BOARD = ('Ks', 'Js', 'Th', '7d', '2c')
+    DEFAULT_NUM_HANDS = 100
+    DEFAULT_POT = 20.0
+    DEFAULT_SEED = 0
+    DEFAULT_STACK = 100.0
+    Hand = typing.Tuple[int, ...]
+    History = tuple[str, ...]
+    Sequence = typing.Sequence
+        A generic version of collections.abc.Sequence.
+    
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/hunl_river.cpython-39-x86_64-linux-gnu.so
+
+
+==================== gpu_cfr.games.hunl_turn ====================
+Python Library Documentation: module gpu_cfr.games.hunl_turn in gpu_cfr.games
+
+NAME
+    gpu_cfr.games.hunl_turn - HUNL turn endgame GameSpec builder (Libratus-style two-street subgame).
+
+DESCRIPTION
+    Extends the river endgame of :mod:`hunl_river` by one street: the root chance
+    node deals one (hand0, hand1) combination, a turn betting street follows the
+    same no-raise grammar, and every betting line that does not end in a fold
+    reaches a second chance layer that deals one of the remaining river cards
+    (uniform over the 52 - 4 - 4 = 44 cards unseen by either player), followed by
+    a river betting street whose bet sizes are fractions of the grown pot capped
+    by the remaining stack.
+    
+    Payoff convention (player 0 view) matches hunl_river: the pre-turn pot is
+    split half/half as sunk contributions, so a fold forfeits the folder's sunk
+    chips (half-pot plus their turn contribution on the river street) and a
+    showdown is worth the winner's sunk-plus-matched total.
+
+FUNCTIONS
+    build_default_hunl_turn_game() -> 'GameSpec'
+        Build the registered benchmark instance of the turn endgame.
+        
+        With 12 sampled hands per range the build allocates ~450k NodeSpec
+        objects (minutes of Python time), so the deterministic default instance
+        is cached; callers must not mutate it.
+    
+    build_hunl_turn_game(board: 'Sequence[str]', pot: 'float' = 20.0, stack: 'float' = 100.0, bet_fractions: 'Sequence[float]' = (0.5, 1.0), num_hands_per_player: 'int' = 12, seed: 'int' = 0, hands0: 'Sequence[Hand] | None' = None, hands1: 'Sequence[Hand] | None' = None, name: 'str' = 'hunl_turn') -> 'GameSpec'
+        Build a HUNL turn endgame as a chance-rooted GameSpec.
+        
+        Args:
+            board: Four board cards as strings, e.g. ("Ks", "Js", "Th", "7d").
+            pot: Total pot (chips) before turn action.
+            stack: Effective stack behind (same for both players); turn bets are
+                capped at this amount and river bets at what remains after turn.
+            bet_fractions: Bet sizes as fractions of the current street's pot.
+            num_hands_per_player: Range size sampled uniformly per player (ignored
+                for a player whose explicit hand list is given).
+            seed: Seed for the deterministic range sampling.
+            hands0: Optional explicit range for player 0 (overrides sampling).
+            hands1: Optional explicit range for player 1 (overrides sampling).
+            name: GameSpec name.
+        
+        Returns:
+            A two-player zero-sum GameSpec with two chance layers.
+        
+        Raises:
+            ValueError: If the board is invalid or the ranges admit no valid deal.
+
+DATA
+    Callable = typing.Callable
+        Callable type; Callable[[int], str] is a function of (int) -> str.
+        
+        The subscription syntax must always be used with exactly two
+        values: the argument list and the return type.  The argument list
+        must be a list of types or ellipsis; the return type must be a single type.
+        
+        There is no syntax to indicate optional or keyword arguments,
+        such function types are rarely used as callback types.
+    
+    ContinueFn = typing.Callable[[int, tuple[str, ...], float], tuple[int,...
+    DEFAULT_BET_FRACTIONS = (0.5, 1.0)
+    DEFAULT_BOARD = ('Ks', 'Js', 'Th', '7d')
+    DEFAULT_NUM_HANDS = 12
+    DEFAULT_POT = 20.0
+    DEFAULT_SEED = 0
+    DEFAULT_STACK = 100.0
+    Hand = typing.Tuple[int, ...]
+    History = tuple[str, ...]
+    Sequence = typing.Sequence
+        A generic version of collections.abc.Sequence.
+    
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/hunl_turn.cpython-39-x86_64-linux-gnu.so
+
+
+==================== gpu_cfr.games.registry ====================
+Python Library Documentation: module gpu_cfr.games.registry in gpu_cfr.games
+
+NAME
+    gpu_cfr.games.registry - Resolve benchmark game names into local GameSpec objects.
+
+CLASSES
+    builtins.ValueError(builtins.Exception)
+        UnsupportedGameSpecError
+    
+    class UnsupportedGameSpecError(builtins.ValueError)
+     |  UnsupportedGameSpecError(reason: 'str') -> None
+     |  
+     |  Raised when a benchmark game cannot be compiled locally.
+     |  
+     |  Method resolution order:
+     |      UnsupportedGameSpecError
+     |      builtins.ValueError
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, reason: 'str') -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  __str__(self) -> 'str'
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'reason': 'str'}
+     |  
+     |  __dataclass_fields__ = {'reason': Field(name='reason',type='str',defau...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  ----------------------------------------------------------------------
+     |  Static methods inherited from builtins.ValueError:
+     |  
+     |  __new__(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  __getattribute__(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  __reduce__(...)
+     |      Helper for pickle.
+     |  
+     |  __setstate__(...)
+     |  
+     |  with_traceback(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  __cause__
+     |      exception cause
+     |  
+     |  __context__
+     |      exception context
+     |  
+     |  __dict__
+     |  
+     |  __suppress_context__
+     |  
+     |  __traceback__
+     |  
+     |  args
+
+FUNCTIONS
+    resolve_game_spec(benchmark_game: 'str', max_nodes: 'int | None' = None) -> 'GameSpec'
+        Resolve a benchmark game into the local two-player zero-sum GameSpec IR.
+
+DATA
+    BENCHMARK_GAMES = {'battleship': BenchmarkGame(name='battleship', tier...
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/registry.cpython-39-x86_64-linux-gnu.so
+
+

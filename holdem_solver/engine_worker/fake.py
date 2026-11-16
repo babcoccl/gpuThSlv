@@ -12,6 +12,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
+from holdem_solver.protocol.spot import SpotConfig
+
 _KUHN_INFOSETS = 12
 _KUHN_NODES = 55
 
@@ -57,9 +59,17 @@ class FakeEngine:
         self._default_iterations = 1000
 
     def build(self, game_spec: Any, **options: Any) -> "FakeEngine":
-        if not isinstance(game_spec, str) or game_spec not in ("kuhn", "kuhn_poker", "fake"):
-            raise ValueError("FakeEngine only builds 'kuhn', 'kuhn_poker', or 'fake', got %r" % (game_spec,))
-        self._name = "kuhn_poker" if game_spec != "fake" else "fake"
+        self._spot = None
+        if isinstance(game_spec, dict):
+            # A spot is validated and resolved like the real worker does; the
+            # tree itself is not built (that needs gpu_cfr).
+            config = SpotConfig.from_dict(game_spec)
+            self._spot = config.resolve().summary()
+            self._name = config.game_name
+        elif game_spec in ("kuhn", "kuhn_poker", "fake"):
+            self._name = "kuhn_poker" if game_spec != "fake" else "fake"
+        else:
+            raise ValueError("FakeEngine only builds 'kuhn', 'kuhn_poker', 'fake', or a spot, got %r" % (game_spec,))
         self._iter_seconds = float(options.get("fake_iter_seconds", 0.0))
         self._num_infosets = int(options.get("fake_infosets", _KUHN_INFOSETS))
         self._num_actions = int(options.get("fake_actions", 2))
@@ -100,6 +110,7 @@ class FakeEngine:
             "num_infoset_actions": self._num_infosets * self._num_actions,
             "estimated_vram_bytes": 0,
             "device": "fake",
+            "spot": self._spot,
         }
 
     def exploitability(self) -> float:

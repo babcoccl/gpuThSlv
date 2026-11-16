@@ -40,8 +40,22 @@ from .paths import (
     shm_dir,
     socket_path,
 )
+from .cards import card_id, card_str, combo_str, combos_conflict, parse_cards, parse_combo, parse_range
+from .spot import BET_SIZE_SETS, DEFAULT_MAX_NODES, ResolvedSpot, SpotConfig, as_spot_dict
 
 __all__ = [
+    "BET_SIZE_SETS",
+    "DEFAULT_MAX_NODES",
+    "ResolvedSpot",
+    "SpotConfig",
+    "as_spot_dict",
+    "card_id",
+    "card_str",
+    "combo_str",
+    "combos_conflict",
+    "parse_cards",
+    "parse_combo",
+    "parse_range",
     "ARRAY_REF_KEY",
     "ERROR_BUSY",
     "ERROR_ENGINE",
