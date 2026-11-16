@@ -1,0 +1,1602 @@
+====================================================================================================
+MODULE gpu_cfr
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/__init__.py
+__all__: ['CFRConfig', 'DeviceConfig', 'MemoryConfig', 'PayoffConfig']
+public dir: ['CFRConfig', 'DeviceConfig', 'MemoryConfig', 'PayoffConfig', 'config']
+Help on package gpu_cfr:
+
+NAME
+    gpu_cfr - PyTorch-based GPU CFR toolkit.
+
+PACKAGE CONTENTS
+    benchmarks (package)
+    config
+    devices
+    efg (package)
+    eval (package)
+    games (package)
+    kernels (package)
+    logging_utils
+    solvers (package)
+    tensors (package)
+
+CLASSES
+    builtins.object
+        gpu_cfr.config.CFRConfig
+        gpu_cfr.config.DeviceConfig
+        gpu_cfr.config.MemoryConfig
+        gpu_cfr.config.PayoffConfig
+    
+    class CFRConfig(builtins.object)
+     |  CFRConfig(game: 'str' = 'kuhn', variant: "Literal['cfr', 'cfr_plus', 'dcfr', 'pcfr_plus', 'hs_dcfr']" = 'cfr_plus', iterations: 'int' = 1000, alternating_updates: 'bool' = False, linear_averaging: 'bool' = True, seed: 'int' = 42, device: 'DeviceConfig' = DeviceConfig(device='cpu', dtype='float32'), payoff: 'PayoffConfig' = PayoffConfig(storage='dense', block_size=4096), memory: 'MemoryConfig' = MemoryConfig(max_bytes=None, safety_factor=1.0), cuda_graph: 'bool' = True, cuda_graph_unroll: 'int' = 1) -> None
+     |  
+     |  Configuration for tabular or tensor CFR training.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, game: 'str' = 'kuhn', variant: "Literal['cfr', 'cfr_plus', 'dcfr', 'pcfr_plus', 'hs_dcfr']" = 'cfr_plus', iterations: 'int' = 1000, alternating_updates: 'bool' = False, linear_averaging: 'bool' = True, seed: 'int' = 42, device: 'DeviceConfig' = DeviceConfig(device='cpu', dtype='float32'), payoff: 'PayoffConfig' = PayoffConfig(storage='dense', block_size=4096), memory: 'MemoryConfig' = MemoryConfig(max_bytes=None, safety_factor=1.0), cuda_graph: 'bool' = True, cuda_graph_unroll: 'int' = 1) -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate CFR experiment options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'alternating_updates': 'bool', 'cuda_graph': 'bool'...
+     |  
+     |  __dataclass_fields__ = {'alternating_updates': Field(name='alternating...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  alternating_updates = False
+     |  
+     |  cuda_graph = True
+     |  
+     |  cuda_graph_unroll = 1
+     |  
+     |  device = DeviceConfig(device='cpu', dtype='float32')
+     |  
+     |  game = 'kuhn'
+     |  
+     |  iterations = 1000
+     |  
+     |  linear_averaging = True
+     |  
+     |  memory = MemoryConfig(max_bytes=None, safety_factor=1.0)
+     |  
+     |  payoff = PayoffConfig(storage='dense', block_size=4096)
+     |  
+     |  seed = 42
+     |  
+     |  variant = 'cfr_plus'
+    
+    class DeviceConfig(builtins.object)
+     |  DeviceConfig(device: 'str' = 'cpu', dtype: "Literal['float32', 'float64']" = 'float32') -> None
+     |  
+     |  Torch device and dtype configuration.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, device: 'str' = 'cpu', dtype: "Literal['float32', 'float64']" = 'float32') -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate device options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'device': 'str', 'dtype': "Literal['float32', 'floa...
+     |  
+     |  __dataclass_fields__ = {'device': Field(name='device',type='str',defau...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  device = 'cpu'
+     |  
+     |  dtype = 'float32'
+    
+    class MemoryConfig(builtins.object)
+     |  MemoryConfig(max_bytes: 'int | None' = None, safety_factor: 'float' = 1.0) -> None
+     |  
+     |  Memory budget used by planning-only scheduler contracts.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, max_bytes: 'int | None' = None, safety_factor: 'float' = 1.0) -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate memory planning options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'max_bytes': 'int | None', 'safety_factor': 'float'...
+     |  
+     |  __dataclass_fields__ = {'max_bytes': Field(name='max_bytes',type='int ...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  max_bytes = None
+     |  
+     |  safety_factor = 1.0
+    
+    class PayoffConfig(builtins.object)
+     |  PayoffConfig(storage: "Literal['dense', 'coo']" = 'dense', block_size: 'int' = 4096) -> None
+     |  
+     |  Payoff storage and block evaluation configuration.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, storage: "Literal['dense', 'coo']" = 'dense', block_size: 'int' = 4096) -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate payoff storage options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'block_size': 'int', 'storage': "Literal['dense', '...
+     |  
+     |  __dataclass_fields__ = {'block_size': Field(name='block_size',type='in...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  block_size = 4096
+     |  
+     |  storage = 'dense'
+
+DATA
+    __all__ = ['CFRConfig', 'DeviceConfig', 'MemoryConfig', 'PayoffConfig'...
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/__init__.py
+
+
+====================================================================================================
+MODULE gpu_cfr.config
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/config.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['CFRConfig', 'CFR_VARIANTS', 'DeviceConfig', 'Literal', 'MemoryConfig', 'PayoffConfig', 'Real', 'dataclass']
+Help on module gpu_cfr.config in gpu_cfr:
+
+NAME
+    gpu_cfr.config - Configuration objects for GPU CFR experiments.
+
+CLASSES
+    builtins.object
+        CFRConfig
+        DeviceConfig
+        MemoryConfig
+        PayoffConfig
+    
+    class CFRConfig(builtins.object)
+     |  CFRConfig(game: 'str' = 'kuhn', variant: "Literal['cfr', 'cfr_plus', 'dcfr', 'pcfr_plus', 'hs_dcfr']" = 'cfr_plus', iterations: 'int' = 1000, alternating_updates: 'bool' = False, linear_averaging: 'bool' = True, seed: 'int' = 42, device: 'DeviceConfig' = DeviceConfig(device='cpu', dtype='float32'), payoff: 'PayoffConfig' = PayoffConfig(storage='dense', block_size=4096), memory: 'MemoryConfig' = MemoryConfig(max_bytes=None, safety_factor=1.0), cuda_graph: 'bool' = True, cuda_graph_unroll: 'int' = 1) -> None
+     |  
+     |  Configuration for tabular or tensor CFR training.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, game: 'str' = 'kuhn', variant: "Literal['cfr', 'cfr_plus', 'dcfr', 'pcfr_plus', 'hs_dcfr']" = 'cfr_plus', iterations: 'int' = 1000, alternating_updates: 'bool' = False, linear_averaging: 'bool' = True, seed: 'int' = 42, device: 'DeviceConfig' = DeviceConfig(device='cpu', dtype='float32'), payoff: 'PayoffConfig' = PayoffConfig(storage='dense', block_size=4096), memory: 'MemoryConfig' = MemoryConfig(max_bytes=None, safety_factor=1.0), cuda_graph: 'bool' = True, cuda_graph_unroll: 'int' = 1) -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate CFR experiment options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'alternating_updates': 'bool', 'cuda_graph': 'bool'...
+     |  
+     |  __dataclass_fields__ = {'alternating_updates': Field(name='alternating...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  alternating_updates = False
+     |  
+     |  cuda_graph = True
+     |  
+     |  cuda_graph_unroll = 1
+     |  
+     |  device = DeviceConfig(device='cpu', dtype='float32')
+     |  
+     |  game = 'kuhn'
+     |  
+     |  iterations = 1000
+     |  
+     |  linear_averaging = True
+     |  
+     |  memory = MemoryConfig(max_bytes=None, safety_factor=1.0)
+     |  
+     |  payoff = PayoffConfig(storage='dense', block_size=4096)
+     |  
+     |  seed = 42
+     |  
+     |  variant = 'cfr_plus'
+    
+    class DeviceConfig(builtins.object)
+     |  DeviceConfig(device: 'str' = 'cpu', dtype: "Literal['float32', 'float64']" = 'float32') -> None
+     |  
+     |  Torch device and dtype configuration.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, device: 'str' = 'cpu', dtype: "Literal['float32', 'float64']" = 'float32') -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate device options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'device': 'str', 'dtype': "Literal['float32', 'floa...
+     |  
+     |  __dataclass_fields__ = {'device': Field(name='device',type='str',defau...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  device = 'cpu'
+     |  
+     |  dtype = 'float32'
+    
+    class MemoryConfig(builtins.object)
+     |  MemoryConfig(max_bytes: 'int | None' = None, safety_factor: 'float' = 1.0) -> None
+     |  
+     |  Memory budget used by planning-only scheduler contracts.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, max_bytes: 'int | None' = None, safety_factor: 'float' = 1.0) -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate memory planning options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'max_bytes': 'int | None', 'safety_factor': 'float'...
+     |  
+     |  __dataclass_fields__ = {'max_bytes': Field(name='max_bytes',type='int ...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  max_bytes = None
+     |  
+     |  safety_factor = 1.0
+    
+    class PayoffConfig(builtins.object)
+     |  PayoffConfig(storage: "Literal['dense', 'coo']" = 'dense', block_size: 'int' = 4096) -> None
+     |  
+     |  Payoff storage and block evaluation configuration.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, storage: "Literal['dense', 'coo']" = 'dense', block_size: 'int' = 4096) -> None
+     |  
+     |  __post_init__(self) -> 'None'
+     |      Validate payoff storage options at runtime.
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'block_size': 'int', 'storage': "Literal['dense', '...
+     |  
+     |  __dataclass_fields__ = {'block_size': Field(name='block_size',type='in...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  block_size = 4096
+     |  
+     |  storage = 'dense'
+
+DATA
+    CFR_VARIANTS = ('cfr', 'cfr_plus', 'dcfr', 'pcfr_plus', 'hs_dcfr')
+    Literal = typing.Literal
+        Special typing form to define literal types (a.k.a. value types).
+        
+        This form can be used to indicate to type checkers that the corresponding
+        variable or function parameter has a value equivalent to the provided
+        literal (or one of several literals):
+        
+          def validate_simple(data: Any) -> Literal[True]:  # always returns True
+              ...
+        
+          MODE = Literal['r', 'rb', 'w', 'wb']
+          def open_helper(file: str, mode: MODE) -> str:
+              ...
+        
+          open_helper('/some/path', 'r')  # Passes type check
+          open_helper('/other/path', 'typo')  # Error in type checker
+        
+        Literal[...] cannot be subclassed. At runtime, an arbitrary value
+        is allowed as type argument to Literal[...], but type checkers may
+        impose restrictions.
+    
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/config.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.devices
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/devices.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['DeviceConfig', 'np', 'random', 'resolve_device', 'set_seed', 'torch', 'torch_dtype']
+Help on module gpu_cfr.devices in gpu_cfr:
+
+NAME
+    gpu_cfr.devices - Device helpers.
+
+FUNCTIONS
+    resolve_device(config: 'DeviceConfig') -> 'torch.device'
+        Resolve requested device, falling back to CPU if CUDA is unavailable.
+    
+    set_seed(seed: 'int') -> 'None'
+        Set deterministic random seeds for reproducible experiments.
+    
+    torch_dtype(config: 'DeviceConfig') -> 'torch.dtype'
+        Convert a device config dtype string into a torch dtype.
+
+DATA
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/devices.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.games.kuhn
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/kuhn.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['ActionSpec', 'BET', 'CARDS', 'CHECK_CALL', 'FOLD', 'GameSpec', 'History', 'InfoSetSpec', 'NodeSpec', 'NodeType', 'build_kuhn_game', 'parse_kuhn_infoset_key', 'permutations']
+Help on module gpu_cfr.games.kuhn in gpu_cfr.games:
+
+NAME
+    gpu_cfr.games.kuhn - Kuhn poker GameSpec for GPU CFR smoke tests.
+
+FUNCTIONS
+    build_kuhn_game() -> 'GameSpec'
+        Build the standard 3-card Kuhn poker game as a chance-rooted tree.
+    
+    parse_kuhn_infoset_key(key: 'str') -> 'tuple[int, tuple[str, ...]]'
+        Convert internal string keys to the existing Kuhn oracle key format.
+
+DATA
+    BET = 'b'
+    CARDS = (0, 1, 2)
+    CHECK_CALL = 'c'
+    FOLD = 'f'
+    History = tuple[str, ...]
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/kuhn.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.games.hunl_river
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/hunl_river.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['ActionSpec', 'DEFAULT_BET_FRACTIONS', 'DEFAULT_BOARD', 'DEFAULT_NUM_HANDS', 'DEFAULT_POT', 'DEFAULT_SEED', 'DEFAULT_STACK', 'GameSpec', 'Hand', 'History', 'InfoSetSpec', 'NodeSpec', 'NodeType', 'Random', 'Sequence', 'build_default_hunl_river_game', 'build_hunl_river_game', 'enumerate_hunl_hands', 'hand_to_str', 'hands_conflict', 'hunl_showdown_rank', 'lru_cache', 'str_to_card']
+Help on module gpu_cfr.games.hunl_river in gpu_cfr.games:
+
+NAME
+    gpu_cfr.games.hunl_river - HUNL river endgame GameSpec builder.
+
+DESCRIPTION
+    Models a single-street river subgame as a chance-rooted EFG: the root chance
+    node deals one (hand0, hand1) combination from the two players' ranges
+    (uniform over non-conflicting pairs), followed by a one-street betting tree
+    (check / bet / fold / call, no raises — the structure used by
+    project_1_1/tree.py). Payoffs are in the same chip units as ``pot``/``stack``.
+    
+    Payoff convention (player 0 view): the pot before river action is split
+    half/half as sunk contributions, so winning a showdown or a fold is worth
+    ``pot/2`` plus whatever additional chips the opponent put in.
+
+FUNCTIONS
+    build_default_hunl_river_game() -> 'GameSpec'
+        Build the registered benchmark instance of the river endgame.
+        
+        The build allocates ~137k NodeSpec objects (tens of seconds), so the
+        deterministic default instance is cached; callers must not mutate it.
+    
+    build_hunl_river_game(board: 'Sequence[str]', pot: 'float' = 20.0, stack: 'float' = 100.0, bet_fractions: 'Sequence[float]' = (0.5, 1.0), num_hands_per_player: 'int' = 100, seed: 'int' = 0, hands0: 'Sequence[Hand] | None' = None, hands1: 'Sequence[Hand] | None' = None, name: 'str' = 'hunl_river') -> 'GameSpec'
+        Build a HUNL river endgame as a chance-rooted GameSpec.
+        
+        Args:
+            board: Five board cards as strings, e.g. ("Ks", "Js", "Th", "7d", "2c").
+            pot: Total pot (chips) before river action.
+            stack: Effective stack behind (same for both players); bets are capped
+                at this amount.
+            bet_fractions: Bet sizes as fractions of the pot.
+            num_hands_per_player: Range size sampled uniformly per player (ignored
+                for a player whose explicit hand list is given).
+            seed: Seed for the deterministic range sampling.
+            hands0: Optional explicit range for player 0 (overrides sampling).
+                Hands are sorted (low, high) card-id pairs as produced by
+                enumerate_hunl_hands.
+            hands1: Optional explicit range for player 1 (overrides sampling).
+            name: GameSpec name.
+        
+        Returns:
+            A two-player zero-sum GameSpec.
+        
+        Raises:
+            ValueError: If the board is invalid or the ranges admit no valid deal.
+
+DATA
+    DEFAULT_BET_FRACTIONS = (0.5, 1.0)
+    DEFAULT_BOARD = ('Ks', 'Js', 'Th', '7d', '2c')
+    DEFAULT_NUM_HANDS = 100
+    DEFAULT_POT = 20.0
+    DEFAULT_SEED = 0
+    DEFAULT_STACK = 100.0
+    Hand = typing.Tuple[int, ...]
+    History = tuple[str, ...]
+    Sequence = typing.Sequence
+        A generic version of collections.abc.Sequence.
+    
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/hunl_river.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.games.hunl_turn
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/hunl_turn.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['ActionSpec', 'Callable', 'ContinueFn', 'DEFAULT_BET_FRACTIONS', 'DEFAULT_BOARD', 'DEFAULT_NUM_HANDS', 'DEFAULT_POT', 'DEFAULT_SEED', 'DEFAULT_STACK', 'GameSpec', 'Hand', 'History', 'InfoSetSpec', 'NodeSpec', 'NodeType', 'Random', 'Sequence', 'build_default_hunl_turn_game', 'build_hunl_turn_game', 'card_to_str', 'enumerate_hunl_hands', 'hand_to_str', 'hands_conflict', 'hunl_showdown_rank', 'lru_cache', 'str_to_card']
+Help on module gpu_cfr.games.hunl_turn in gpu_cfr.games:
+
+NAME
+    gpu_cfr.games.hunl_turn - HUNL turn endgame GameSpec builder (Libratus-style two-street subgame).
+
+DESCRIPTION
+    Extends the river endgame of :mod:`hunl_river` by one street: the root chance
+    node deals one (hand0, hand1) combination, a turn betting street follows the
+    same no-raise grammar, and every betting line that does not end in a fold
+    reaches a second chance layer that deals one of the remaining river cards
+    (uniform over the 52 - 4 - 4 = 44 cards unseen by either player), followed by
+    a river betting street whose bet sizes are fractions of the grown pot capped
+    by the remaining stack.
+    
+    Payoff convention (player 0 view) matches hunl_river: the pre-turn pot is
+    split half/half as sunk contributions, so a fold forfeits the folder's sunk
+    chips (half-pot plus their turn contribution on the river street) and a
+    showdown is worth the winner's sunk-plus-matched total.
+
+FUNCTIONS
+    build_default_hunl_turn_game() -> 'GameSpec'
+        Build the registered benchmark instance of the turn endgame.
+        
+        With 12 sampled hands per range the build allocates ~450k NodeSpec
+        objects (minutes of Python time), so the deterministic default instance
+        is cached; callers must not mutate it.
+    
+    build_hunl_turn_game(board: 'Sequence[str]', pot: 'float' = 20.0, stack: 'float' = 100.0, bet_fractions: 'Sequence[float]' = (0.5, 1.0), num_hands_per_player: 'int' = 12, seed: 'int' = 0, hands0: 'Sequence[Hand] | None' = None, hands1: 'Sequence[Hand] | None' = None, name: 'str' = 'hunl_turn') -> 'GameSpec'
+        Build a HUNL turn endgame as a chance-rooted GameSpec.
+        
+        Args:
+            board: Four board cards as strings, e.g. ("Ks", "Js", "Th", "7d").
+            pot: Total pot (chips) before turn action.
+            stack: Effective stack behind (same for both players); turn bets are
+                capped at this amount and river bets at what remains after turn.
+            bet_fractions: Bet sizes as fractions of the current street's pot.
+            num_hands_per_player: Range size sampled uniformly per player (ignored
+                for a player whose explicit hand list is given).
+            seed: Seed for the deterministic range sampling.
+            hands0: Optional explicit range for player 0 (overrides sampling).
+            hands1: Optional explicit range for player 1 (overrides sampling).
+            name: GameSpec name.
+        
+        Returns:
+            A two-player zero-sum GameSpec with two chance layers.
+        
+        Raises:
+            ValueError: If the board is invalid or the ranges admit no valid deal.
+
+DATA
+    Callable = typing.Callable
+        Callable type; Callable[[int], str] is a function of (int) -> str.
+        
+        The subscription syntax must always be used with exactly two
+        values: the argument list and the return type.  The argument list
+        must be a list of types or ellipsis; the return type must be a single type.
+        
+        There is no syntax to indicate optional or keyword arguments,
+        such function types are rarely used as callback types.
+    
+    ContinueFn = typing.Callable[[int, tuple[str, ...], float], tuple[int,...
+    DEFAULT_BET_FRACTIONS = (0.5, 1.0)
+    DEFAULT_BOARD = ('Ks', 'Js', 'Th', '7d')
+    DEFAULT_NUM_HANDS = 12
+    DEFAULT_POT = 20.0
+    DEFAULT_SEED = 0
+    DEFAULT_STACK = 100.0
+    Hand = typing.Tuple[int, ...]
+    History = tuple[str, ...]
+    Sequence = typing.Sequence
+        A generic version of collections.abc.Sequence.
+    
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/hunl_turn.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.games.registry
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/registry.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['BENCHMARK_GAMES', 'GameSpec', 'UnsupportedGameSpecError', 'build_kuhn_game', 'dataclass', 'resolve_game_spec']
+Help on module gpu_cfr.games.registry in gpu_cfr.games:
+
+NAME
+    gpu_cfr.games.registry - Resolve benchmark game names into local GameSpec objects.
+
+CLASSES
+    builtins.ValueError(builtins.Exception)
+        UnsupportedGameSpecError
+    
+    class UnsupportedGameSpecError(builtins.ValueError)
+     |  UnsupportedGameSpecError(reason: 'str') -> None
+     |  
+     |  Raised when a benchmark game cannot be compiled locally.
+     |  
+     |  Method resolution order:
+     |      UnsupportedGameSpecError
+     |      builtins.ValueError
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, reason: 'str') -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  __str__(self) -> 'str'
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'reason': 'str'}
+     |  
+     |  __dataclass_fields__ = {'reason': Field(name='reason',type='str',defau...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  ----------------------------------------------------------------------
+     |  Static methods inherited from builtins.ValueError:
+     |  
+     |  __new__(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  __getattribute__(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  __reduce__(...)
+     |      Helper for pickle.
+     |  
+     |  __setstate__(...)
+     |  
+     |  with_traceback(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  __cause__
+     |      exception cause
+     |  
+     |  __context__
+     |      exception context
+     |  
+     |  __dict__
+     |  
+     |  __suppress_context__
+     |  
+     |  __traceback__
+     |  
+     |  args
+
+FUNCTIONS
+    resolve_game_spec(benchmark_game: 'str', max_nodes: 'int | None' = None) -> 'GameSpec'
+        Resolve a benchmark game into the local two-player zero-sum GameSpec IR.
+
+DATA
+    BENCHMARK_GAMES = {'battleship': BenchmarkGame(name='battleship', tier...
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/games/registry.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.solvers.stagewise
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/solvers/stagewise.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['CFRConfig', 'CFRScheduler', 'DeviceConfig', 'Dict', 'EdgeArrays', 'GameSpec', 'NodeType', 'SolverLifecycleMixin', 'StagewiseCFRSolver', 'StagewiseScheduler', 'VanillaCFRRule', 'build_edge_arrays', 'compile_game', 'compiled_node_depths', 'dataclass', 'make_rule', 'np', 'parse_kuhn_infoset_key', 'resolve_device', 'root_structure', 'set_seed', 'torch', 'torch_dtype', 'warnings']
+Help on module gpu_cfr.solvers.stagewise in gpu_cfr.solvers:
+
+NAME
+    gpu_cfr.solvers.stagewise - Stagewise CFR solver over compiled two-player zero-sum EFGs.
+
+CLASSES
+    gpu_cfr.solvers.lifecycle.SolverLifecycleMixin(builtins.object)
+        StagewiseCFRSolver
+    
+    class StagewiseCFRSolver(gpu_cfr.solvers.lifecycle.SolverLifecycleMixin)
+     |  StagewiseCFRSolver(game: 'GameSpec', config: 'CFRConfig | None' = None, scheduler: 'CFRScheduler | None' = None)
+     |  
+     |  StagePlan-driven CFR solver for small two-player zero-sum EFGs.
+     |  
+     |  On CUDA devices (with ``config.cuda_graph`` enabled) the per-iteration
+     |  body is captured into a CUDA graph after a short eager warmup and then
+     |  executed as single-kernel-launch replays. The capture records the
+     |  addresses of every persistent buffer, so those buffers must only ever be
+     |  mutated in place — rebinding ``regret_sum``/``strategy_sum`` or any
+     |  ``_``-prefixed iteration buffer invalidates the graph (guarded by a
+     |  pointer check on each replay batch). The graph's private memory pool
+     |  stays reserved for the solver's lifetime and shows up in
+     |  ``torch.cuda.max_memory_reserved``.
+     |  
+     |  Method resolution order:
+     |      StagewiseCFRSolver
+     |      gpu_cfr.solvers.lifecycle.SolverLifecycleMixin
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __init__(self, game: 'GameSpec', config: 'CFRConfig | None' = None, scheduler: 'CFRScheduler | None' = None)
+     |  
+     |  average_strategy(self) -> 'Dict[str, np.ndarray]'
+     |      Return average strategy keyed by internal infoset string.
+     |  
+     |  average_strategy_flat(self) -> 'torch.Tensor'
+     |      Return the normalized average strategy per infoset action slot.
+     |  
+     |  average_strategy_for_kuhn_oracle(self) -> 'Dict[tuple[int, tuple[str, ...]], np.ndarray]'
+     |      Return average strategy using the Kuhn oracle key format.
+     |  
+     |  step(self, num_iterations: 'int' = 1) -> 'None'
+     |      Run a fixed number of stagewise CFR iterations.
+     |  
+     |  train(self) -> 'None'
+     |      Run CFR iterations.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Readonly properties defined here:
+     |  
+     |  cuda_graph_active
+     |      Whether iterations currently execute as CUDA graph replays.
+     |  
+     |  num_exec_blocks
+     |      Number of merged depth-level execution blocks per pass.
+     |  
+     |  scheduler_name
+     |      Name of the scheduler used to build the execution plan.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from gpu_cfr.solvers.lifecycle.SolverLifecycleMixin:
+     |  
+     |  reset(self) -> 'None'
+     |      Return the solver to its freshly constructed state in place.
+     |      
+     |      Accumulators are zeroed through in-place ops so the buffer addresses a
+     |      captured CUDA graph recorded stay valid; the graph is kept, so a reset
+     |      solver replays from iteration 1 without repeating warmup or capture.
+     |      The device-side iteration counter is refilled from the host counter on
+     |      every graph batch, so resetting it here is hygiene rather than a
+     |      correctness requirement.
+     |  
+     |  set_payoffs(self, payoffs: 'torch.Tensor | Sequence[float]') -> 'None'
+     |      Replace player 0's terminal payoffs in place.
+     |      
+     |      Args:
+     |          payoffs: One value per terminal node, ordered as ``terminal_ids``.
+     |  
+     |  set_root_chance(self, probs: 'torch.Tensor | Sequence[float]') -> 'None'
+     |      Replace the root chance distribution in place.
+     |      
+     |      Args:
+     |          probs: One probability per root action, ordered as
+     |              ``root_child_ids``; non-negative and summing to one.
+     |  
+     |  set_root_ranges(self, range0: 'Mapping[str, float]', range1: 'Mapping[str, float]') -> 'None'
+     |      Set the root deal distribution from two per-hand weight maps.
+     |      
+     |      Root actions must be named ``"<hand0>:<hand1>"`` (the HUNL river,
+     |      turn and Libratus endgame builders all do this). Each deal receives
+     |      weight ``range0[hand0] * range1[hand1]`` and the weights are
+     |      normalised over the deals present in the tree, which reproduces the
+     |      Libratus ``weight0 * weight1 / joint_mass`` convention and the uniform
+     |      deal of the synthetic games when every weight is one. Hands absent
+     |      from a map get weight zero.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Readonly properties inherited from gpu_cfr.solvers.lifecycle.SolverLifecycleMixin:
+     |  
+     |  root_action_names
+     |      Action names at the root, aligned with ``root_child_ids``.
+     |  
+     |  root_child_ids
+     |      Children of the root, in the order ``set_root_chance`` expects.
+     |  
+     |  terminal_ids
+     |      Node ids of the terminal nodes, in the order ``set_payoffs`` expects.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from gpu_cfr.solvers.lifecycle.SolverLifecycleMixin:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+DATA
+    Dict = typing.Dict
+        A generic version of dict.
+    
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/solvers/stagewise.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.solvers.lifecycle
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/solvers/lifecycle.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['Mapping', 'NodeType', 'Sequence', 'SolverLifecycleMixin', 'root_structure', 'torch']
+Help on module gpu_cfr.solvers.lifecycle in gpu_cfr.solvers:
+
+NAME
+    gpu_cfr.solvers.lifecycle - Solver lifecycle operations: reset and in-place input updates.
+
+DESCRIPTION
+    A solver that has captured a CUDA graph must never rebind a persistent
+    buffer, so every operation here mutates state in place. That constraint is
+    what lets a re-solve skip construction, warmup and capture entirely: after
+    ``reset()`` the captured graph replays from iteration 1 on zeroed
+    accumulators, and after ``set_payoffs``/``set_root_chance`` the terminal
+    template the backward pass copies each iteration already carries the new
+    inputs.
+
+CLASSES
+    builtins.object
+        SolverLifecycleMixin
+    
+    class SolverLifecycleMixin(builtins.object)
+     |  Reset and input-update methods shared by the stagewise solver.
+     |  
+     |  Host classes provide ``game``, ``device``, ``dtype``, ``regret_sum``,
+     |  ``strategy_sum``, ``iterations``, ``_last_root_value``, the optional
+     |  ``_prediction_buf``/``_weight_buf`` buffers, ``_graph`` and
+     |  ``_graph_warmup_left``, plus the static arrays retained by
+     |  ``_build_exec_blocks``: ``_terminal_ids``, ``_terminal_payoffs``,
+     |  ``_values_template``, ``_chance_reach_static`` and the host-resident
+     |  ``_root_owner_host``/``_chance_below_root_host`` from ``root_structure``.
+     |  
+     |  Methods defined here:
+     |  
+     |  reset(self) -> 'None'
+     |      Return the solver to its freshly constructed state in place.
+     |      
+     |      Accumulators are zeroed through in-place ops so the buffer addresses a
+     |      captured CUDA graph recorded stay valid; the graph is kept, so a reset
+     |      solver replays from iteration 1 without repeating warmup or capture.
+     |      The device-side iteration counter is refilled from the host counter on
+     |      every graph batch, so resetting it here is hygiene rather than a
+     |      correctness requirement.
+     |  
+     |  set_payoffs(self, payoffs: 'torch.Tensor | Sequence[float]') -> 'None'
+     |      Replace player 0's terminal payoffs in place.
+     |      
+     |      Args:
+     |          payoffs: One value per terminal node, ordered as ``terminal_ids``.
+     |  
+     |  set_root_chance(self, probs: 'torch.Tensor | Sequence[float]') -> 'None'
+     |      Replace the root chance distribution in place.
+     |      
+     |      Args:
+     |          probs: One probability per root action, ordered as
+     |              ``root_child_ids``; non-negative and summing to one.
+     |  
+     |  set_root_ranges(self, range0: 'Mapping[str, float]', range1: 'Mapping[str, float]') -> 'None'
+     |      Set the root deal distribution from two per-hand weight maps.
+     |      
+     |      Root actions must be named ``"<hand0>:<hand1>"`` (the HUNL river,
+     |      turn and Libratus endgame builders all do this). Each deal receives
+     |      weight ``range0[hand0] * range1[hand1]`` and the weights are
+     |      normalised over the deals present in the tree, which reproduces the
+     |      Libratus ``weight0 * weight1 / joint_mass`` convention and the uniform
+     |      deal of the synthetic games when every weight is one. Hands absent
+     |      from a map get weight zero.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Readonly properties defined here:
+     |  
+     |  root_action_names
+     |      Action names at the root, aligned with ``root_child_ids``.
+     |  
+     |  root_child_ids
+     |      Children of the root, in the order ``set_root_chance`` expects.
+     |  
+     |  terminal_ids
+     |      Node ids of the terminal nodes, in the order ``set_payoffs`` expects.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+FUNCTIONS
+    root_structure(num_nodes: 'int', root: 'int', root_children: 'torch.Tensor', blocks: 'Sequence[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]', dtype: 'torch.dtype') -> 'tuple[torch.Tensor, torch.Tensor]'
+        Per-node root-action owner and below-root chance reach, on the host.
+        
+        Args:
+            num_nodes: Node count of the compiled game.
+            root: Root node id.
+            root_children: Children of the root in root-action order (CPU tensor).
+            blocks: Per depth level, CPU ``(parent, child, chance_mult)`` edge
+                arrays in the order the forward pass visits them.
+            dtype: Compute dtype of the solver.
+        
+        Returns:
+            ``owner``: index of the root action whose subtree contains each node
+            (``-1`` for the root itself); ``below``: product of the chance factors
+            strictly below the root along the path to each node, so that
+            ``prob[owner] * below`` is the node's chance reach. The single
+            multiply reproduces the compiled chance reach bitwise.
+
+DATA
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/solvers/lifecycle.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.solvers.update_rules
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/solvers/update_rules.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['CFRPlusRule', 'DiscountedCFRRule', 'HyperparameterScheduleDCFRRule', 'PredictiveCFRPlusRule', 'VanillaCFRRule', 'bucket_sum', 'dataclass', 'make_rule', 'torch']
+Help on module gpu_cfr.solvers.update_rules in gpu_cfr.solvers:
+
+NAME
+    gpu_cfr.solvers.update_rules - Regret matching update rules.
+
+DESCRIPTION
+    Every rule here is graph-capturable: the per-iteration scalars are read from a
+    device-side iteration counter (``t``) rather than a host float, so a captured
+    CUDA graph replays a *changing* discount instead of freezing the coefficients
+    that happened to hold at capture time.
+    
+    Two conventions are pinned deliberately, because both have a second spelling in
+    the wild that gives different numbers:
+    
+    Discount placement
+        Accumulators are discounted *before* the iteration's new mass is added, as
+        in Brown & Sandholm's recursions. ``discount`` therefore runs at the top of
+        an iteration, not in ``after_iteration``.
+    
+    Average-strategy weighting
+        Two spellings exist and they are *not* interchangeable. DCFR and PCFR+ use
+        the multiplicative recursion ``C <- C * ((t-1)/t)**gamma + pi * sigma``
+        (Brown and Sandholm Eq. 3; what PokerRL and DDCFR implement). OpenSpiel
+        instead accumulates ``C += pi * sigma * t**gamma``. They agree for a fixed
+        ``gamma`` but diverge sharply once ``gamma`` varies with ``t``: under the
+        recursion a schedule starting at ``gamma=30`` concentrates over 90% of the
+        average's mass in the final handful of iterations, effectively discarding
+        the average. HS-DCFR's published schedules are calibrated against
+        OpenSpiel's power form -- its reference implementation drives
+        ``discounted_cfr.DCFRSolver`` directly -- so that rule uses the power form
+        and the fixed-gamma rules keep the recursion. Each rule therefore declares
+        its own convention rather than inheriting one.
+
+CLASSES
+    builtins.object
+        VanillaCFRRule
+            CFRPlusRule
+                PredictiveCFRPlusRule
+            DiscountedCFRRule
+                HyperparameterScheduleDCFRRule
+    
+    class CFRPlusRule(VanillaCFRRule)
+     |  CFRPlusRule(needs_prediction: 'bool' = False, discounts_average: 'bool' = False, powers_average: 'bool' = False, uses_discount: 'bool' = False) -> None
+     |  
+     |  CFR+ regret matching with accumulated regrets floored at zero.
+     |  
+     |  Method resolution order:
+     |      CFRPlusRule
+     |      VanillaCFRRule
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, needs_prediction: 'bool' = False, discounts_average: 'bool' = False, powers_average: 'bool' = False, uses_discount: 'bool' = False) -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  after_iteration(self, regret_sum: 'torch.Tensor') -> 'None'
+     |      Floor accumulated regrets in-place.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __dataclass_fields__ = {'discounts_average': Field(name='discounts_ave...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from VanillaCFRRule:
+     |  
+     |  discount(self, regret_sum: 'torch.Tensor', strategy_sum: 'torch.Tensor', t: 'torch.Tensor') -> 'None'
+     |      Discount the accumulators in-place before this iteration accumulates.
+     |  
+     |  strategy_from_regret(self, regrets: 'torch.Tensor') -> 'torch.Tensor'
+     |      Return regret-matching probabilities for one infoset.
+     |  
+     |  strategy_from_regret_flat(self, regret_sum: 'torch.Tensor', slot_infoset: 'torch.Tensor', num_infosets: 'int', slot_uniform: 'torch.Tensor', totals_out: 'torch.Tensor | None' = None, prediction: 'torch.Tensor | None' = None) -> 'torch.Tensor'
+     |      Return regret-matching probabilities for all infoset action slots at once.
+     |      
+     |      Args:
+     |          regret_sum: Accumulated regrets per infoset action slot.
+     |          slot_infoset: Infoset id owning each slot.
+     |          num_infosets: Number of infosets.
+     |          slot_uniform: Uniform fallback probability per slot.
+     |          totals_out: Optional reusable `[num_infosets]` buffer for the
+     |              per-infoset positive-regret totals.
+     |          prediction: Optional per-slot predictor added to the accumulated
+     |              regret before matching. Ignored unless `needs_prediction`.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from VanillaCFRRule:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes inherited from VanillaCFRRule:
+     |  
+     |  __annotations__ = {'discounts_average': 'bool', 'needs_prediction': 'b...
+     |  
+     |  discounts_average = False
+     |  
+     |  needs_prediction = False
+     |  
+     |  powers_average = False
+     |  
+     |  uses_discount = False
+    
+    class DiscountedCFRRule(VanillaCFRRule)
+     |  DiscountedCFRRule(needs_prediction: 'bool' = False, discounts_average: 'bool' = True, powers_average: 'bool' = False, uses_discount: 'bool' = True, alpha: 'float' = 1.5, beta: 'float' = 0.0, gamma: 'float' = 2.0) -> None
+     |  
+     |  Discounted CFR (Brown and Sandholm 2019).
+     |  
+     |  Positive and negative accumulated regrets decay at separate rates, and the
+     |  average strategy decays polynomially. The defaults are the paper's
+     |  recommended alpha=3/2, beta=0, gamma=2.
+     |  
+     |  Method resolution order:
+     |      DiscountedCFRRule
+     |      VanillaCFRRule
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, needs_prediction: 'bool' = False, discounts_average: 'bool' = True, powers_average: 'bool' = False, uses_discount: 'bool' = True, alpha: 'float' = 1.5, beta: 'float' = 0.0, gamma: 'float' = 2.0) -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  discount(self, regret_sum: 'torch.Tensor', strategy_sum: 'torch.Tensor', t: 'torch.Tensor') -> 'None'
+     |      Decay regrets by sign and decay the average strategy, in-place.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'alpha': 'float', 'beta': 'float', 'discounts_avera...
+     |  
+     |  __dataclass_fields__ = {'alpha': Field(name='alpha',type='float',defau...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  alpha = 1.5
+     |  
+     |  beta = 0.0
+     |  
+     |  discounts_average = True
+     |  
+     |  gamma = 2.0
+     |  
+     |  uses_discount = True
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from VanillaCFRRule:
+     |  
+     |  after_iteration(self, regret_sum: 'torch.Tensor') -> 'None'
+     |      Apply post-iteration updates in-place.
+     |  
+     |  strategy_from_regret(self, regrets: 'torch.Tensor') -> 'torch.Tensor'
+     |      Return regret-matching probabilities for one infoset.
+     |  
+     |  strategy_from_regret_flat(self, regret_sum: 'torch.Tensor', slot_infoset: 'torch.Tensor', num_infosets: 'int', slot_uniform: 'torch.Tensor', totals_out: 'torch.Tensor | None' = None, prediction: 'torch.Tensor | None' = None) -> 'torch.Tensor'
+     |      Return regret-matching probabilities for all infoset action slots at once.
+     |      
+     |      Args:
+     |          regret_sum: Accumulated regrets per infoset action slot.
+     |          slot_infoset: Infoset id owning each slot.
+     |          num_infosets: Number of infosets.
+     |          slot_uniform: Uniform fallback probability per slot.
+     |          totals_out: Optional reusable `[num_infosets]` buffer for the
+     |              per-infoset positive-regret totals.
+     |          prediction: Optional per-slot predictor added to the accumulated
+     |              regret before matching. Ignored unless `needs_prediction`.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from VanillaCFRRule:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes inherited from VanillaCFRRule:
+     |  
+     |  needs_prediction = False
+     |  
+     |  powers_average = False
+    
+    class HyperparameterScheduleDCFRRule(DiscountedCFRRule)
+     |  HyperparameterScheduleDCFRRule(needs_prediction: 'bool' = False, discounts_average: 'bool' = True, powers_average: 'bool' = True, uses_discount: 'bool' = True, alpha: 'float' = 1.5, beta: 'float' = 0.0, gamma: 'float' = 2.0, gamma0: 'float' = 30.0, horizon: 'int' = 1000) -> None
+     |  
+     |  HS-DCFR (Zhang, McAleer, and Sandholm 2026).
+     |  
+     |  Identical to DCFR except that the three hyperparameters are deterministic
+     |  functions of the iteration index, sweeping alpha up and beta/gamma down over
+     |  a run of ``horizon`` iterations. The published schedules are
+     |  alpha(t) = 1 + 3t/n, beta(t) = -1 - 2t/n, gamma(t) = gamma0 - 5t/n.
+     |  
+     |  Method resolution order:
+     |      HyperparameterScheduleDCFRRule
+     |      DiscountedCFRRule
+     |      VanillaCFRRule
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, needs_prediction: 'bool' = False, discounts_average: 'bool' = True, powers_average: 'bool' = True, uses_discount: 'bool' = True, alpha: 'float' = 1.5, beta: 'float' = 0.0, gamma: 'float' = 2.0, gamma0: 'float' = 30.0, horizon: 'int' = 1000) -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'discounts_average': 'bool', 'gamma0': 'float', 'ho...
+     |  
+     |  __dataclass_fields__ = {'alpha': Field(name='alpha',type='float',defau...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  discounts_average = True
+     |  
+     |  gamma0 = 30.0
+     |  
+     |  horizon = 1000
+     |  
+     |  powers_average = True
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from DiscountedCFRRule:
+     |  
+     |  discount(self, regret_sum: 'torch.Tensor', strategy_sum: 'torch.Tensor', t: 'torch.Tensor') -> 'None'
+     |      Decay regrets by sign and decay the average strategy, in-place.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes inherited from DiscountedCFRRule:
+     |  
+     |  alpha = 1.5
+     |  
+     |  beta = 0.0
+     |  
+     |  gamma = 2.0
+     |  
+     |  uses_discount = True
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from VanillaCFRRule:
+     |  
+     |  after_iteration(self, regret_sum: 'torch.Tensor') -> 'None'
+     |      Apply post-iteration updates in-place.
+     |  
+     |  strategy_from_regret(self, regrets: 'torch.Tensor') -> 'torch.Tensor'
+     |      Return regret-matching probabilities for one infoset.
+     |  
+     |  strategy_from_regret_flat(self, regret_sum: 'torch.Tensor', slot_infoset: 'torch.Tensor', num_infosets: 'int', slot_uniform: 'torch.Tensor', totals_out: 'torch.Tensor | None' = None, prediction: 'torch.Tensor | None' = None) -> 'torch.Tensor'
+     |      Return regret-matching probabilities for all infoset action slots at once.
+     |      
+     |      Args:
+     |          regret_sum: Accumulated regrets per infoset action slot.
+     |          slot_infoset: Infoset id owning each slot.
+     |          num_infosets: Number of infosets.
+     |          slot_uniform: Uniform fallback probability per slot.
+     |          totals_out: Optional reusable `[num_infosets]` buffer for the
+     |              per-infoset positive-regret totals.
+     |          prediction: Optional per-slot predictor added to the accumulated
+     |              regret before matching. Ignored unless `needs_prediction`.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from VanillaCFRRule:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes inherited from VanillaCFRRule:
+     |  
+     |  needs_prediction = False
+    
+    class PredictiveCFRPlusRule(CFRPlusRule)
+     |  PredictiveCFRPlusRule(needs_prediction: 'bool' = True, discounts_average: 'bool' = True, powers_average: 'bool' = False, uses_discount: 'bool' = True, gamma: 'float' = 2.0) -> None
+     |  
+     |  Predictive CFR+ (Farina, Kroer, and Sandholm 2021).
+     |  
+     |  Accumulated regrets update exactly as in CFR+, but the strategy is matched
+     |  against ``[R + r]+``, where the predictor ``r`` is the current iteration's
+     |  instantaneous regret. The average strategy is discounted polynomially with
+     |  gamma=2, following the reference implementation.
+     |  
+     |  Method resolution order:
+     |      PredictiveCFRPlusRule
+     |      CFRPlusRule
+     |      VanillaCFRRule
+     |      builtins.object
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, needs_prediction: 'bool' = True, discounts_average: 'bool' = True, powers_average: 'bool' = False, uses_discount: 'bool' = True, gamma: 'float' = 2.0) -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  discount(self, regret_sum: 'torch.Tensor', strategy_sum: 'torch.Tensor', t: 'torch.Tensor') -> 'None'
+     |      Decay only the average strategy; regrets follow CFR+ unchanged.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'discounts_average': 'bool', 'gamma': 'float', 'nee...
+     |  
+     |  __dataclass_fields__ = {'discounts_average': Field(name='discounts_ave...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  discounts_average = True
+     |  
+     |  gamma = 2.0
+     |  
+     |  needs_prediction = True
+     |  
+     |  uses_discount = True
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from CFRPlusRule:
+     |  
+     |  after_iteration(self, regret_sum: 'torch.Tensor') -> 'None'
+     |      Floor accumulated regrets in-place.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from VanillaCFRRule:
+     |  
+     |  strategy_from_regret(self, regrets: 'torch.Tensor') -> 'torch.Tensor'
+     |      Return regret-matching probabilities for one infoset.
+     |  
+     |  strategy_from_regret_flat(self, regret_sum: 'torch.Tensor', slot_infoset: 'torch.Tensor', num_infosets: 'int', slot_uniform: 'torch.Tensor', totals_out: 'torch.Tensor | None' = None, prediction: 'torch.Tensor | None' = None) -> 'torch.Tensor'
+     |      Return regret-matching probabilities for all infoset action slots at once.
+     |      
+     |      Args:
+     |          regret_sum: Accumulated regrets per infoset action slot.
+     |          slot_infoset: Infoset id owning each slot.
+     |          num_infosets: Number of infosets.
+     |          slot_uniform: Uniform fallback probability per slot.
+     |          totals_out: Optional reusable `[num_infosets]` buffer for the
+     |              per-infoset positive-regret totals.
+     |          prediction: Optional per-slot predictor added to the accumulated
+     |              regret before matching. Ignored unless `needs_prediction`.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from VanillaCFRRule:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes inherited from VanillaCFRRule:
+     |  
+     |  powers_average = False
+    
+    class VanillaCFRRule(builtins.object)
+     |  VanillaCFRRule(needs_prediction: 'bool' = False, discounts_average: 'bool' = False, powers_average: 'bool' = False, uses_discount: 'bool' = False) -> None
+     |  
+     |  Vanilla regret matching without regret flooring.
+     |  
+     |  Methods defined here:
+     |  
+     |  __delattr__(self, name)
+     |  
+     |  __eq__(self, other)
+     |  
+     |  __hash__(self)
+     |  
+     |  __init__(self, needs_prediction: 'bool' = False, discounts_average: 'bool' = False, powers_average: 'bool' = False, uses_discount: 'bool' = False) -> None
+     |  
+     |  __repr__(self)
+     |  
+     |  __setattr__(self, name, value)
+     |  
+     |  after_iteration(self, regret_sum: 'torch.Tensor') -> 'None'
+     |      Apply post-iteration updates in-place.
+     |  
+     |  discount(self, regret_sum: 'torch.Tensor', strategy_sum: 'torch.Tensor', t: 'torch.Tensor') -> 'None'
+     |      Discount the accumulators in-place before this iteration accumulates.
+     |  
+     |  strategy_from_regret(self, regrets: 'torch.Tensor') -> 'torch.Tensor'
+     |      Return regret-matching probabilities for one infoset.
+     |  
+     |  strategy_from_regret_flat(self, regret_sum: 'torch.Tensor', slot_infoset: 'torch.Tensor', num_infosets: 'int', slot_uniform: 'torch.Tensor', totals_out: 'torch.Tensor | None' = None, prediction: 'torch.Tensor | None' = None) -> 'torch.Tensor'
+     |      Return regret-matching probabilities for all infoset action slots at once.
+     |      
+     |      Args:
+     |          regret_sum: Accumulated regrets per infoset action slot.
+     |          slot_infoset: Infoset id owning each slot.
+     |          num_infosets: Number of infosets.
+     |          slot_uniform: Uniform fallback probability per slot.
+     |          totals_out: Optional reusable `[num_infosets]` buffer for the
+     |              per-infoset positive-regret totals.
+     |          prediction: Optional per-slot predictor added to the accumulated
+     |              regret before matching. Ignored unless `needs_prediction`.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  __annotations__ = {'discounts_average': 'bool', 'needs_prediction': 'b...
+     |  
+     |  __dataclass_fields__ = {'discounts_average': Field(name='discounts_ave...
+     |  
+     |  __dataclass_params__ = _DataclassParams(init=True,repr=True,eq=True,or...
+     |  
+     |  discounts_average = False
+     |  
+     |  needs_prediction = False
+     |  
+     |  powers_average = False
+     |  
+     |  uses_discount = False
+
+FUNCTIONS
+    make_rule(variant: 'str', *, horizon: 'int' = 1000) -> 'VanillaCFRRule'
+        Return the update rule for a variant name.
+        
+        Args:
+            variant: One of ``cfr``, ``cfr_plus``, ``dcfr``, ``pcfr_plus``,
+                ``hs_dcfr``.
+            horizon: Total iteration count, used only by ``hs_dcfr``, whose
+                schedules are defined relative to the length of the run.
+        
+        Raises:
+            ValueError: If the variant is not recognised.
+
+DATA
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/solvers/update_rules.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.eval.exploitability
+====================================================================================================
+====================================================================================================
+MODULE gpu_cfr.eval.strategy_export
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/eval/strategy_export.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['CompiledEFG', 'bucket_sum', 'export_internal_to_kuhn', 'flat_average_strategy', 'flat_average_strategy_from_compiled', 'np', 'parse_kuhn_infoset_key', 'torch']
+Help on module gpu_cfr.eval.strategy_export in gpu_cfr.eval:
+
+NAME
+    gpu_cfr.eval.strategy_export - Strategy export helpers.
+
+FUNCTIONS
+    export_internal_to_kuhn(strategy: 'dict[str, np.ndarray]') -> 'dict[tuple[int, tuple[str, ...]], np.ndarray]'
+        Convert internal string-keyed Kuhn strategy into oracle key format.
+    
+    flat_average_strategy(strategy_sum: 'torch.Tensor', slot_infoset: 'torch.Tensor', num_infosets: 'int', slot_uniform: 'torch.Tensor') -> 'torch.Tensor'
+        Normalize accumulated strategy weights per infoset with uniform fallback.
+        
+        Matches the dict-based ``average_strategy`` exports: infosets whose total
+        accumulated weight is zero fall back to the uniform distribution.
+    
+    flat_average_strategy_from_compiled(compiled: 'CompiledEFG', strategy_sum: 'torch.Tensor') -> 'torch.Tensor'
+        Build the flat average strategy for a solver's compiled layout.
+
+DATA
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/eval/strategy_export.cpython-39-x86_64-linux-gnu.so
+
+
+====================================================================================================
+MODULE gpu_cfr.benchmarks.iter_bench
+====================================================================================================
+file: /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/benchmarks/iter_bench_impl.cpython-39-x86_64-linux-gnu.so
+__all__: None
+public dir: ['CFRConfig', 'CFR_VARIANTS', 'DeviceConfig', 'StagewiseCFRSolver', 'argparse', 'json', 'main', 'os', 'resolve_game_spec', 'time', 'torch']
+Help on module gpu_cfr.benchmarks.iter_bench_impl in gpu_cfr.benchmarks:
+
+NAME
+    gpu_cfr.benchmarks.iter_bench_impl - Standalone per-iteration wall-clock microbenchmark for the stagewise solver.
+
+DESCRIPTION
+    Not part of the test suite: run it manually in a low-load window to A/B the
+    per-iteration optimizations. CUDA timing uses device events, CPU timing uses
+    ``perf_counter``; both exclude solver construction and warmup. Keep
+    ``--warmup >= 5`` on CUDA so the one-time graph capture (which happens inside
+    the first few step calls) stays outside the timed window; use
+    ``--no-cuda-graph`` for the eager baseline.
+    
+    Example:
+        python -m project_gpu_cfr.gpu_cfr.benchmarks.iter_bench         --game hunl_turn --device cuda --iters 500 --warmup 50
+
+FUNCTIONS
+    main() -> 'None'
+        Run the per-iteration microbenchmark and print one JSON line.
+
+DATA
+    CFR_VARIANTS = ('cfr', 'cfr_plus', 'dcfr', 'pcfr_plus', 'hs_dcfr')
+    __test__ = {}
+
+FILE
+    /home/aihub/repos/gpuThSlv/third_party/GPU-CFR/gpu_cfr/benchmarks/iter_bench_impl.cpython-39-x86_64-linux-gnu.so
+
+

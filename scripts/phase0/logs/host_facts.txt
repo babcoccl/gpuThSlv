@@ -1,0 +1,74 @@
+
+=== uname -a ===
+Linux aihub-MS-7C60 7.0.0-38-generic #38~24.04.4-Ubuntu SMP PREEMPT_DYNAMIC Mon Sep 14 16:37:11 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+uname_status=0
+
+=== nvidia-smi ===
+Mon Nov 16 10:41:46 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 595.71.05              Driver Version: 595.71.05      CUDA Version: 13.2     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 5060 Ti     On  |   00000000:21:00.0  On |                  N/A |
+|  0%   49C    P1             27W /  180W |     378MiB /  16311MiB |      2%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA GeForce RTX 5060 Ti     On  |   00000000:4A:00.0 Off |                  N/A |
+|  0%   54C    P1             28W /  180W |      20MiB /  16311MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            3454      G   /usr/lib/xorg/Xorg                      144MiB |
+|    0   N/A  N/A            3741      G   /usr/bin/gnome-shell                     24MiB |
+|    0   N/A  N/A            5478      G   ...rack-uuid=3190708988185955192        167MiB |
+|    1   N/A  N/A            3454      G   /usr/lib/xorg/Xorg                        6MiB |
++-----------------------------------------------------------------------------------------+
+nvidia_smi_status=0
+
+=== nvidia-smi query ===
+index, name, driver_version, memory.total [MiB], memory.used [MiB], compute_cap
+0, NVIDIA GeForce RTX 5060 Ti, 595.71.05, 16311 MiB, 378 MiB, 12.0
+1, NVIDIA GeForce RTX 5060 Ti, 595.71.05, 16311 MiB, 20 MiB, 12.0
+nvidia_smi_query_status=0
+
+=== CUDA toolkit ===
+/usr/local/cuda/bin/nvcc
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2026 NVIDIA Corporation
+Built on Thu_Mar_19_11:12:51_PM_PDT_2026
+Cuda compilation tools, release 13.2, V13.2.78
+Build cuda_13.2.r13.2/compiler.37668154_0
+nvcc_status=0
+lrwxrwxrwx 1 root root 22 Apr 28  2026 /usr/local/cuda -> /etc/alternatives/cuda
+cuda_dir_status=0
+
+=== Python versions ===
+/usr/bin/python3
+Python 3.12.3
+python3_status=0
+python3.15: /usr/bin/python3.15
+Python 3.15.2
+python3.14: python3.13: python3.12: /usr/bin/python3.12
+Python 3.12.3
+python3.11: python3.10: python3.9: /home/aihub/.local/bin/python3.9
+Python 3.9.25
+python3.8: 
+=== uv ===
+/home/aihub/.local/bin/uv
+uv 0.11.21 (x86_64-unknown-linux-gnu)
+uv_status=0
+cpython-3.15.2-linux-x86_64-gnu     /usr/bin/python3.15
+cpython-3.13.14-linux-x86_64-gnu    /home/aihub/.local/share/uv/python/cpython-3.13-linux-x86_64-gnu/bin/python3.13
+cpython-3.12.3-linux-x86_64-gnu     /usr/bin/python3.12
+cpython-3.12.3-linux-x86_64-gnu     /usr/bin/python3 -> python3.12
+cpython-3.9.25-linux-x86_64-gnu     /home/aihub/.local/bin/python3.9 -> /home/aihub/.local/share/uv/python/cpython-3.9-linux-x86_64-gnu/bin/python3.9
+cpython-3.9.25-linux-x86_64-gnu     /home/aihub/.local/share/uv/python/cpython-3.9-linux-x86_64-gnu/bin/python3.9
+uv_python_list_status=0

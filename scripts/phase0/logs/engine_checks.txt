@@ -1,0 +1,40 @@
+
+=== exact torch check ===
+True (12, 0)
+
+=== engine torch check (all visible devices) ===
+torch_version 2.8.0+cu128
+torch_cuda_version 12.8
+cuda_available True
+device_count 2
+arch_list ['sm_70', 'sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
+gpu=0 name=NVIDIA GeForce RTX 5060 Ti capability=(12, 0) matmul_shape=(256, 256) matmul_sum=-571.302979
+gpu=1 name=NVIDIA GeForce RTX 5060 Ti capability=(12, 0) matmul_shape=(256, 256) matmul_sum=-1393.418457
+
+=== engine Kuhn smoke CUDA_VISIBLE_DEVICES=0 ===
+CUDA_VISIBLE_DEVICES 0
+torch_version 2.8.0+cu128
+cuda_available True
+device_count 1
+device_name NVIDIA GeForce RTX 5060 Ti
+device_capability (12, 0)
+trained_iterations 10
+cuda_graph_active True
+scheduler_name stagewise
+num_exec_blocks 4
+strategy_entries 12
+first_strategy ((0, ()), array([0.7871065, 0.2128935]))
+
+=== engine Kuhn smoke CUDA_VISIBLE_DEVICES=1 ===
+CUDA_VISIBLE_DEVICES 1
+torch_version 2.8.0+cu128
+cuda_available True
+device_count 1
+device_name NVIDIA GeForce RTX 5060 Ti
+device_capability (12, 0)
+trained_iterations 10
+cuda_graph_active True
+scheduler_name stagewise
+num_exec_blocks 4
+strategy_entries 12
+first_strategy ((0, ()), array([0.7871065, 0.2128935]))
