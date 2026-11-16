@@ -80,6 +80,7 @@ class SolveResult:
     target_exploitability: Optional[float]
     target_reached: bool
     time_budget_exhausted: bool
+    cancelled: bool = False
 
 
 _SOLVER_OPTION_DEFAULTS = {
@@ -277,6 +278,7 @@ class SolverEngine:
         progress_every: Optional[int] = None,
         progress_callback: Optional[Callable[[SolverProgress], None]] = None,
         chunk_iterations: Optional[int] = None,
+        should_stop: Optional[Callable[[], bool]] = None,
     ) -> SolveResult:
         """Run CFR until an iteration, wall-clock, or exploitability target.
 
@@ -286,6 +288,11 @@ class SolverEngine:
         additional iterations in this call, not a new total. Target mode has
         no iteration cap, so the target must be reachable in practice; time
         budget uses ``chunk_iterations`` (default 10) between wall-clock checks.
+
+        ``should_stop`` is polled between solver chunks; when it returns true
+        the solve stops early and the result has ``cancelled=True``. Supplying
+        it makes fixed-iteration solves step in chunks of ``chunk_iterations``
+        (default 100) instead of one call.
         """
         solver = self._require_solver()
         modes = [iterations is not None, time_budget is not None, target_exploitability is not None]
@@ -316,6 +323,8 @@ class SolverEngine:
                 raise ValueError("chunk_iterations must be positive")
         if progress_callback is not None and not callable(progress_callback):
             raise TypeError("progress_callback must be callable")
+        if should_stop is not None and not callable(should_stop):
+            raise TypeError("should_stop must be callable")
 
         # Progress callbacks are the only reason to evaluate exploitability
         # mid-solve for fixed-iteration runs; target mode evaluates every chunk.
@@ -330,6 +339,10 @@ class SolverEngine:
         last_eval_total: Optional[int] = None
         target_reached = False
         budget_exhausted = False
+        cancelled = False
+
+        def stop_requested() -> bool:
+            return should_stop is not None and bool(should_stop())
 
         def elapsed() -> float:
             return time.perf_counter() - start_time
@@ -359,17 +372,23 @@ class SolverEngine:
 
         if iterations is not None:
             remaining = iterations
-            if progress_callback is None:
+            if progress_callback is None and should_stop is None:
                 solver.step(remaining)
                 run = remaining
             else:
-                chunk = chunk_iterations or report_every or 100
+                if progress_callback is None:
+                    chunk = chunk_iterations or 100
+                else:
+                    chunk = chunk_iterations or report_every or 100
                 while remaining > 0:
+                    if stop_requested():
+                        cancelled = True
+                        break
                     n = min(chunk, remaining)
                     solver.step(n)
                     remaining -= n
                     run += n
-                    if run - last_report_run >= (report_every or chunk):
+                    if progress_callback is not None and run - last_report_run >= (report_every or chunk):
                         report(evaluate_now())
             if last_eval_total != int(solver.iterations):
                 final_result = evaluate_now()
@@ -387,6 +406,10 @@ class SolverEngine:
             else:
                 chunk = chunk_iterations or progress_every or 100
                 while True:
+                    if stop_requested():
+                        cancelled = True
+                        final_result = last_eval_result
+                        break
                     solver.step(chunk)
                     run += chunk
                     result = evaluate_now()
@@ -403,6 +426,9 @@ class SolverEngine:
             if progress_callback is not None and report_every is not None:
                 step_chunk = min(step_chunk, report_every)
             while elapsed() < budget:
+                if stop_requested():
+                    cancelled = True
+                    break
                 solver.step(step_chunk)
                 run += step_chunk
                 self._sync(solver)
@@ -429,6 +455,7 @@ class SolverEngine:
             target_exploitability=target_exploitability,
             target_reached=target_reached,
             time_budget_exhausted=budget_exhausted,
+            cancelled=cancelled,
         )
 
     def get_strategy(self) -> Dict[str, Any]:
