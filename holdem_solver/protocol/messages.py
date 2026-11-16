@@ -10,6 +10,7 @@ MAX_MESSAGE_BYTES = 16 * 1024 * 1024
 METHODS = (
     "ping",
     "build",
+    "estimate_spot",
     "solve",
     "solve_wait",
     "progress",

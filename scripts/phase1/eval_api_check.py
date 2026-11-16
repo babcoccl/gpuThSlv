@@ -24,7 +24,7 @@ for module_name in [
         print(f"{module_name}: OK")
 
 from gpu_cfr.eval.strategy_export import export_internal_to_kuhn  # noqa: E402
-from holdem_solver.engine import SolverEngine  # noqa: E402
+from holdem_solver.engine_worker import SolverEngine  # noqa: E402
 
 engine = SolverEngine("kuhn_poker", device="cpu", variant="cfr_plus", seed=42, iterations=2000)
 try:

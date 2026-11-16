@@ -9,7 +9,7 @@ from holdem_solver import protocol
 
 ROOT = Path(__file__).resolve().parents[1] / "holdem_solver"
 # Everything the Python 3.9 runtime imports.
-PY39_PACKAGES = ("protocol", "engine_worker", "engine")
+PY39_PACKAGES = ("protocol", "engine_worker")
 
 
 def _sources(package):

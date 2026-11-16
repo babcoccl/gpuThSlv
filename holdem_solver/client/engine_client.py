@@ -60,6 +60,7 @@ class Progress:
     elapsed_seconds: float = 0.0
     exploitability: float | None = None
     exploitability_iteration: int | None = None
+    exploitability_history: list[dict[str, Any]] = field(default_factory=list)
     cancel_requested: bool = False
     error: str | None = None
 
@@ -72,6 +73,7 @@ class Strategy:
     offsets: np.ndarray
     values: np.ndarray
     iteration: int
+    actions: list[list[str]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, np.ndarray]:
         bounds = self.offsets.tolist()
@@ -297,6 +299,10 @@ class EngineClient:
         result = self._call("build", {"game": game, "options": options}, timeout=self.build_timeout)
         return _from_wire(BuildInfo, result)
 
+    def estimate_spot(self, spot: dict[str, Any] | protocol.SpotConfig) -> dict[str, Any]:
+        """Node count and estimated VRAM for a spot, without building it."""
+        return self._call("estimate_spot", {"spot": protocol.as_spot_dict(spot)})
+
     def solve(
         self,
         iterations: int | None = None,
@@ -372,11 +378,15 @@ class EngineClient:
         with self._strategy_lock:
             answer = self._call("get_strategy")
             keys = self._take_array(answer["keys"])
+            actions = self._take_array(answer["actions"]) if "actions" in answer else np.array([])
             strategy = Strategy(
                 keys=[key.decode("utf-8") for key in keys.tolist()],
                 offsets=self._take_array(answer["offsets"]),
                 values=self._take_array(answer["values"]),
                 iteration=int(answer["iteration"]),
+                actions=[
+                    [name for name in row.decode("utf-8").split(",") if name] for row in actions.tolist()
+                ],
             )
         return strategy if flat else strategy.as_dict()
 

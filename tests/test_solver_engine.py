@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from holdem_solver.engine import SolverEngine, SolverProgress
+from holdem_solver.engine_worker import SolverEngine, SolverProgress
 
 KUHN_VALUE_P0 = -1.0 / 18.0
 
