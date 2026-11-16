@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import signal
 import socket
 import threading
 import time
@@ -81,6 +82,16 @@ class Strategy:
         return {key: self.values[bounds[i] : bounds[i + 1]] for i, key in enumerate(self.keys)}
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def _from_wire(cls: type, payload: dict[str, Any]) -> Any:
     names = {item.name for item in fields(cls)}
     return cls(**{key: value for key, value in payload.items() if key in names})
@@ -90,7 +101,11 @@ class EngineClient:
     """Client for one worker (one GPU).
 
     By default the client spawns and owns the worker; pass ``spawn=False`` to
-    attach to one started elsewhere. Each call opens its own connection, so
+    attach to one started elsewhere (e.g. a systemd unit with
+    ``Restart=always``). An attached client recovers by signalling the
+    worker's pid and waiting for its supervisor to bring a new one up on the
+    same socket; a changed pid in ``ping``/``progress`` also counts as a
+    restart. Each call opens its own connection, so
     ``progress()`` and ``cancel()`` may be called from another thread while
     ``solve()`` blocks.
 
@@ -133,6 +148,7 @@ class EngineClient:
         self._generation = 0
         self.last_exit_code: int | None = None
         self._strategy_lock = threading.Lock()
+        self._external_pid: int | None = None
         if spawn:
             self.start()
 
@@ -152,8 +168,8 @@ class EngineClient:
 
     @property
     def worker_pid(self) -> int | None:
-        """PID of the worker this client spawned (``None`` when attached)."""
-        return self._worker.pid
+        """PID of the worker (spawned, or last seen on the socket when attached)."""
+        return self._worker.pid if self._owns_worker else self._external_pid
 
     def is_alive(self) -> bool:
         if self._owns_worker:
@@ -165,9 +181,11 @@ class EngineClient:
         return True
 
     def start(self) -> dict[str, Any]:
-        """Spawn the worker if needed and wait until it answers ``ping``."""
+        """Spawn the worker if needed and wait until it answers ``ping``.
+
+        Attached: wait up to ``start_timeout`` for the external worker."""
         if not self._owns_worker:
-            return self.ping()
+            return self._await_external(None)
         self._worker.spawn()
         deadline = time.monotonic() + self.start_timeout
         while True:
@@ -199,11 +217,58 @@ class EngineClient:
             return info
 
     def restart(self) -> dict[str, Any]:
-        """Stop the worker (if still running) and start a fresh, unbuilt one."""
-        if not self._owns_worker:
-            raise RuntimeError("this client did not spawn the worker; restart it where it was started")
+        """Stop the worker (if still running) and start a fresh, unbuilt one.
+
+        Attached: SIGTERM it (SIGKILL after 10 s) and wait for its supervisor."""
         with self._restart_lock:
+            if not self._owns_worker:
+                return self._restart_external(signal.SIGTERM)
             return self._restart_locked()
+
+    # -- attached (externally supervised) workers ---------------------------
+
+    def _await_external(self, old_pid: int | None) -> dict[str, Any]:
+        """Wait for a worker other than ``old_pid`` to answer on the socket."""
+        deadline = time.monotonic() + self.start_timeout
+        while True:
+            try:
+                info = self._call("ping", timeout=5.0, restart_on_death=False, check_pid=False)
+            except (WorkerDiedError, EngineTimeoutError):
+                info = None
+            if info is not None and info.get("pid") != old_pid:
+                if info.get("protocol_version") != protocol.PROTOCOL_VERSION:
+                    raise WorkerStartError(
+                        f"worker speaks protocol {info.get('protocol_version')}, client {protocol.PROTOCOL_VERSION}"
+                    )
+                self._external_pid = info.get("pid")
+                return info
+            if time.monotonic() >= deadline:
+                raise WorkerStartError(
+                    f"no external engine worker answered on {self.socket_path} within {self.start_timeout:.0f}s "
+                    f"(gpu {self.gpu}); check its service, e.g. `systemctl status holdem-worker@{self.gpu}`"
+                )
+            time.sleep(0.2)
+
+    def _restart_external(self, sig: int) -> dict[str, Any]:
+        pid = self._external_pid
+        if pid is not None:
+            try:
+                os.kill(pid, sig)
+                if sig != signal.SIGKILL:
+                    end = time.monotonic() + 10.0
+                    while time.monotonic() < end and _pid_alive(pid):
+                        time.sleep(0.05)
+                    if _pid_alive(pid):
+                        os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except PermissionError as exc:
+                raise WorkerStartError(f"cannot signal external worker pid {pid}: {exc}") from exc
+        self.last_exit_code = -int(sig)
+        self._job_id = None
+        info = self._await_external(pid)
+        self._generation += 1
+        return info
 
     @property
     def generation(self) -> int:
@@ -228,9 +293,9 @@ class EngineClient:
         Holds the restart lock throughout, so calls that fail because of the
         kill see a new generation and do not restart a second time.
         """
-        if not self._owns_worker:
-            raise RuntimeError("this client did not spawn the worker; restart it where it was started")
         with self._restart_lock:
+            if not self._owns_worker:
+                return self._restart_external(signal.SIGKILL)
             self._worker.kill()
             return self._restart_locked()
 
@@ -261,6 +326,7 @@ class EngineClient:
         *,
         timeout: float | None = None,
         restart_on_death: bool = True,
+        check_pid: bool = True,
     ) -> Any:
         request_id = next(self._ids)
         generation = self._generation
@@ -284,7 +350,29 @@ class EngineClient:
             raise remote_error(error)
         if response_id != request_id:
             raise protocol.ProtocolError(protocol.ERROR_INVALID_REQUEST, "response id does not match request")
+        if check_pid and not self._owns_worker and isinstance(result, dict) and "pid" in result:
+            self._check_external_pid(method, result["pid"], restart_on_death, generation)
         return result
+
+    def _check_external_pid(self, method: str, pid: Any, restart: bool, generation: int) -> None:
+        """An attached worker that answers with a new pid was restarted under us."""
+        if self._external_pid is None:
+            self._external_pid = pid
+            return
+        if pid == self._external_pid:
+            return
+        with self._restart_lock:
+            if self._generation == generation and pid != self._external_pid:
+                old = self._external_pid
+                self._external_pid = pid
+                self._job_id = None
+                self._generation += 1
+                raise WorkerDiedError(
+                    f"{method}: engine worker for gpu {self.gpu} was restarted externally (pid {old} -> {pid}); "
+                    "it must be rebuilt"
+                )
+        if self._generation != generation:
+            raise WorkerDiedError(f"{method}: engine worker for gpu {self.gpu} was restarted; it must be rebuilt")
 
     def _died(self, method: str, cause: BaseException | None, restart: bool, generation: int) -> WorkerDiedError:
         detail = "connection closed" if cause is None else f"{type(cause).__name__}: {cause}"
@@ -310,6 +398,18 @@ class EngineClient:
             if code is not None:
                 message += f"; worker exited with code {code}"
             message += restarted
+        elif restart and self.auto_restart:
+            try:
+                with self._restart_lock:
+                    if self._generation == generation:
+                        old = self._external_pid
+                        info = self._await_external(None)
+                        if info.get("pid") != old:
+                            self._job_id = None
+                            self._generation += 1
+                message += f"; the external worker is back as pid {self._external_pid} and must be rebuilt"
+            except WorkerStartError as exc:
+                message += f"; {exc}"
         return WorkerDiedError(message)
 
     # -- engine API -------------------------------------------------------

@@ -25,6 +25,15 @@ solver. Failures are classified into an ``error_code`` with a clear message:
 
 The dispatcher tick also enforces job deadlines and deletes strategy files
 older than ``retention_seconds``.
+
+Worker modes (``SchedulerConfig.worker_mode``):
+
+* ``spawn`` (default): the API spawns one worker per GPU with
+  ``--parent-pid``, so workers exit when the API dies.
+* ``external``: workers are started elsewhere (one systemd unit per GPU,
+  ``Restart=always``) and the API attaches to their sockets. Recovery kills
+  the worker's pid and waits for its supervisor to start a new one; restarting
+  the API leaves the workers (and their CUDA contexts) up.
 """
 
 from __future__ import annotations
@@ -73,6 +82,7 @@ class SchedulerConfig:
     vram_reserve_bytes: int = 512 * 1024**2
     # Per-GPU VRAM capacity override; otherwise NVML total memory.
     gpu_vram_bytes: dict[int | None, int] | None = None
+    worker_mode: str = "spawn"
 
 
 class StrategySaveError(Exception):
@@ -104,6 +114,7 @@ class _Gpu:
     restarts: int = 0
     completed: int = 0
     capacity: int | None = None
+    iterations_per_second: float | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -118,6 +129,7 @@ class Scheduler:
         client_kwargs: dict[int | None, dict[str, Any]] | None = None,
         client_factory: Callable[..., EngineClient] = EngineClient,
         config: SchedulerConfig | None = None,
+        metrics: Any = None,
     ) -> None:
         self._store = store
         self._data_dir = Path(data_dir)
@@ -126,6 +138,9 @@ class Scheduler:
         self._client_kwargs = client_kwargs or {}
         self._client_factory = client_factory
         self.config = config or SchedulerConfig()
+        if self.config.worker_mode not in ("spawn", "external"):
+            raise ValueError("worker_mode must be 'spawn' or 'external'")
+        self.metrics = metrics
         self.vram = VramModel(store)
         self._gpus = list(gpus)
         self._state: dict[int | None, _Gpu] = {gpu: _Gpu(gpu) for gpu in self._gpus}
@@ -144,14 +159,18 @@ class Scheduler:
     # -- lifecycle ---------------------------------------------------------
 
     def start(self) -> None:
+        external = self.config.worker_mode == "external"
         for gpu in self._gpus:
             st = self._state[gpu]
             st.client = self._client_factory(
-                # auto_restart=True: a fresh unbuilt worker is spawned before
-                # WorkerDiedError propagates, so a crash does not permanently
-                # disable the GPU for later jobs.
-                gpu, engine=self._engine, auto_restart=True, **self._client_kwargs.get(gpu, {})
+                # auto_restart=True: a fresh unbuilt worker is spawned (or, for
+                # an external worker, awaited) before WorkerDiedError
+                # propagates, so a crash does not permanently disable the GPU.
+                gpu, engine=self._engine, auto_restart=True, spawn=not external,
+                **self._client_kwargs.get(gpu, {})
             )
+            if external:
+                self._attach(st)
             st.last_heartbeat = time.monotonic()
             st.capacity = self._capacity(gpu)
             thread = threading.Thread(target=self._watchdog_loop, args=(st,), name=f"watchdog-{gpu}", daemon=True)
@@ -159,6 +178,16 @@ class Scheduler:
         self._dispatcher.start()
         for thread in self._watchdogs:
             thread.start()
+
+    def _attach(self, st: _Gpu) -> None:
+        try:
+            info = st.client.start()
+            LOG.info("gpu %s: attached to external worker pid %s", st.gpu, info.get("pid"))
+            # A previous API process may have left a built solver behind.
+            st.client.close()
+        except Exception as exc:
+            LOG.warning("gpu %s: external worker not available (%s); marked unhealthy", st.gpu, exc)
+            st.healthy = False
 
     def stop(self) -> None:
         self._stop.set()
@@ -230,6 +259,18 @@ class Scheduler:
         )
         info["heartbeat_latency_seconds"] = st.last_heartbeat_seconds
         return info
+
+    def gpu_metrics(self) -> dict[int | None, dict[str, Any]]:
+        """Scheduler-side per-GPU state for /metrics (no worker RPCs)."""
+        return {
+            gpu: {
+                "restarts": st.restarts,
+                "job_id": st.job_id,
+                "healthy": st.healthy and not st.killing,
+                "iterations_per_second": st.iterations_per_second,
+            }
+            for gpu, st in self._state.items()
+        }
 
     def estimate(self, spot: dict[str, Any], dtype: str = "float32") -> dict[str, Any]:
         """Node count + VRAM estimate for a spot at ``dtype``, from any live worker."""
@@ -444,6 +485,9 @@ class Scheduler:
             self._store.finish(job_id, "failed", error_code=code, error=message, elapsed_seconds=time.time() - start)
         finally:
             end = time.time()
+            if self.metrics is not None:
+                final = self._store.get(job_id) or {}
+                self.metrics.observe_solve(gpu, final.get("status") or "unknown", end - start)
             # Wait for an in-progress kill so the next job gets the new worker.
             while st.killing and not self._stop.is_set():
                 time.sleep(0.05)
@@ -549,6 +593,8 @@ class Scheduler:
             measured_vram=built.vram,
             build_seconds=built.build_seconds,
         )
+        if self.metrics is not None:
+            self.metrics.observe_build(st.gpu, job.get("dtype"), built.build_seconds)
 
         # -- solve ----------------------------------------------------------
         target = params.get("target_exploitability")
@@ -558,6 +604,8 @@ class Scheduler:
             # The engine's target mode has no caps; the API's are enforced here.
             solve_kwargs.pop("time_budget", None)
         client.solve(wait=False, **solve_kwargs)
+        solve_started = time.monotonic()
+        st.iterations_per_second = None
 
         cancel_sent = False
         while True:
@@ -575,9 +623,13 @@ class Scheduler:
                 iteration=progress.iteration,
                 iterations_run=progress.iterations_run,
                 exploitability=progress.exploitability,
+                exploitability_iteration=progress.exploitability_iteration,
                 exploitability_history=progress.exploitability_history,
                 elapsed_seconds=time.time() - started,
             )
+            solve_elapsed = progress.elapsed_seconds or (time.monotonic() - solve_started)
+            if progress.iterations_run and solve_elapsed > 0:
+                st.iterations_per_second = round(progress.iterations_run / solve_elapsed, 2)
             if progress.state in ("done", "cancelled", "failed"):
                 break
             if cancel_sent:
@@ -603,6 +655,8 @@ class Scheduler:
             raise RemoteEngineError(protocol.ERROR_ENGINE, progress.error or "solve failed")
 
         result = client.wait(timeout=10)
+        if result.iterations_run and result.elapsed_seconds:
+            st.iterations_per_second = round(result.iterations_run / result.elapsed_seconds, 2)
         vram = result.vram or job.get("measured_vram") or {}
         peak = vram.get("peak_reserved_bytes")
         st.phase = "saving"
@@ -612,6 +666,7 @@ class Scheduler:
             iteration=result.total_iterations,
             iterations_run=result.iterations_run,
             exploitability=result.exploitability,
+            exploitability_iteration=result.total_iterations if result.exploitability is not None else None,
             measured_vram=vram or None,
             peak_vram_bytes=peak,
             target_reached=result.target_reached,
