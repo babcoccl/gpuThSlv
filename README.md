@@ -193,7 +193,8 @@ Units (`deploy/systemd/user/`): `holdem-worker@.service` (one per GPU, Python
 and an hourly `holdem-logrotate.timer` (`deploy/logrotate/holdem-solver`:
 daily or 100 MB, 14 kept, compressed). `deploy/systemd/system/` has the
 root-installed equivalents (`User=holdem`, `/opt/holdem-solver`,
-`/etc/holdem-solver/holdem.env`, `/run/holdem-solver`, hardening). The env
+`/etc/holdem-solver/holdem.env`, `/run/holdem-solver`, hardening; logs go to
+the journal, `journalctl -u holdem-api -u 'holdem-worker@*'`). The env
 template is `deploy/holdem.env.example`.
 
 Windows / PowerShell (to reach a remote box's API):

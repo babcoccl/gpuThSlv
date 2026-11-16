@@ -28,8 +28,8 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-ReadWritePaths=/var/log/holdem-solver
-StandardOutput=append:/var/log/holdem-solver/api.log
+# Logs go to the journal (rotated by journald): journalctl -u <unit>.
+StandardOutput=journal
 StandardError=inherit
 
 [Install]
