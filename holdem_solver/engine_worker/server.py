@@ -31,6 +31,7 @@ class _Handler(socketserver.StreamRequestHandler):
                 message = protocol.read_message(self.rfile)
                 if message is None:
                     return
+                request_id = message.get("id")
                 request_id, method, params = protocol.parse_request(message)
                 response = protocol.make_result(request_id, service.dispatch(method, params))
             except protocol.ProtocolError as exc:
