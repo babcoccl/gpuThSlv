@@ -263,3 +263,45 @@ def test_client_import_stays_out_of_the_engine_runtime():
         [sys.executable, "-c", code], cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60, check=True
     )
     assert out.stdout.strip() == "[]"
+
+
+def test_concurrent_calls_restart_a_dead_worker_once(dirs):
+    with EngineClient(None, engine="fake", auto_restart=True, **dirs) as client:
+        client.build("kuhn_poker")
+        os.kill(client.worker_pid, signal.SIGKILL)
+        client._worker.wait_exit(5.0)
+        errors = []
+
+        def call():
+            try:
+                client.progress()
+            except WorkerDiedError as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=call) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert len(errors) == 4 and client._generation == 1
+        assert client.is_alive() and client.progress().state == "unbuilt"
+
+
+def test_error_responses_carry_the_request_id(client, dirs):
+    import socket
+
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.connect(dirs["socket_path"])
+        sock.sendall(b'{"jsonrpc": "2.0", "id": 41, "method": "nope"}\n')
+        with sock.makefile("rb") as stream:
+            message = protocol.read_message(stream)
+    assert message["id"] == 41 and message["error"]["code"] == protocol.ERROR_METHOD_NOT_FOUND
+
+
+def test_lock_file_is_not_followed_through_a_symlink(dirs, tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("keep me")
+    os.symlink(str(victim), dirs["socket_path"] + ".lock")
+    with pytest.raises(WorkerStartError):
+        EngineClient(None, engine="fake", start_timeout=10, **dirs)
+    assert victim.read_text() == "keep me"

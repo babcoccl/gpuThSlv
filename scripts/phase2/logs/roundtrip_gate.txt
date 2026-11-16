@@ -1,18 +1,18 @@
 client python 3.15.2 (/home/aihub/repos/gpuThSlv/.venv-api/bin/python)
-gpu0: worker pid=52324 python=3.9.25 torch=2.8.0+cu128 CUDA_VISIBLE_DEVICES=0 device=NVIDIA GeForce RTX 5060 Ti
-  first solve : nodes=55 infosets=12 iterations=2000 exploitability=0.001895845 value_p0=-0.055537000 solve_s=0.301 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
+gpu0: worker pid=58215 python=3.9.25 torch=2.8.0+cu128 CUDA_VISIBLE_DEVICES=0 device=NVIDIA GeForce RTX 5060 Ti
+  first solve : nodes=55 infosets=12 iterations=2000 exploitability=0.001895905 value_p0=-0.055537015 solve_s=0.287 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
   after SIGKILL: WorkerDiedError: solve: engine worker for gpu 0 is not reachable (ConnectionResetError: [Errno 104] Connection reset by peer)
-  restarted: worker pid=52347 state=unbuilt shm_files=[]
+  restarted: worker pid=58238 state=unbuilt shm_files=[]
   before rebuild: NotBuiltError: engine is not built; call build first
-  second solve: nodes=55 infosets=12 iterations=2000 exploitability=0.001895711 value_p0=-0.055536956 solve_s=0.299 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
-  nvidia-smi compute pids on gpu0: [52347] (killed 52324 present: False)
+  second solve: nodes=55 infosets=12 iterations=2000 exploitability=0.001895659 value_p0=-0.055537000 solve_s=0.296 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
+  nvidia-smi compute pids on gpu0: [58238] (killed 58215 present: False)
   shutdown: socket exists=False
-gpu1: worker pid=52374 python=3.9.25 torch=2.8.0+cu128 CUDA_VISIBLE_DEVICES=1 device=NVIDIA GeForce RTX 5060 Ti
-  first solve : nodes=55 infosets=12 iterations=2000 exploitability=0.001895957 value_p0=-0.055537015 solve_s=0.296 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
+gpu1: worker pid=58265 python=3.9.25 torch=2.8.0+cu128 CUDA_VISIBLE_DEVICES=1 device=NVIDIA GeForce RTX 5060 Ti
+  first solve : nodes=55 infosets=12 iterations=2000 exploitability=0.001895845 value_p0=-0.055537000 solve_s=0.291 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
   after SIGKILL: WorkerDiedError: solve: engine worker for gpu 1 is not reachable (ConnectionResetError: [Errno 104] Connection reset by peer)
-  restarted: worker pid=52399 state=unbuilt shm_files=[]
+  restarted: worker pid=58288 state=unbuilt shm_files=[]
   before rebuild: NotBuiltError: engine is not built; call build first
-  second solve: nodes=55 infosets=12 iterations=2000 exploitability=0.001895808 value_p0=-0.055537015 solve_s=0.285 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
-  nvidia-smi compute pids on gpu1: [52399] (killed 52374 present: False)
+  second solve: nodes=55 infosets=12 iterations=2000 exploitability=0.001895979 value_p0=-0.055537015 solve_s=0.284 peak_reserved_mib=8.0 row_sum_min=1.000000 row_sum_max=1.000000
+  nvidia-smi compute pids on gpu1: [58288] (killed 58265 present: False)
   shutdown: socket exists=False
 GATE OK

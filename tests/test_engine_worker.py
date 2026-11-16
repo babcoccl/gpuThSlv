@@ -124,3 +124,30 @@ def test_close_cancels_and_releases(service):
     service.dispatch("solve", {"target_exploitability": 1e-9, "chunk_iterations": 5})
     assert service.dispatch("close", {})["state"] == "unbuilt"
     assert service.dispatch("ping", {})["built"] is False
+
+
+def test_solve_wait_refuses_a_replaced_job(service):
+    service.dispatch("build", {"game": "kuhn_poker"})
+    first = service.dispatch("solve", {"iterations": 10})["job_id"]
+    _wait(service)
+    second = service.dispatch("solve", {"iterations": 20})["job_id"]
+    with pytest.raises(RpcError) as excinfo:
+        service.dispatch("solve_wait", {"timeout": 5.0, "job_id": first})
+    assert excinfo.value.code == protocol.ERROR_NO_JOB
+    answer = service.dispatch("solve_wait", {"timeout": 10.0, "job_id": second})
+    assert answer["done"] and answer["result"]["iterations_run"] == 20
+
+
+def test_failed_strategy_export_leaves_no_files(service, monkeypatch):
+    service.dispatch("build", {"game": "kuhn_poker"})
+    real_save = service._save
+
+    def failing_save(name, array):
+        if "values" in name:
+            raise OSError("no space left on device")
+        return real_save(name, array)
+
+    monkeypatch.setattr(service, "_save", failing_save)
+    with pytest.raises(OSError):
+        service.rpc_get_strategy()
+    assert os.listdir(service._shm_dir) == []

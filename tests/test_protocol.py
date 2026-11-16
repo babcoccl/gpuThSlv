@@ -136,3 +136,24 @@ def test_protocol_has_no_third_party_imports():
                 continue
             for name in names:
                 assert name.split(".")[0] in sys.stdlib_module_names, "%s imports %s" % (path, name)
+
+
+def test_private_dir_rejects_planted_directories(tmp_path):
+    import os
+
+    good = tmp_path / "runtime"
+    assert protocol.ensure_private_dir(str(good)) == str(good)
+    assert os.stat(str(good)).st_mode & 0o777 == 0o700
+
+    open_dir = tmp_path / "open"
+    open_dir.mkdir()
+    open_dir.chmod(0o777)
+    with pytest.raises(PermissionError):
+        protocol.ensure_private_dir(str(open_dir))
+    with pytest.raises(PermissionError):
+        protocol.ensure_private_dir(str(open_dir / "child"))
+
+    link = tmp_path / "link"
+    link.symlink_to(good)
+    with pytest.raises(PermissionError):
+        protocol.ensure_private_dir(str(link))

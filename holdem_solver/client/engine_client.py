@@ -202,9 +202,12 @@ class EngineClient:
 
     def _restart_locked(self) -> dict[str, Any]:
         self._worker.stop()
-        self._generation += 1
         self._job_id = None
-        return self.start()
+        info = self.start()
+        # Bumped only once the new worker answers: a call that failed while it
+        # was coming up must not restart it again.
+        self._generation += 1
+        return info
 
     def shutdown(self, timeout: float = 10.0) -> None:
         """Stop the worker process. Only for a worker this client spawned."""
