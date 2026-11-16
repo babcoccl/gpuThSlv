@@ -39,12 +39,12 @@ def _solve(spot, iterations, device="cpu", **options):
 
 
 def test_hand_names_match_the_engine():
-    _torch()
-    from gpu_cfr.games import hunl_cards
-
-    hands = hunl_cards.enumerate_hunl_hands([])
-    assert len(hands) == 1326
-    assert all(combo_str(tuple(hand)) == hunl_cards.hand_to_str(hand) for hand in hands)
+    # Every hand that fits on the board, named by the engine in its deal actions.
+    spot = SpotConfig(RIVER, "*", "9d9h", pot=10, stack=10, bet_sizes="pot")
+    built = build_spot(spot)
+    engine_names = {action.name.split(":")[0] for action in built.spec.nodes[built.spec.root].actions}
+    ours = {combo_str(combo) for combo, _ in built.resolved.hands0 if not set(combo) & set(built.resolved.hands1[0][0])}
+    assert len(ours) == 45 * 44 // 2 and engine_names == ours
 
 
 @pytest.mark.parametrize(

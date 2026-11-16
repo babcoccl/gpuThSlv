@@ -177,7 +177,7 @@ with EngineClient(0) as client:
 | `overbet` | 1/2, 1, 2 |
 
 - Blockers: combos that use a board or dead card are removed from each range (`num_removed`); hand pairs that share a card are not dealt (`num_blocked_pairs`, `blocked_opponent_combos`). A spot with no legal deal is rejected.
-- `max_nodes` (default 5,000,000): the worker computes the exact node count from a one-deal tree, `1 + deals * (single_deal_nodes - 1)`, and refuses before building anything larger. `None` disables the check.
+- `max_nodes` (default 2,000,000): the worker computes the exact node count from a one-deal tree, `1 + deals * (single_deal_nodes - 1)`, and refuses before building anything larger. `None` disables the check.
 - Worker side: `holdem_solver/engine_worker/spot_builder.py` calls the engine builder; `RealEngine.build` accepts the spot dict and applies range weights. `FakeEngine` validates and resolves a spot without building a tree.
 
 ### Known-answer tests
