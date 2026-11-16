@@ -17,8 +17,8 @@ scripts/phase1/run_engine_tests.sh
 Measured output:
 
 ```text
-gpu0 13 passed in 4.05s
-gpu1 13 passed in 3.86s
+gpu0 13 passed in 3.79s
+gpu1 13 passed in 3.64s
 ```
 
 Raw pytest logs: `scripts/phase1/logs/pytest_gpu0.txt`, `scripts/phase1/logs/pytest_gpu1.txt`.
@@ -88,7 +88,7 @@ These are the assumptions Phase 1 makes explicit; later phases should revisit an
 
 9. **Close/VRAM.** `close()` drops Python references, runs `gc.collect()`, and calls `torch.cuda.empty_cache()`. A manual Kuhn check on GPU 0 showed allocated bytes fall to ~512 bytes after close; PyTorch may retain a small CUDA context reservation (~2 MiB) that cannot be returned to the driver.
 
-10. **Bytecode side effect.** Importing `holdem_solver.engine` sets `sys.dont_write_bytecode = True` process-wide before importing `gpu_cfr`, because the vendored submodule is read-only and tracks `__pycache__` artifacts that imports would otherwise rewrite.
+10. **Lazy engine imports.** `holdem_solver.engine` is pure Python until first solver use: `_load_gpu_cfr()` inserts the submodule path, sets `sys.dont_write_bytecode = True`, and imports torch/`gpu_cfr` only when `build()`/`solve()`/`evaluate()`/strategy getters need them. Verified `.venv-api/bin/python` can `import holdem_solver.engine` with `torch` and `gpu_cfr` absent from `sys.modules`; the Python 3.15 API must still not call engine build/solve because GPU-CFR bindings are CPython 3.9-only. First engine use still sets `sys.dont_write_bytecode` process-wide to keep the read-only submodule's tracked `__pycache__` artifacts clean.
 
 11. **VRAM estimator.** `estimate_vram_bytes` is a planning estimate calibrated from Phase 0 RTX 5060 Ti float32 measurements, not an allocator guarantee. It returns `max(allocated_model, reserved_model) * safety_factor` with default `safety_factor=1.1`. Coefficients are rounded and conservative: allocated ≈ `260 * num_nodes + 35 * num_infoset_actions + 32 KiB`; reserved ≈ `322 * num_nodes + 35 * num_infoset_actions + 10 MiB` for CUDA-graph solves or `+ 4 MiB` eager. `dtype="float64"` doubles the estimate because the float payload doubles while integer edge tables do not.
 

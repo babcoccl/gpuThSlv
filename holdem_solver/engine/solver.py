@@ -1,4 +1,10 @@
-"""SolverEngine wrapper around GPU-CFR's StagewiseCFRSolver."""
+"""SolverEngine wrapper around GPU-CFR's StagewiseCFRSolver.
+
+GPU-CFR imports are lazy: importing this package does not load the
+CPython 3.9-only bindings. ``build()``, ``solve()``, ``evaluate()``, and the
+strategy getters load them on first use, so this package must still only be
+imported by the Python 3.9 engine runtime.
+"""
 
 from __future__ import annotations
 
@@ -7,30 +13,49 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional
 
-# The vendored GPU-CFR extensions are CPython 3.9-only. Keep every gpu_cfr
-# import inside this package and make the submodule importable without
-# requiring callers to set PYTHONPATH.
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_GPU_CFR_ROOT = _REPO_ROOT / "third_party" / "GPU-CFR"
-if _GPU_CFR_ROOT.is_dir() and str(_GPU_CFR_ROOT) not in sys.path:
-    sys.path.insert(0, str(_GPU_CFR_ROOT))
-
-# The vendored GPU-CFR submodule is read-only and tracks __pycache__ artifacts;
-# keep imports from rewriting them in the parent checkout.
-sys.dont_write_bytecode = True
-
-import torch
-
-from gpu_cfr.config import CFRConfig, DeviceConfig, MemoryConfig, PayoffConfig
-from gpu_cfr.efg.spec import GameSpec
-from gpu_cfr.games.kuhn import build_kuhn_game
-from gpu_cfr.games.registry import resolve_game_spec
-from gpu_cfr.solvers.stagewise import StagewiseCFRSolver
-from gpu_cfr.eval.best_response import BestResponseResult, TwoPlayerZeroSumEvaluator
-
 from .memory import estimate_vram_bytes
+
+_GPU_CFR: Any = None
+
+
+def _load_gpu_cfr() -> Any:
+    """Import GPU-CFR bindings on first engine use and cache them."""
+    global _GPU_CFR
+    if _GPU_CFR is not None:
+        return _GPU_CFR
+
+    gpu_cfr_root = Path(__file__).resolve().parents[2] / "third_party" / "GPU-CFR"
+    if gpu_cfr_root.is_dir() and str(gpu_cfr_root) not in sys.path:
+        sys.path.insert(0, str(gpu_cfr_root))
+
+    # The vendored GPU-CFR submodule is read-only and tracks __pycache__
+    # artifacts; keep imports from rewriting them in the parent checkout.
+    sys.dont_write_bytecode = True
+
+    import torch
+    from gpu_cfr.config import CFRConfig, DeviceConfig, MemoryConfig, PayoffConfig
+    from gpu_cfr.efg.spec import GameSpec
+    from gpu_cfr.games.kuhn import build_kuhn_game
+    from gpu_cfr.games.registry import resolve_game_spec
+    from gpu_cfr.solvers.stagewise import StagewiseCFRSolver
+    from gpu_cfr.eval.best_response import TwoPlayerZeroSumEvaluator
+
+    _GPU_CFR = SimpleNamespace(
+        torch=torch,
+        CFRConfig=CFRConfig,
+        DeviceConfig=DeviceConfig,
+        MemoryConfig=MemoryConfig,
+        PayoffConfig=PayoffConfig,
+        GameSpec=GameSpec,
+        build_kuhn_game=build_kuhn_game,
+        resolve_game_spec=resolve_game_spec,
+        StagewiseCFRSolver=StagewiseCFRSolver,
+        TwoPlayerZeroSumEvaluator=TwoPlayerZeroSumEvaluator,
+    )
+    return _GPU_CFR
 
 
 @dataclass(frozen=True)
@@ -76,19 +101,21 @@ _SOLVER_OPTION_DEFAULTS = {
 _SOLVER_OPTION_KEYS = frozenset(_SOLVER_OPTION_DEFAULTS)
 
 
-def _resolve_game_spec(game_spec: Any) -> GameSpec:
-    if isinstance(game_spec, GameSpec):
+def _resolve_game_spec(game_spec: Any) -> Any:
+    bindings = _load_gpu_cfr()
+    game_spec_cls = bindings.GameSpec
+    if isinstance(game_spec, game_spec_cls):
         return game_spec
     if isinstance(game_spec, str):
         name = game_spec.strip()
         if not name:
             raise ValueError("game_spec string must not be empty")
         if name == "kuhn":
-            return build_kuhn_game()
-        return resolve_game_spec(name)
+            return bindings.build_kuhn_game()
+        return bindings.resolve_game_spec(name)
     if callable(game_spec):
         resolved = game_spec()
-        if isinstance(resolved, GameSpec):
+        if isinstance(resolved, game_spec_cls):
             return resolved
         raise TypeError("game_spec callable must return a gpu_cfr.efg.spec.GameSpec")
     raise TypeError(
@@ -111,10 +138,10 @@ class SolverEngine:
         unknown = sorted(set(self._solver_options) - _SOLVER_OPTION_KEYS)
         if unknown:
             raise TypeError("unknown solver options: %s" % ", ".join(unknown))
-        self._solver: Optional[StagewiseCFRSolver] = None
-        self._evaluator: Optional[TwoPlayerZeroSumEvaluator] = None
-        self._game_spec: Optional[GameSpec] = None
-        self._config: Optional[CFRConfig] = None
+        self._solver: Optional[Any] = None
+        self._evaluator: Optional[Any] = None
+        self._game_spec: Optional[Any] = None
+        self._config: Optional[Any] = None
         self._estimated_vram_bytes = 0
         if game_spec is not None:
             self.build(game_spec)
@@ -130,7 +157,7 @@ class SolverEngine:
 
         spec = _resolve_game_spec(game_spec)
         config = self._make_config(spec, options)
-        solver = StagewiseCFRSolver(spec, config)
+        solver = _load_gpu_cfr().StagewiseCFRSolver(spec, config)
 
         self._game_spec = spec
         self._config = config
@@ -140,12 +167,13 @@ class SolverEngine:
         return self
 
     @staticmethod
-    def _make_config(spec: GameSpec, options: Dict[str, Any]) -> CFRConfig:
+    def _make_config(spec: Any, options: Dict[str, Any]) -> Any:
+        bindings = _load_gpu_cfr()
         device = str(options.get("device", _SOLVER_OPTION_DEFAULTS["device"]))
         cuda_graph = options.get("cuda_graph", _SOLVER_OPTION_DEFAULTS["cuda_graph"])
         if cuda_graph is None:
             cuda_graph = device.startswith("cuda")
-        return CFRConfig(
+        return bindings.CFRConfig(
             game=spec.name,
             variant=str(options.get("variant", _SOLVER_OPTION_DEFAULTS["variant"])),
             iterations=int(options.get("iterations", _SOLVER_OPTION_DEFAULTS["iterations"])),
@@ -156,15 +184,15 @@ class SolverEngine:
                 options.get("linear_averaging", _SOLVER_OPTION_DEFAULTS["linear_averaging"])
             ),
             seed=int(options.get("seed", _SOLVER_OPTION_DEFAULTS["seed"])),
-            device=DeviceConfig(
+            device=bindings.DeviceConfig(
                 device=device,
                 dtype=str(options.get("dtype", _SOLVER_OPTION_DEFAULTS["dtype"])),
             ),
-            payoff=PayoffConfig(
+            payoff=bindings.PayoffConfig(
                 storage=str(options.get("payoff_storage", _SOLVER_OPTION_DEFAULTS["payoff_storage"])),
                 block_size=int(options.get("payoff_block_size", _SOLVER_OPTION_DEFAULTS["payoff_block_size"])),
             ),
-            memory=MemoryConfig(
+            memory=bindings.MemoryConfig(
                 max_bytes=options.get("memory_max_bytes", _SOLVER_OPTION_DEFAULTS["memory_max_bytes"]),
                 safety_factor=float(
                     options.get("memory_safety_factor", _SOLVER_OPTION_DEFAULTS["memory_safety_factor"])
@@ -177,7 +205,7 @@ class SolverEngine:
         )
 
     @staticmethod
-    def _estimate_for_spec(spec: GameSpec, options: Dict[str, Any]) -> int:
+    def _estimate_for_spec(spec: Any, options: Dict[str, Any]) -> int:
         num_nodes = len(spec.nodes)
         num_infoset_actions = sum(len(infoset.actions) for infoset in spec.infosets.values())
         dtype = str(options.get("dtype", _SOLVER_OPTION_DEFAULTS["dtype"]))
@@ -192,28 +220,29 @@ class SolverEngine:
             cuda_graph=bool(cuda_graph),
         )
 
-    def _require_solver(self) -> StagewiseCFRSolver:
+    def _require_solver(self) -> Any:
         if self._solver is None:
             raise RuntimeError("SolverEngine is not built; call build() first")
         return self._solver
 
-    def _get_evaluator(self) -> TwoPlayerZeroSumEvaluator:
+    def _get_evaluator(self) -> Any:
         solver = self._require_solver()
         if self._evaluator is None:
-            self._evaluator = TwoPlayerZeroSumEvaluator(solver.game)
+            evaluator_cls = _load_gpu_cfr().TwoPlayerZeroSumEvaluator
+            self._evaluator = evaluator_cls(solver.game)
         return self._evaluator
 
     @staticmethod
-    def _sync(solver: StagewiseCFRSolver) -> None:
+    def _sync(solver: Any) -> None:
         if solver.device.type == "cuda":
-            torch.cuda.synchronize(solver.device)
+            _load_gpu_cfr().torch.cuda.synchronize(solver.device)
 
     @property
     def is_built(self) -> bool:
         return self._solver is not None
 
     @property
-    def game_spec(self) -> Optional[GameSpec]:
+    def game_spec(self) -> Optional[Any]:
         return self._game_spec
 
     @property
@@ -222,7 +251,7 @@ class SolverEngine:
         return solver.game
 
     @property
-    def config(self) -> Optional[CFRConfig]:
+    def config(self) -> Optional[Any]:
         return self._config
 
     @property
@@ -297,7 +326,7 @@ class SolverEngine:
         start_time = time.perf_counter()
         run = 0
         last_report_run = 0
-        last_eval_result: Optional[BestResponseResult] = None
+        last_eval_result: Optional[Any] = None
         last_eval_total: Optional[int] = None
         target_reached = False
         budget_exhausted = False
@@ -305,14 +334,14 @@ class SolverEngine:
         def elapsed() -> float:
             return time.perf_counter() - start_time
 
-        def evaluate_now() -> BestResponseResult:
+        def evaluate_now() -> Any:
             nonlocal last_eval_result, last_eval_total
             result = self.evaluate()
             last_eval_result = result
             last_eval_total = int(solver.iterations)
             return result
 
-        def report(result: BestResponseResult, force: bool = False) -> None:
+        def report(result: Any, force: bool = False) -> None:
             nonlocal last_report_run
             if progress_callback is None or last_report_run == run:
                 return
@@ -411,7 +440,7 @@ class SolverEngine:
         solver = self._require_solver()
         return solver.average_strategy()
 
-    def get_strategy_flat(self) -> torch.Tensor:
+    def get_strategy_flat(self) -> Any:
         """Return the flat per-infoset-action average strategy tensor."""
         solver = self._require_solver()
         return solver.average_strategy_flat()
@@ -421,7 +450,7 @@ class SolverEngine:
         solver = self._require_solver()
         return solver.average_strategy_for_kuhn_oracle()
 
-    def evaluate(self) -> BestResponseResult:
+    def evaluate(self) -> Any:
         """Evaluate the current average strategy exactly.
 
         Uses ``gpu_cfr.eval.best_response.TwoPlayerZeroSumEvaluator``; it does
@@ -453,6 +482,7 @@ class SolverEngine:
         if solver is not None or evaluator is not None:
             del solver, evaluator
             gc.collect()
+            torch = _load_gpu_cfr().torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
