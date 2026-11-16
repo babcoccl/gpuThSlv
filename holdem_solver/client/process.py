@@ -124,6 +124,17 @@ class WorkerProcess:
                     process.wait()
             self._process = None
 
+    def kill(self) -> None:
+        """SIGKILL: a hung worker may not handle SIGTERM (e.g. stopped or stuck in a CUDA call)."""
+        with self._lock:
+            process = self._process
+            if process is None:
+                return
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+            self._process = None
+
     def wait_exit(self, timeout: float) -> bool:
         process = self._process
         if process is None:

@@ -88,7 +88,8 @@ def _make_engine(kind: str) -> Any:
     if kind == "fake":
         from .fake import FakeEngine
 
-        return FakeEngine(), {"engine": "fake"}, None, None
+        engine = FakeEngine()
+        return engine, {"engine": "fake"}, engine.vram_stats, None
     from . import real
 
     info = {"engine": "real"}

@@ -37,6 +37,12 @@ class SolveRequest(BaseModel):
     max_iterations: int | None = Field(default=None, gt=0)
     progress_every: int | None = Field(default=None, gt=0)
 
+    # Scheduling
+    priority: int = Field(default=0, ge=-100, le=100, description="higher runs first; FIFO within a priority")
+    timeout_seconds: float | None = Field(
+        default=None, gt=0, description="wall-clock limit from start of build; the job fails with error_code=timeout"
+    )
+
     @model_validator(mode="after")
     def check_stop_conditions(self) -> "SolveRequest":
         modes = [self.iterations is not None, self.time_budget is not None, self.target_exploitability is not None]
@@ -82,6 +88,10 @@ class SolveRequest(BaseModel):
 
 class SolveAccepted(BaseModel):
     id: str
+    status: str = "queued"
+    replayed: bool = False
+    queue_depth: int | None = None
+    predicted_vram_bytes: int | None = None
 
 
 class SolveStatus(BaseModel):
@@ -105,6 +115,13 @@ class SolveStatus(BaseModel):
     target_reached: bool | None = None
     profile_value_p0: float | None = None
     error: str | None = None
+    error_code: str | None = None
+    priority: int = 0
+    timeout_seconds: float | None = None
+    predicted_vram_bytes: int | None = None
+    peak_vram_bytes: int | None = None
+    strategy_available: bool = False
+    strategy_expired_at: float | None = None
 
 
 class StrategyAction(BaseModel):
@@ -137,6 +154,11 @@ class GpuInfo(BaseModel):
     worker_vram: dict[str, int] = Field(default_factory=dict)
     pynvml: dict[str, Any] | None = None
     job_id: str | None = None
+    healthy: bool = True
+    restarts: int = 0
+    vram_capacity_bytes: int | None = None
+    heartbeat_age_seconds: float | None = None
+    heartbeat_latency_seconds: float | None = None
 
 
 class HealthResponse(BaseModel):

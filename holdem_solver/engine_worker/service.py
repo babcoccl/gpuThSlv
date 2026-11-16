@@ -31,8 +31,18 @@ class RpcError(Exception):
         self.data = data
 
 
+def is_cuda_oom(exc: BaseException) -> bool:
+    """torch.cuda.OutOfMemoryError, or any CUDA/allocator error saying out of memory."""
+    return type(exc).__name__ == "OutOfMemoryError" or "out of memory" in str(exc).lower()
+
+
 def _engine_error(exc: BaseException) -> RpcError:
-    code = protocol.ERROR_INVALID_PARAMS if isinstance(exc, (TypeError, ValueError)) else protocol.ERROR_ENGINE
+    if is_cuda_oom(exc):
+        code = protocol.ERROR_OOM
+    elif isinstance(exc, (TypeError, ValueError)):
+        code = protocol.ERROR_INVALID_PARAMS
+    else:
+        code = protocol.ERROR_ENGINE
     return RpcError(
         code,
         "%s: %s" % (type(exc).__name__, exc),
@@ -265,6 +275,7 @@ class EngineService:
             "exploitability_history": list(job.exploitability_history),
             "cancel_requested": job.cancel.is_set(),
             "error": None if job.error is None else job.error.message,
+            "error_code": None if job.error is None else job.error.code,
         }
 
     def rpc_cancel(self) -> Dict[str, Any]:

@@ -52,6 +52,20 @@ curl -H "Authorization: Bearer $HOLDEM_API_KEY" http://127.0.0.1:8000/v1/gpus
 # worker state + pynvml memory/utilization per GPU
 ```
 
-Spots over `max_nodes` (default 2M) or whose 1.15x VRAM estimate exceeds 14
-GiB are rejected with 422. One job runs per GPU; queued jobs go to the
-least-loaded GPU. See `docs/PHASE3.md`.
+Spots over `max_nodes` (default 2M), or whose predicted VRAM peak (the
+estimate × a factor learned from measured peaks, 1.15 until learned) exceeds
+14 GiB or every GPU, get 422. One job runs per GPU at a time.
+
+Operations (Phase 4, `docs/PHASE4.md`):
+
+- `"priority"` (higher first) and `"timeout_seconds"` in the body.
+  `Idempotency-Key: <key>` header: a retry returns the same job, and a
+  different body with the same key gets 409.
+- Over `HOLDEM_MAX_QUEUE_DEPTH` (64) queued jobs → 429 with `Retry-After`.
+- Failed jobs carry `error_code`: `cuda_oom`, `worker_hung`, `worker_died`,
+  `timeout`, `disk_full`, `api_restart`, `engine_error`, …
+- Watchdog: `HOLDEM_HEARTBEAT_SECONDS` (5) and `HOLDEM_HUNG_WORKER_SECONDS`
+  (120). Strategies are deleted after `HOLDEM_STRATEGY_RETENTION_SECONDS` (7 d;
+  `/strategy` → 410). Per-GPU headroom is `HOLDEM_VRAM_RESERVE_BYTES` (512 MiB).
+- On restart, queued jobs survive; jobs that were building or solving are
+  marked failed (`api_restart`) and not replayed.
