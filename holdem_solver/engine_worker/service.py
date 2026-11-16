@@ -295,10 +295,13 @@ class EngineService:
     # -- lifecycle --------------------------------------------------------
 
     def _release_engine(self) -> None:
-        job = self._job
-        if job is not None:
-            job.cancel.set()
-        self._engine_busy.acquire()
+        # Re-cancel while waiting: a solve can be admitted after the first look.
+        while True:
+            job = self._job
+            if job is not None:
+                job.cancel.set()
+            if self._engine_busy.acquire(timeout=0.05):
+                break
         try:
             self._on_engine(self._engine.close)
             with self._state_lock:
