@@ -13,3 +13,7 @@ Rules:
 - Write tests with pytest; mark GPU tests with @pytest.mark.gpu.
 - Keep a docs/PROGRESS.md log with decisions and measured numbers.
 - Never fabricate benchmark numbers; run them.
+- Submodule URL: use https://github.com/lbn187/GPU-CFR directly (upstream, read-only). Do not push to it.
+- No sudo. If a system package, NVIDIA driver or CUDA toolkit is missing, stop and report exactly what is needed.
+- Work on a feature branch per phase and open a PR to main. Never push to main directly.
+- Add a .gitignore for .venv-*, __pycache__, *.npy, and benchmark scratch output.
