@@ -358,14 +358,16 @@ class EngineClient:
 
     def get_strategy(self, *, flat: bool = False) -> dict[str, np.ndarray] | Strategy:
         """Average strategy keyed by infoset; ``flat=True`` skips the dict."""
-        answer = self._call("get_strategy")
-        keys = self._take_array(answer["keys"])
-        strategy = Strategy(
-            keys=[key.decode("utf-8") for key in keys.tolist()],
-            offsets=self._take_array(answer["offsets"]),
-            values=self._take_array(answer["values"]),
-            iteration=int(answer["iteration"]),
-        )
+        # The worker replaces uncollected strategy files on the next export.
+        with self._strategy_lock:
+            answer = self._call("get_strategy")
+            keys = self._take_array(answer["keys"])
+            strategy = Strategy(
+                keys=[key.decode("utf-8") for key in keys.tolist()],
+                offsets=self._take_array(answer["offsets"]),
+                values=self._take_array(answer["values"]),
+                iteration=int(answer["iteration"]),
+            )
         return strategy if flat else strategy.as_dict()
 
     def reset(self) -> None:
