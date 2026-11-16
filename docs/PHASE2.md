@@ -221,7 +221,7 @@ Measured by `scripts/phase2/measure_spots.py` from `.venv-api`, one fresh worker
 
 - The estimate is 4–11% below the measured peak reserved for every spot over 500k nodes, and above it (dominated by the fixed CUDA floor) for small ones. Budget about 1.15x the estimate.
 - Both GPUs give identical node counts and peaks.
-- Memory follows node count: about 350 bytes of peak reserved per node across the large spots, so 16 GiB is roughly 40M nodes. That extrapolation is not measured.
+- Memory follows node count: about 370–420 bytes of peak reserved per node across the large spots, so 16 GiB is roughly 40M nodes. That extrapolation is not measured.
 - Trees grow with deals, not range width alone: a full-range river with one bet size is 4.4M nodes, and a turn with 33 x 43 hands and two sizes is 3.7M because each turn line fans out over 44 rivers.
 - Build time is CPU-bound tree construction in the engine, about 10 s per million nodes.
 
