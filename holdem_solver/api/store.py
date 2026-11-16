@@ -227,14 +227,15 @@ class JobStore:
             rows = self._db.execute("SELECT * FROM jobs ORDER BY created_at").fetchall()
         return [self._decode(row) for row in rows]
 
-    def vram_samples(self, dtype: str, limit: int = 50) -> list[tuple[int, int]]:
-        """``(estimated, measured peak)`` bytes of recent jobs that finished a solve."""
+    def vram_samples(self, dtype: str, min_estimate: int = 1, limit: int = 50) -> list[tuple[int, int]]:
+        """``(estimated, measured peak)`` bytes of the latest ``limit`` finished
+        solves whose estimate is at least ``min_estimate``."""
         with self._lock:
             rows = self._db.execute(
                 "SELECT estimated_vram_bytes, peak_vram_bytes FROM jobs WHERE dtype IS ? "
-                "AND estimated_vram_bytes > 0 AND peak_vram_bytes > 0 "
+                "AND estimated_vram_bytes >= ? AND peak_vram_bytes > 0 "
                 "ORDER BY finished_at DESC LIMIT ?",
-                (dtype, limit),
+                (dtype, max(1, int(min_estimate)), limit),
             ).fetchall()
         return [(int(r[0]), int(r[1])) for r in rows]
 

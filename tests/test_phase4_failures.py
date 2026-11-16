@@ -351,3 +351,25 @@ def test_strategy_retention_cleanup(tmp_path):
         assert client.get(f"/v1/solves/{job['id']}/strategy").status_code == 410
         status = client.get(f"/v1/solves/{job['id']}").json()
         assert not status["strategy_available"] and status["strategy_expired_at"]
+
+
+def test_small_jobs_do_not_evict_large_vram_samples(tmp_path):
+    from holdem_solver.api.vram import VramModel
+
+    store = JobStore(str(tmp_path / "vram.db"))
+    big = 256 * 1024**2
+
+    def finished(estimate, peak, t):
+        job, _ = store.create({"board": "x"}, {}, dtype="float32")
+        with store._db:
+            store._db.execute(
+                "UPDATE jobs SET status='done', estimated_vram_bytes=?, peak_vram_bytes=?, finished_at=? WHERE id=?",
+                (estimate, peak, t, job["id"]),
+            )
+
+    finished(big, int(big * 1.5), 1.0)
+    for i in range(60):  # newer small solves, below the 64 MiB sample floor
+        finished(8 * 1024**2, 6 * 1024**2, 2.0 + i)
+    factor, source, samples = VramModel(store).factor("float32")
+    assert (source, samples) == ("measured", 1)
+    assert factor == pytest.approx(1.5 * 1.05)

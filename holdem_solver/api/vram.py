@@ -27,7 +27,7 @@ class VramModel:
 
     def factor(self, dtype: str = "float32") -> tuple[float, str, int]:
         """``(factor, source, samples)`` where source is ``measured`` or ``static``."""
-        samples = [(e, p) for e, p in self._store.vram_samples(dtype) if e >= self.min_sample_bytes]
+        samples = self._store.vram_samples(dtype, min_estimate=self.min_sample_bytes)
         if not samples:
             return self.static_factor, "static", 0
         ratio = max(peak / est for est, peak in samples)
