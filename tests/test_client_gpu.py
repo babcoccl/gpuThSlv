@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pytest
 
-from holdem_solver.client import EngineClient, NotBuiltError, WorkerDiedError
+from holdem_solver.client import EngineClient, NotBuiltError, RemoteEngineError, WorkerDiedError
 from holdem_solver.client.process import default_worker_python
 
 KUHN_VALUE_P0 = -1.0 / 18.0
@@ -118,3 +118,31 @@ def test_two_workers_solve_concurrently():
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(_check_kuhn, (first, second)))
         assert results[0].exploitability == pytest.approx(results[1].exploitability, rel=0.05)
+
+
+@each_gpu
+def test_spot_known_answers_through_the_worker(gpu):
+    """River and turn spots built from a SpotConfig; values from tests/test_spot_builder.py."""
+    from holdem_solver.client import SpotConfig
+
+    river = SpotConfig("KsJsTh7d2c", "AhQh, 4c3c:3", "9d9h", pot=10, stack=10, bet_sizes="pot")
+    turn = SpotConfig("AsKs7s2s", "Qs3h, 5c4c, 5d4d, 5h4h", "JsTs", pot=10, stack=40, bet_sizes="pot")
+    with EngineClient(gpu) as client:
+        built = client.build(river)
+        assert built.spot["weighted"] and built.spot["num_deals"] == 2 and built.num_nodes == 19
+        result = client.solve(iterations=4000)
+        assert result.profile_value_p0 == pytest.approx(-1.25, abs=0.01)
+        assert client.get_strategy()["p1|9d9h|b10"][1] == pytest.approx(0.5, abs=0.02)
+
+        built = client.build(turn)
+        assert built.spot["street"] == "turn" and built.spot["num_rivers"] == 44
+        assert built.estimated_vram_bytes > 0 and built.vram["peak_reserved_bytes"] > 0
+        result = client.solve(iterations=40000)
+        assert result.profile_value_p0 == pytest.approx(0.625, abs=0.03)
+        strategy = client.get_strategy()
+        assert strategy["p1|JsTs|b10"][1] == pytest.approx(0.5, abs=0.02)
+        assert strategy["p0|5c4c|"][1] == pytest.approx(5 / 12, abs=0.03)
+
+        with pytest.raises(RemoteEngineError, match="over max_nodes"):
+            client.build(SpotConfig("KsJsTh7d2c", "*", "*", max_nodes=100000))
+        assert client.progress().state == "unbuilt"

@@ -9,6 +9,24 @@ from holdem_solver.engine import SolverEngine
 
 
 class RealEngine(SolverEngine):
+    """``SolverEngine`` that also builds a spot given as a ``SpotConfig`` dict."""
+
+    _spot_info = None  # type: Any
+
+    def build(self, game_spec: Any, **solver_options: Any) -> "RealEngine":
+        if not isinstance(game_spec, dict):
+            self._spot_info = None
+            super().build(game_spec, **solver_options)
+            return self
+        from .spot_builder import build_spot
+
+        built = build_spot(game_spec)
+        self._spot_info = None
+        super().build(built.spec, **solver_options)
+        built.apply_weights(self._require_solver())
+        self._spot_info = built.info
+        return self
+
     def describe(self) -> Dict[str, Any]:
         spec = self.game_spec
         if spec is None:
@@ -20,6 +38,7 @@ class RealEngine(SolverEngine):
             "num_infoset_actions": sum(len(infoset.actions) for infoset in spec.infosets.values()),
             "estimated_vram_bytes": int(self.estimated_vram_bytes),
             "device": self.device,
+            "spot": self._spot_info,
         }
 
 

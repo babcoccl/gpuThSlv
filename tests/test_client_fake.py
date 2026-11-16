@@ -305,3 +305,18 @@ def test_lock_file_is_not_followed_through_a_symlink(dirs, tmp_path):
     with pytest.raises(WorkerStartError):
         EngineClient(None, engine="fake", start_timeout=10, **dirs)
     assert victim.read_text() == "keep me"
+
+
+def test_spot_build_is_validated_and_resolved(client):
+    from holdem_solver.client import SpotConfig
+
+    spot = SpotConfig("KsJsTh7d2c", "AhQh, 4c3c", "AhJd, 9d9h", pot=10, stack=10, bet_sizes="pot")
+    for game in (spot, spot.to_dict()):
+        built = client.build(game)
+        assert built.game == "spot_river"
+        assert built.spot["num_deals"] == 3 and built.spot["num_blocked_pairs"] == 1
+    assert client.build("kuhn_poker").spot is None
+    # A bad spot fails in the client, before anything is sent.
+    with pytest.raises(ValueError, match="unknown spot fields"):
+        client.build(dict(spot.to_dict(), raises=True))
+    assert client.progress().state == "idle"

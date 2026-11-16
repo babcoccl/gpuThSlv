@@ -10,4 +10,4 @@ import sys
 if sys.version_info < (3, 10):
     collect_ignore_glob = ["test_client*.py"]
 else:
-    collect_ignore_glob = ["test_solver_engine.py"]
+    collect_ignore_glob = ["test_solver_engine.py", "test_spot_builder.py"]

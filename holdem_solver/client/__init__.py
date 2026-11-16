@@ -16,8 +16,11 @@ from .errors import (
     WorkerStartError,
 )
 from .process import WorkerProcess
+from holdem_solver.protocol import BET_SIZE_SETS, SpotConfig
 
 __all__ = [
+    "BET_SIZE_SETS",
+    "SpotConfig",
     "BuildInfo",
     "EngineBusyError",
     "EngineClient",

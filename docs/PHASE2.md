@@ -119,3 +119,114 @@ Each call opens its own connection, so `progress()` and `cancel()` work from ano
 ### Measured numbers
 
 Kuhn (`kuhn_poker`, CFR+, seed 42, 2000 iterations) through client + worker: exploitability `0.001895711`–`0.001895957`, `profile_value_p0` `-0.055536956`–`-0.055537015` (known value `-1/18 = -0.055555556`), solve wall time `0.285`–`0.301 s`, peak reserved VRAM `8.0 MiB`. These match the in-process Phase 1 numbers.
+
+## Part B — spot builder
+
+### What the engine builders accept
+
+Inspected with `help()` in `.venv-engine`; the full output is in `scripts/phase2/logs/hunl_api_help.txt`. Both builders are configurable, not fixed presets, so the spot builder calls them directly and the EFG-compiler route was not needed.
+
+```
+build_hunl_river_game(board, pot=20.0, stack=100.0, bet_fractions=(0.5, 1.0),
+                      num_hands_per_player=100, seed=0, hands0=None, hands1=None, name="hunl_river")
+build_hunl_turn_game(board, pot=20.0, stack=100.0, bet_fractions=(0.5, 1.0),
+                     num_hands_per_player=12, seed=0, hands0=None, hands1=None, name="hunl_turn")
+```
+
+| Parameter | Accepted | Notes |
+| --- | --- | --- |
+| Board | Yes | Card strings; exactly 5 for the river, exactly 4 for the turn. No flop or preflop builder. |
+| Ranges | Yes, as hand lists | `hands0` / `hands1` are explicit two-card hands. Without them the builder samples `num_hands_per_player` random hands from `seed`. |
+| Range weights | Not in the builder | The deal is uniform over non-conflicting hand pairs. Weights are applied afterwards with the solver's `set_root_ranges`. |
+| Pot | Yes | Starting pot, split evenly as each player's sunk contribution. |
+| Stack | Yes | One effective stack for both players; bets are capped at it. |
+| Bet sizes | Yes | Pot fractions, the same list for both players and, on the turn, both streets. |
+| Raises | No | The grammar is check / bet / fold / call only. |
+| Per-player or per-street sizes, donk-only lines | No | Would need a hand-written `GameSpec` through the EFG compiler. |
+| Dead cards | No | Handled by filtering the ranges; on the turn the builder still deals all 44 non-board river cards, so `SpotConfig` rejects turn dead cards. |
+
+Blockers are handled by the builder itself: a hand pair that shares a card is not dealt. The turn builder adds a second chance layer dealing each remaining river card after every turn line that continues.
+
+### SpotConfig
+
+`holdem_solver/protocol/spot.py` (stdlib only, usable from both runtimes) and `holdem_solver/protocol/cards.py`.
+
+```python
+from holdem_solver.client import EngineClient, SpotConfig
+
+spot = SpotConfig("KsJsTh7d2c", "QQ+, AKs, AKo:0.5", "TT+, AQ",
+                  pot=20, stack=100, bet_sizes="standard", all_in=True)
+with EngineClient(0) as client:
+    built = client.build(spot)       # built.spot, built.num_nodes, built.estimated_vram_bytes
+    result = client.solve(iterations=2000)
+```
+
+- Board: 4 cards (turn) or 5 (river), as a string or a list.
+- Ranges: `AA`, `AKs`, `AKo`, `AK`, `TT+`, `A5s+`, `77-TT`, `A2s-A5s`, explicit combos (`AhKh`), `*`, each with an optional `:weight`. Later tokens override earlier ones.
+- Bet sizes: a named set or a list of pot fractions; `all_in=True` adds the stack as a size.
+
+| Set | Pot fractions |
+| --- | --- |
+| `third` | 1/3 |
+| `half` | 1/2 |
+| `pot` | 1 |
+| `standard` | 1/2, 1 |
+| `small_big` | 1/3, 3/4 |
+| `wide` | 1/3, 2/3, 1 |
+| `polar` | 3/4, 3/2 |
+| `overbet` | 1/2, 1, 2 |
+
+- Blockers: combos that use a board or dead card are removed from each range (`num_removed`); hand pairs that share a card are not dealt (`num_blocked_pairs`, `blocked_opponent_combos`). A spot with no legal deal is rejected.
+- `max_nodes` (default 2,000,000): the worker computes the exact node count from a one-deal tree, `1 + deals * (single_deal_nodes - 1)`, and refuses before building anything larger. `None` disables the check.
+- Worker side: `holdem_solver/engine_worker/spot_builder.py` calls the engine builder; `RealEngine.build` accepts the spot dict and applies range weights. `FakeEngine` validates and resolves a spot without building a tree.
+
+### Known-answer tests
+
+`tests/test_spot_builder.py` (engine runtime) and `tests/test_client_gpu.py::test_spot_known_answers_through_the_worker` (through the worker, both GPUs). The spots are nuts-or-air against one bluff-catcher, where pot `P`, bet `B`, and nut fraction `v` give player 0 a value of `v * (P + B*P/(P+B)) - P/2` and a calling frequency of `P/(P+B)`.
+
+| Spot | Expected value (p0) | Checked |
+| --- | --- | --- |
+| River, `v=1/4`, pot-sized bet | -1.25 | value ±0.01, call 1/2, bluff:value 1:2 |
+| River, 1/2-pot, pot and all-in available | 1/4 * (10 + 20/3) - 5 ≈ -0.833 | value ±0.02, call 1/3 against all-in |
+| River, air weighted 3x (`4c3c:3`) | -1.25 | value ±0.01, also after `reset()` |
+| River, same hands unweighted (`v=1/2`) | 2.5 | value ±0.01 |
+| River, opponent blocks the nuts | -5 | value ±0.001, exploitability ≈ 0 |
+| River, nut card dead | -5 | value ±0.001 |
+| Turn, two pot-sized bets, static board | 0.625 | value ±0.03 at 40,000 iterations, call 1/2, turn bluff 5/12 per air hand |
+
+### Node counts and VRAM
+
+Measured by `scripts/phase2/measure_spots.py` from `.venv-api`, one fresh worker per spot, 200 CFR+ iterations each; raw output in `scripts/phase2/logs/spot_measurements.json`. "Est." is `estimate_vram_bytes()`; the peaks are `torch.cuda.max_memory_reserved/allocated` in the worker after the solve. Boards: river `Ks Js Th 7d 2c`, turn `Ks Js Th 7d` (toy turn `As Ks 7s 2s`); pot 20, stack 100 unless toy. "broad" is `22+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, ATo+, KTo+, QJo`.
+
+| Spot | GPU | Hands (p0 x p1) | Deals | Nodes | Infosets | Build s | Est. VRAM MiB | Peak reserved MiB | Peak allocated MiB | Est. / peak | it/s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| river-toy | 0 | 4 x 1 | 4 | 37 | 10 | 0.4 | 11.0 | 8.0 | 0.1 | 1.38 | 1099 |
+| river-toy | 1 | 4 x 1 | 4 | 37 | 10 | 0.4 | 11.0 | 8.0 | 0.1 | 1.38 | 1154 |
+| river-narrow | 0 | 27 x 37 | 726 | 10891 | 192 | 0.5 | 14.7 | 10.0 | 3.6 | 1.47 | 991 |
+| river-narrow | 1 | 27 x 37 | 726 | 10891 | 192 | 0.5 | 14.7 | 10.0 | 3.6 | 1.47 | 888 |
+| river-broad-standard | 0 | 209 x 209 | 38202 | 573031 | 1254 | 5.8 | 204.7 | 228.0 | 187.6 | 0.90 | 181 |
+| river-broad-standard | 1 | 209 x 209 | 38202 | 573031 | 1254 | 6.0 | 204.7 | 228.0 | 187.6 | 0.90 | 168 |
+| river-broad-wide-allin | 0 | 209 x 209 | 38202 | 1031455 | 2090 | 10.2 | 359.6 | 402.0 | 341.0 | 0.89 | 104 |
+| river-broad-wide-allin | 1 | 209 x 209 | 38202 | 1031455 | 2090 | 10.9 | 359.6 | 402.0 | 341.0 | 0.89 | 101 |
+| river-full-pot | 0 | 1081 x 499 | 494010 | 4446091 | 3160 | 45.5 | 1513.1 | 1576.0 | 1432.5 | 0.96 | 22 |
+| river-full-pot | 1 | 1081 x 499 | 494010 | 4446091 | 3160 | 46.0 | 1513.1 | 1576.0 | 1432.5 | 0.96 | 26 |
+| turn-toy | 0 | 4 x 1 | 4 | 4789 | 1342 | 0.6 | 12.7 | 8.0 | 1.7 | 1.59 | 969 |
+| turn-toy | 1 | 4 x 1 | 4 | 4789 | 1342 | 0.6 | 12.7 | 8.0 | 1.7 | 1.59 | 903 |
+| turn-narrow-standard | 0 | 18 x 25 | 339 | 1123786 | 29799 | 11.8 | 393.2 | 434.0 | 370.7 | 0.91 | 94 |
+| turn-narrow-standard | 1 | 18 x 25 | 339 | 1123786 | 29799 | 11.8 | 393.2 | 434.0 | 370.7 | 0.91 | 101 |
+| turn-pairs-standard | 0 | 33 x 43 | 1128 | 3739321 | 52668 | 40.5 | 1278.6 | 1366.0 | 1228.4 | 0.94 | 34 |
+| turn-pairs-standard | 1 | 33 x 43 | 1128 | 3739321 | 52668 | 40.2 | 1278.6 | 1366.0 | 1228.4 | 0.94 | 29 |
+| turn-pairs-pot-allin | 0 | 33 x 43 | 1128 | 2548153 | 38684 | 27.7 | 874.7 | 952.0 | 828.3 | 0.92 | 48 |
+| turn-pairs-pot-allin | 1 | 33 x 43 | 1128 | 2548153 | 38684 | 25.5 | 874.7 | 952.0 | 828.3 | 0.92 | 47 |
+
+- The estimate is 4–11% below the measured peak reserved for every spot over 500k nodes, and above it (dominated by the fixed CUDA floor) for small ones. Budget about 1.15x the estimate.
+- Both GPUs give identical node counts and peaks.
+- Memory follows node count: about 370–420 bytes of peak reserved per node across the large spots, so 16 GiB is roughly 40M nodes. That extrapolation is not measured.
+- Trees grow with deals, not range width alone: a full-range river with one bet size is 4.4M nodes, and a turn with 33 x 43 hands and two sizes is 3.7M because each turn line fans out over 44 rivers.
+- Build time is CPU-bound tree construction in the engine, about 10 s per million nodes.
+
+### Limits
+
+- No raises, no flop or preflop, one bet-size list for both players and streets: these are limits of the engine builders, not of `SpotConfig`.
+- Turn dead cards are rejected (see the table above).
+- 200 iterations is enough to measure memory, not to converge; the exploitabilities in the JSON are not solution quality.

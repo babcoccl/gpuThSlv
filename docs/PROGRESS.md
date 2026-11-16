@@ -27,3 +27,16 @@
 - `SolverEngine.solve` gained `should_stop` and `SolveResult.cancelled` so a running solve can be cancelled between chunks.
 - Decisions: `solve` is an async job polled with `solve_wait`; a dead worker raises `WorkerDiedError` and restarts unbuilt; a `flock` per socket keeps one worker per GPU and lets a restart clear the stale socket and shm files.
 - Gate: `scripts/phase2/run_split_gate.sh` — engine suite `36 passed, 1 skipped` on each GPU, API suite `47 passed`, Kuhn round-trip from `.venv-api` on both GPUs (exploitability ≈ `0.0018958`, value ≈ `-0.055537`, peak reserved 8.0 MiB), worker restarted cleanly after `SIGKILL` on both. Details: `docs/PHASE2.md`.
+
+## 2026-11-16 — Phase 2A review fixes
+
+- Devin Review on PR #3: 1 security and 6 bug findings, all fixed with regression tests: runtime/shm directories and the lock file can no longer be planted by another user; `solve_wait` is tied to a job id; a dead worker is restarted once under concurrent calls; `get_strategy` is serialized and cleans up partial exports; `close` cancels solves admitted while it waits; error responses echo the request id.
+
+## 2026-11-16 — Phase 2B spot builder
+
+- `help()` on `gpu_cfr.games.hunl_river` / `hunl_turn` (saved in `scripts/phase2/logs/hunl_api_help.txt`): both builders take board, pot, stack, `bet_fractions`, and explicit `hands0`/`hands1`. They are not fixed presets, so the EFG-compiler route was not needed. Not supported: raises, range weights, per-player or per-street sizes, flop/preflop.
+- Added `SpotConfig` (`holdem_solver/protocol/spot.py`), card and range parsing (`protocol/cards.py`), eight named bet-size sets plus `all_in`, blocker and dead-card removal, and `engine_worker/spot_builder.py`. `EngineClient.build` accepts a `SpotConfig`.
+- Decisions: range weights go through `set_root_ranges` after the build; the node count is computed exactly from a one-deal tree and checked against `max_nodes` (default 2M) before building; turn dead cards are rejected because the engine still deals them as river cards.
+- Known answers (closed-form nuts/air/bluff-catcher spots): river -1.25, 2.5, -0.833 and -5 within 0.02; two-street turn 0.625 within 0.03 at 40,000 iterations.
+- Measured on both GPUs (`scripts/phase2/measure_spots.py`): 37 nodes to 4,446,091 nodes; largest peak reserved 1576 MiB against a 1513 MiB estimate; estimate is 4–11% under peak for spots over 500k nodes. Full table: `docs/PHASE2.md`.
+- Gate: `scripts/phase2/run_split_gate.sh` — engine `96 passed, 1 skipped` per GPU, API `100 passed`, Kuhn round-trip and kill/restart OK on both GPUs.
