@@ -40,3 +40,13 @@
 - Known answers (closed-form nuts/air/bluff-catcher spots): river -1.25, 2.5, -0.833 and -5 within 0.02; two-street turn 0.625 within 0.03 at 40,000 iterations.
 - Measured on both GPUs (`scripts/phase2/measure_spots.py`): 37 nodes to 4,446,091 nodes; largest peak reserved 1576 MiB against a 1513 MiB estimate; estimate is 4–11% under peak for spots over 500k nodes. Full table: `docs/PHASE2.md`.
 - Gate: `scripts/phase2/run_split_gate.sh` — engine `96 passed, 1 skipped` per GPU, API `100 passed`, Kuhn round-trip and kill/restart OK on both GPUs.
+
+## 2026-11-16 — Phase 3 REST API
+
+- Added `holdem_solver/api` (FastAPI on `.venv-api`, Python 3.15.2): `POST/GET/DELETE /v1/solves`, `GET /v1/solves/{id}/strategy`, `/healthz`, `/v1/gpus`; API-key auth via `HOLDEM_API_KEY`, SQLite job store (`api-data/solves.db`), in-flight jobs marked failed on restart, pydantic models, structured JSON logs, OpenAPI docs.
+- One job at a time per GPU, least-loaded idle GPU assignment; full scheduler deferred to Phase 4. Strategies are persisted to `<data_dir>/strategy-<id>.npz` at job end.
+- Admission gates: `num_nodes > max_nodes` and `estimated_vram_bytes * 1.15 > 14 GiB` reject with 422. New `estimate_spot` RPC computes the node count on a CPU-side probe tree so it stays responsive during a solve.
+- Engine code moved from `holdem_solver/engine/` into `holdem_solver/engine_worker/` (per AGENTS.md); worker `progress` now returns `exploitability_history` and `get_strategy` exports a fourth `actions` array with action names per infoset.
+- Full-range river convergence measured (`scripts/phase3/record_convergence.py`, log in `scripts/phase3/logs/`): exploitability `0.0416 → 0.00083` over 4000 iterations at ~64 it/s including evals; noisy after ~2k iters. Table in `docs/PHASE3.md`.
+- Gate: `scripts/phase3/api_gate.sh` (curl) passed on both GPUs — parallel solves on gpu0/gpu1, strategy fetch, cancel, and all 422 paths. Tests: `.venv-api` 107 passed (incl. `@pytest.mark.gpu` e2e on the 573k-node river spot), `.venv-engine` 95 passed + 1 skipped. `README.md` has run instructions and curl examples.
+- Devin Review on PR #5: 4 bugs fixed in `0e12db9` — worker auto-restart after crash, NaN exploitability samples breaking JSON-RPC encoding, the VRAM gate now respects `solver_options.dtype`, and `HOLDEM_GPUS=""` (gpu `None`) is schedulable via a `_NO_IDLE` sentinel.
