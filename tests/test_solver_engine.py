@@ -150,3 +150,29 @@ def test_close_releases_engine_state_cuda():
     with pytest.raises(RuntimeError):
         engine.get_strategy()
     engine.close()
+
+
+def test_should_stop_cancels_fixed_iteration_solve_cpu():
+    calls = []
+
+    def should_stop():
+        calls.append(None)
+        return len(calls) > 3
+
+    with _kuhn_engine("cpu") as engine:
+        result = engine.solve(iterations=1000, chunk_iterations=50, should_stop=should_stop)
+        assert result.cancelled is True
+        assert result.iterations_run == 150
+        assert result.total_iterations == 150
+        assert result.exploitability > 0.0
+        resumed = engine.solve(iterations=50)
+        assert resumed.cancelled is False
+        assert resumed.total_iterations == 200
+
+
+def test_should_stop_cancels_target_solve_cpu():
+    with _kuhn_engine("cpu") as engine:
+        result = engine.solve(target_exploitability=1e-9, chunk_iterations=20, should_stop=lambda: engine.iterations >= 40)
+        assert result.cancelled is True
+        assert result.target_reached is False
+        assert result.total_iterations == 40
