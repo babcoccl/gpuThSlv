@@ -1,0 +1,6 @@
+# .venv-engine (Python 3.9): GPU-CFR ships cpython-39 .so files only.
+# torch 2.8.0 from PyPI pulls the CUDA 12.8 runtime wheels (works on driver >= 570).
+torch==2.8.0
+triton==3.4.0
+numpy==2.0.2
+pytest==8.4.2

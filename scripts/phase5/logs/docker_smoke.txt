@@ -1,0 +1,36 @@
+# docker build -t holdem-solver:0.5.0 . -> EXIT 0 (image 11.3GB)
+# docker run -d --name holdem-smoke --runtime nvidia -p 127.0.0.1:8001:8000 -e HOLDEM_API_KEY=... -e HOLDEM_GPUS=0,1 --shm-size 2g holdem-solver:0.5.0
+holdem-solver:0.5.0 Up 52 seconds (healthy)
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58224 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     172.17.0.1:53912 - "GET /v1/gpus HTTP/1.1" 200 OK
+INFO:     172.17.0.1:50496 - "POST /v1/solves HTTP/1.1" 202 Accepted
+INFO:     172.17.0.1:50510 - "GET /v1/solves/05bbc234c845 HTTP/1.1" 200 OK
+Python 3.15.2
+Python 3.9.25
+drwx------ 4 holdem holdem   80 Nov 16 23:12 /dev/shm/holdem_solver_1000
+drwx------ 1 holdem holdem 4096 Nov 16 23:12 /run/holdem-solver
+total 16
+-rw-r--r-- 1 holdem holdem 138 Nov 16 23:12 gpu0.log
+srwx------ 1 holdem holdem   0 Nov 16 23:12 gpu0.sock
+-rw------- 1 holdem holdem   4 Nov 16 23:12 gpu0.sock.lock
+-rw-r--r-- 1 holdem holdem 138 Nov 16 23:12 gpu1.log
+srwx------ 1 holdem holdem   0 Nov 16 23:12 gpu1.sock
+-rw------- 1 holdem holdem   4 Nov 16 23:12 gpu1.sock.lock
+/opt/holdem-solver/.venv-api/bin/python -m holdem_solver.api  (pid 1, ppid 0)
+/opt/holdem-solver/.venv-engine/bin/python -m holdem_solver.engine_worker --engine real --socket /run/holdem-solver/gpu0.sock --shm-dir /dev/shm/holdem_solver_1000/gpu0 --parent-pid 1 --gpu 0  (pid 104, ppid 1)
+/opt/holdem-solver/.venv-engine/bin/python -m holdem_solver.engine_worker --engine real --socket /run/holdem-solver/gpu1.sock --shm-dir /dev/shm/holdem_solver_1000/gpu1 --parent-pid 1 --gpu 1  (pid 156, ppid 1)
+sh -c .venv-api/bin/python -V; .venv-engine/bin/python -V; ls -ld /run/holdem-solver /dev/shm/holdem_solver_1000; ls -l /run/holdem-solver; for p in /proc/[0-9]*; do tr "\0" " " < $p/cmdline; echo " (pid ${p#/proc/}, ppid $(awk "/PPid/{print \$2}" $p/status))"; done 2>/dev/null | grep python  (pid 270, ppid 0)
+sh -c .venv-api/bin/python -V; .venv-engine/bin/python -V; ls -ld /run/holdem-solver /dev/shm/holdem_solver_1000; ls -l /run/holdem-solver; for p in /proc/[0-9]*; do tr "\0" " " < $p/cmdline; echo " (pid ${p#/proc/}, ppid $(awk "/PPid/{print \$2}" $p/status))"; done 2>/dev/null | grep python  (pid 280, ppid 270)
+grep python  (pid 281, ppid 270)
+holdem_jobs{status="done"} 1.0
+holdem_vram_factor{dtype="float32",source="seed"} 1.6
+holdem_vram_factor{dtype="float64",source="seed"} 1.6
+holdem_vram_factor_samples{dtype="float32"} 0.0
+holdem_vram_factor_samples{dtype="float64"} 0.0
+holdem_iterations_per_second{gpu="0"} 5356.32
+holdem_gpu_memory_used_bytes{gpu="0"} 1.312161792e+09
+holdem_gpu_memory_used_bytes{gpu="1"} 7.42719488e+08

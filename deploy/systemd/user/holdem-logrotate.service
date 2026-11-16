@@ -1,0 +1,6 @@
+[Unit]
+Description=Rotate holdem-solver logs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate --state @LOGDIR@/.logrotate.state @REPO@/deploy/logrotate/holdem-solver.rendered

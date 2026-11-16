@@ -1,0 +1,29 @@
+# docker compose up -d --build   (needs the NVIDIA Container Toolkit)
+# Put HOLDEM_API_KEY in .env next to this file (see deploy/holdem.env.example).
+services:
+  holdem-solver:
+    build: .
+    image: holdem-solver:0.5.0
+    runtime: nvidia
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOLDEM_GPUS: "0,1"
+      HOLDEM_WORKER_MODE: spawn
+      NVIDIA_VISIBLE_DEVICES: all
+    # Worker <-> API bulk arrays go through /dev/shm (a 9.6M-node strategy is ~100 MB).
+    shm_size: 2gb
+    volumes:
+      - holdem-data:/data
+    stop_grace_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+volumes:
+  holdem-data:

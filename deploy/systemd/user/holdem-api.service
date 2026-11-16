@@ -1,0 +1,25 @@
+# REST API, Python 3.15. Attaches to holdem-worker@{0,1} (HOLDEM_WORKER_MODE=external).
+[Unit]
+Description=holdem-solver REST API
+PartOf=holdem-solver.target
+Wants=holdem-worker@0.service holdem-worker@1.service
+After=holdem-worker@0.service holdem-worker@1.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+EnvironmentFile=%h/.config/holdem-solver/holdem.env
+Environment=PYTHONPATH=@REPO@ HOLDEM_API_DATA_DIR=@DATADIR@
+Environment=HOLDEM_SOLVER_RUNTIME_DIR=%t/holdem-solver
+ExecStart=@REPO@/.venv-api/bin/python -m holdem_solver.api
+Restart=always
+RestartSec=2
+TimeoutStopSec=30
+UMask=0077
+StandardOutput=append:@LOGDIR@/api.log
+StandardError=inherit
+
+[Install]
+WantedBy=holdem-solver.target

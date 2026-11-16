@@ -319,7 +319,8 @@ def test_vram_aware_dispatch_uses_measured_peaks(tmp_path):
     )
     with make_client(tmp_path, gpus=(0, 1), config=config) as client:
         client.app.state.scheduler.vram.min_sample_bytes = 0
-        jobs = [poll_until(client, submit(client, body())) for _ in range(2)]
+        jobs = [poll_until(client, submit(client, body(fake_peak_vram_bytes=estimate))) for _ in range(2)]
+        assert client.app.state.scheduler.vram.factor("float32")[1:] == ("seed", 2)
         assert [j["gpu"] for j in jobs] == [1, 1], "gpu 0 is too small and is skipped even when idle"
         # A third job (the 3rd sample) measures a peak of 3x its estimate ...
         peaky = poll_until(client, submit(client, body(fake_peak_vram_bytes=3 * estimate)))

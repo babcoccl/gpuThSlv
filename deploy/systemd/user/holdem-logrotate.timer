@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly holdem-solver log rotation check
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
