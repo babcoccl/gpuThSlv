@@ -41,11 +41,12 @@ run_one() {
     status=$?
     end="$(date -Is)"
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$start" "$end" "$gpu" "$game" "$mode" "$status" >> "$status_log"
+    return "$status"
 }
 
 run_gpu() {
     local gpu="$1"
-    local game mode flag
+    local game mode flag failed=0
     for game in "${GAMES[@]}"; do
         for mode in graph eager; do
             if [ "$mode" = graph ]; then
@@ -53,9 +54,12 @@ run_gpu() {
             else
                 flag="--no-cuda-graph"
             fi
-            run_one "$gpu" "$game" "$flag" "$mode"
+            if ! run_one "$gpu" "$game" "$flag" "$mode"; then
+                failed=1
+            fi
         done
     done
+    return "$failed"
 }
 
 : > "$LOG_DIR/iter_bench_gpu0.jsonl"
