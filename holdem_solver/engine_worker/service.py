@@ -263,12 +263,15 @@ class EngineService:
         # A strategy the client never collected is replaced, not accumulated.
         self._remove_files(self._strategy_files)
         token = "%d-%d" % (os.getpid(), next(self._file_ids))
-        refs = {
-            "keys": self._save("strategy-keys-%s.npy" % token, key_bytes),
-            "offsets": self._save("strategy-offsets-%s.npy" % token, offsets),
-            "values": self._save("strategy-values-%s.npy" % token, values),
-        }
-        self._strategy_files = [ref[protocol.ARRAY_REF_KEY] for ref in refs.values()]
+        arrays = {"keys": key_bytes, "offsets": offsets, "values": values}
+        names = {part: "strategy-%s-%s.npy" % (part, token) for part in arrays}
+        self._strategy_files = [os.path.join(self._shm_dir, name) for name in names.values()]
+        try:
+            refs = {part: self._save(names[part], array) for part, array in arrays.items()}
+        except BaseException:
+            self._remove_files(self._strategy_files)
+            self._strategy_files = []
+            raise
         refs.update({"num_infosets": len(keys), "iteration": iteration})
         return refs
 
