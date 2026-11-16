@@ -1,0 +1,7 @@
+gpu_cfr.eval.exploitability: FAIL ImportError: Kuhn oracle requires project_llm_opp_prior on PYTHONPATH. Run project_gpu_cfr from the repository root or add the sibling project.
+gpu_cfr.eval.best_response: OK
+gpu_cfr.eval.strategy_export: OK
+gpu_cfr.eval.metrics: OK
+kuhn_export_entries=12
+kuhn_exploitability=0.001895875
+kuhn_profile_value_p0=-0.055537000
