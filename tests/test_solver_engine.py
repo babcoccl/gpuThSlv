@@ -136,6 +136,7 @@ def test_build_after_empty_constructor_cpu():
         engine.close()
 
 
+@pytest.mark.gpu
 def test_close_releases_engine_state_cuda():
     if not torch.cuda.is_available():
         pytest.skip("CUDA is not available")
