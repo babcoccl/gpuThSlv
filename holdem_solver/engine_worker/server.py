@@ -60,12 +60,15 @@ class _Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
 
 def _lock_socket(path: str) -> Any:
     """Take the per-socket lock, then clear a socket left by a killed worker."""
-    handle = open(path + ".lock", "w")
+    # O_NOFOLLOW and no O_TRUNC: never write through a planted symlink, and
+    # leave a live owner's lock file alone until the lock is ours.
+    handle = os.fdopen(os.open(path + ".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), "r+")
     try:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
         handle.close()
         raise SystemExit("another engine worker already owns %s" % path)
+    handle.truncate(0)
     handle.write("%d\n" % os.getpid())
     handle.flush()
     if os.path.lexists(path):
@@ -114,7 +117,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         raise SystemExit("socket path is longer than %d bytes: %s" % (_MAX_SOCKET_PATH, socket_path))
 
     os.umask(0o077)
-    os.makedirs(os.path.dirname(socket_path) or ".", mode=0o700, exist_ok=True)
+    try:
+        protocol.ensure_private_dir(os.path.dirname(socket_path) or ".")
+        protocol.ensure_private_dir(shm_dir)
+    except OSError as exc:
+        raise SystemExit("unsafe worker directory: %s" % exc)
     lock = _lock_socket(socket_path)
 
     engine, info, vram_stats, reset_peak_vram = _make_engine(args.engine)

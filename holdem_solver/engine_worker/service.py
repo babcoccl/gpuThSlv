@@ -78,7 +78,7 @@ class EngineService:
         self._file_ids = itertools.count(1)
         self._strategy_files: List[str] = []
         self._shutdown_requested = threading.Event()
-        os.makedirs(self._shm_dir, mode=0o700, exist_ok=True)
+        protocol.ensure_private_dir(self._shm_dir)
         self.clear_shm()
 
     # -- dispatch ---------------------------------------------------------

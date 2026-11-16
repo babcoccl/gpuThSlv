@@ -73,7 +73,7 @@ class WorkerProcess:
         with self._lock:
             if self.is_alive():
                 return
-            os.makedirs(os.path.dirname(self.socket_path), mode=0o700, exist_ok=True)
+            protocol.ensure_private_dir(os.path.dirname(self.socket_path))
             command = [
                 self.python,
                 "-m",

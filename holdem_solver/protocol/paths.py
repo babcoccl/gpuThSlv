@@ -1,6 +1,7 @@
 """Socket and /dev/shm locations, and the JSON reference to a .npy file."""
 
 import os
+import stat
 import tempfile
 from typing import Any, Dict, Optional, Sequence
 
@@ -20,6 +21,25 @@ def runtime_dir() -> str:
     if base:
         return base
     return os.path.join(tempfile.gettempdir(), "%s_%d" % (_PREFIX, os.getuid()))
+
+
+def ensure_private_dir(path: str) -> str:
+    """Create ``path`` (mode 0700) and refuse one another user could tamper with.
+
+    The default locations sit in world-writable ``/tmp`` and ``/dev/shm``, so a
+    directory that already exists is only used if it is a real directory owned
+    by this user, not writable by group or others, inside a parent that other
+    users cannot rename entries in.
+    """
+    path = os.path.abspath(path)
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    info = os.lstat(path)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
+        raise PermissionError("%s must be a directory owned by uid %d and not group/world writable" % (path, os.getuid()))
+    parent = os.stat(os.path.dirname(path))
+    if parent.st_uid not in (0, os.getuid()) or (parent.st_mode & 0o022 and not parent.st_mode & stat.S_ISVTX):
+        raise PermissionError("%s is inside a directory other users can modify" % path)
+    return path
 
 
 def socket_path(gpu: Optional[int]) -> str:
