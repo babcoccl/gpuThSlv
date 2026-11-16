@@ -1,0 +1,338 @@
+[
+  {
+    "cuda_graph_active": true,
+    "end": "2026-11-16T10:41:36-05:00",
+    "game": "hunl_river",
+    "gpu": 0,
+    "mode": "cuda_graph",
+    "ms_per_iter_max": 0.12998687744140625,
+    "ms_per_iter_median": 0.12733551788330078,
+    "ms_per_iter_min": 0.1268971862792969,
+    "ms_per_iter_values": [
+      0.1268971862792969,
+      0.12998687744140625,
+      0.12733551788330078
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 137416,
+    "peak_memory_allocated_bytes": 35569152,
+    "peak_memory_allocated_mib": 33.921,
+    "peak_memory_reserved_bytes": 56623104,
+    "peak_memory_reserved_mib": 54.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:30-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": false,
+    "end": "2026-11-16T10:41:42-05:00",
+    "game": "hunl_river",
+    "gpu": 0,
+    "mode": "eager",
+    "ms_per_iter_max": 0.5464727172851562,
+    "ms_per_iter_median": 0.5256926879882813,
+    "ms_per_iter_min": 0.5225883178710937,
+    "ms_per_iter_values": [
+      0.5256926879882813,
+      0.5464727172851562,
+      0.5225883178710937
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 137416,
+    "peak_memory_allocated_bytes": 35569152,
+    "peak_memory_allocated_mib": 33.921,
+    "peak_memory_reserved_bytes": 50331648,
+    "peak_memory_reserved_mib": 48.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:36-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": true,
+    "end": "2026-11-16T10:41:56-05:00",
+    "game": "hunl_turn",
+    "gpu": 0,
+    "mode": "cuda_graph",
+    "ms_per_iter_max": 0.36070904541015625,
+    "ms_per_iter_median": 0.3547207336425781,
+    "ms_per_iter_min": 0.35433258056640626,
+    "ms_per_iter_values": [
+      0.3547207336425781,
+      0.36070904541015625,
+      0.35433258056640626
+    ],
+    "num_exec_blocks": 8,
+    "num_nodes": 434266,
+    "peak_memory_allocated_bytes": 113560064,
+    "peak_memory_allocated_mib": 108.299,
+    "peak_memory_reserved_bytes": 148897792,
+    "peak_memory_reserved_mib": 142.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:42-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": false,
+    "end": "2026-11-16T10:42:10-05:00",
+    "game": "hunl_turn",
+    "gpu": 0,
+    "mode": "eager",
+    "ms_per_iter_max": 0.83888720703125,
+    "ms_per_iter_median": 0.8140515747070313,
+    "ms_per_iter_min": 0.8085357055664063,
+    "ms_per_iter_values": [
+      0.83888720703125,
+      0.8085357055664063,
+      0.8140515747070313
+    ],
+    "num_exec_blocks": 8,
+    "num_nodes": 434266,
+    "peak_memory_allocated_bytes": 113560064,
+    "peak_memory_allocated_mib": 108.299,
+    "peak_memory_reserved_bytes": 142606336,
+    "peak_memory_reserved_mib": 136.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:56-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": true,
+    "end": "2026-11-16T10:41:26-05:00",
+    "game": "kuhn_poker",
+    "gpu": 0,
+    "mode": "cuda_graph",
+    "ms_per_iter_max": 0.06467388916015625,
+    "ms_per_iter_median": 0.06437904357910157,
+    "ms_per_iter_min": 0.0643185577392578,
+    "ms_per_iter_values": [
+      0.06437904357910157,
+      0.0643185577392578,
+      0.06467388916015625
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 55,
+    "peak_memory_allocated_bytes": 35840,
+    "peak_memory_allocated_mib": 0.034,
+    "peak_memory_reserved_bytes": 8388608,
+    "peak_memory_reserved_mib": 8.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:23-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": false,
+    "end": "2026-11-16T10:41:30-05:00",
+    "game": "kuhn_poker",
+    "gpu": 0,
+    "mode": "eager",
+    "ms_per_iter_max": 0.5615690307617187,
+    "ms_per_iter_median": 0.5611859741210937,
+    "ms_per_iter_min": 0.5329575805664063,
+    "ms_per_iter_values": [
+      0.5611859741210937,
+      0.5329575805664063,
+      0.5615690307617187
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 55,
+    "peak_memory_allocated_bytes": 34816,
+    "peak_memory_allocated_mib": 0.033,
+    "peak_memory_reserved_bytes": 2097152,
+    "peak_memory_reserved_mib": 2.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:26-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": true,
+    "end": "2026-11-16T10:41:36-05:00",
+    "game": "hunl_river",
+    "gpu": 1,
+    "mode": "cuda_graph",
+    "ms_per_iter_max": 0.12098182678222656,
+    "ms_per_iter_median": 0.12092639923095704,
+    "ms_per_iter_min": 0.12092598724365235,
+    "ms_per_iter_values": [
+      0.12098182678222656,
+      0.12092639923095704,
+      0.12092598724365235
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 137416,
+    "peak_memory_allocated_bytes": 35569152,
+    "peak_memory_allocated_mib": 33.921,
+    "peak_memory_reserved_bytes": 56623104,
+    "peak_memory_reserved_mib": 54.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:29-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": false,
+    "end": "2026-11-16T10:41:42-05:00",
+    "game": "hunl_river",
+    "gpu": 1,
+    "mode": "eager",
+    "ms_per_iter_max": 0.5382739868164063,
+    "ms_per_iter_median": 0.5340504760742187,
+    "ms_per_iter_min": 0.5327876586914062,
+    "ms_per_iter_values": [
+      0.5382739868164063,
+      0.5340504760742187,
+      0.5327876586914062
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 137416,
+    "peak_memory_allocated_bytes": 35569152,
+    "peak_memory_allocated_mib": 33.921,
+    "peak_memory_reserved_bytes": 50331648,
+    "peak_memory_reserved_mib": 48.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:36-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": true,
+    "end": "2026-11-16T10:41:58-05:00",
+    "game": "hunl_turn",
+    "gpu": 1,
+    "mode": "cuda_graph",
+    "ms_per_iter_max": 0.33456048583984377,
+    "ms_per_iter_median": 0.3342982177734375,
+    "ms_per_iter_min": 0.33425704956054686,
+    "ms_per_iter_values": [
+      0.33425704956054686,
+      0.3342982177734375,
+      0.33456048583984377
+    ],
+    "num_exec_blocks": 8,
+    "num_nodes": 434266,
+    "peak_memory_allocated_bytes": 113560064,
+    "peak_memory_allocated_mib": 108.299,
+    "peak_memory_reserved_bytes": 148897792,
+    "peak_memory_reserved_mib": 142.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:42-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": false,
+    "end": "2026-11-16T10:42:11-05:00",
+    "game": "hunl_turn",
+    "gpu": 1,
+    "mode": "eager",
+    "ms_per_iter_max": 0.8253532104492187,
+    "ms_per_iter_median": 0.813932373046875,
+    "ms_per_iter_min": 0.8123546142578125,
+    "ms_per_iter_values": [
+      0.8123546142578125,
+      0.813932373046875,
+      0.8253532104492187
+    ],
+    "num_exec_blocks": 8,
+    "num_nodes": 434266,
+    "peak_memory_allocated_bytes": 113560064,
+    "peak_memory_allocated_mib": 108.299,
+    "peak_memory_reserved_bytes": 142606336,
+    "peak_memory_reserved_mib": 136.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:58-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": true,
+    "end": "2026-11-16T10:41:26-05:00",
+    "game": "kuhn_poker",
+    "gpu": 1,
+    "mode": "cuda_graph",
+    "ms_per_iter_max": 0.06151769638061524,
+    "ms_per_iter_median": 0.061505569458007815,
+    "ms_per_iter_min": 0.06150384140014648,
+    "ms_per_iter_values": [
+      0.06151769638061524,
+      0.06150384140014648,
+      0.061505569458007815
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 55,
+    "peak_memory_allocated_bytes": 35840,
+    "peak_memory_allocated_mib": 0.034,
+    "peak_memory_reserved_bytes": 8388608,
+    "peak_memory_reserved_mib": 8.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:23-05:00",
+    "status": "0"
+  },
+  {
+    "cuda_graph_active": false,
+    "end": "2026-11-16T10:41:29-05:00",
+    "game": "kuhn_poker",
+    "gpu": 1,
+    "mode": "eager",
+    "ms_per_iter_max": 0.516746337890625,
+    "ms_per_iter_median": 0.5114294128417969,
+    "ms_per_iter_min": 0.5101591796875,
+    "ms_per_iter_values": [
+      0.5114294128417969,
+      0.5101591796875,
+      0.516746337890625
+    ],
+    "num_exec_blocks": 4,
+    "num_nodes": 55,
+    "peak_memory_allocated_bytes": 34816,
+    "peak_memory_allocated_mib": 0.033,
+    "peak_memory_reserved_bytes": 2097152,
+    "peak_memory_reserved_mib": 2.0,
+    "reps": [
+      1,
+      2,
+      3
+    ],
+    "start": "2026-11-16T10:41:26-05:00",
+    "status": "0"
+  }
+]

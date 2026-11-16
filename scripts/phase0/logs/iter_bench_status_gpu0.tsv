@@ -1,0 +1,12 @@
+start gpu=0 game=kuhn_poker mode=graph flag=--cuda-graph iters=1000 warmup=50 reps=3
+2026-11-16T10:41:23-05:00	2026-11-16T10:41:26-05:00	0	kuhn_poker	graph	0
+start gpu=0 game=kuhn_poker mode=eager flag=--no-cuda-graph iters=1000 warmup=50 reps=3
+2026-11-16T10:41:26-05:00	2026-11-16T10:41:30-05:00	0	kuhn_poker	eager	0
+start gpu=0 game=hunl_river mode=graph flag=--cuda-graph iters=1000 warmup=50 reps=3
+2026-11-16T10:41:30-05:00	2026-11-16T10:41:36-05:00	0	hunl_river	graph	0
+start gpu=0 game=hunl_river mode=eager flag=--no-cuda-graph iters=1000 warmup=50 reps=3
+2026-11-16T10:41:36-05:00	2026-11-16T10:41:42-05:00	0	hunl_river	eager	0
+start gpu=0 game=hunl_turn mode=graph flag=--cuda-graph iters=1000 warmup=50 reps=3
+2026-11-16T10:41:42-05:00	2026-11-16T10:41:56-05:00	0	hunl_turn	graph	0
+start gpu=0 game=hunl_turn mode=eager flag=--no-cuda-graph iters=1000 warmup=50 reps=3
+2026-11-16T10:41:56-05:00	2026-11-16T10:42:10-05:00	0	hunl_turn	eager	0

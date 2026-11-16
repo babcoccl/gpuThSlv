@@ -1,0 +1,3 @@
+[submodule "third_party/GPU-CFR"]
+	path = third_party/GPU-CFR
+	url = https://github.com/lbn187/GPU-CFR

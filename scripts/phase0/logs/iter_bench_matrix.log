@@ -1,0 +1,1 @@
+matrix_done gpu0_worker_status=0 gpu1_worker_status=0 iters=1000 warmup=50 reps=3
