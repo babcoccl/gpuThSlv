@@ -82,8 +82,8 @@ def _labels(actions: list[str]) -> list[dict[str, str]]:
 
 def tree_node(index: TreeIndex, spot: dict[str, Any], hist: tuple[str, ...]) -> dict[str, Any]:
     """The ``/tree`` response for one node or chance position."""
-    pot = float(spot.get("pot", 0.0))
-    stack = float(spot.get("stack", 0.0))
+    pot = float(spot.get("pot", 20.0))   # SpotConfig defaults
+    stack = float(spot.get("stack", 100.0))
     chips = replay_chips(index, hist)
     board = dealt_board(spot.get("board") or (), hist)
     kind = index.edge_kind(hist)
@@ -148,12 +148,6 @@ def node_values(
         raise KeyError("no player node at history")
     player, actions = node
     rows = index.rows_at[hist]
-    work = index.descendants(hist) * len(rows)
-    if work > max_work:
-        raise ValueError(
-            "node evaluation needs %d combo-node visits (limit %d); narrow the spot or raise HOLDEM_NODE_EVAL_MAX_WORK"
-            % (work, max_work)
-        )
     ranges = spot_ranges(spot)
     if ranges is None:
         raise ValueError("spot carries no parseable ranges")
@@ -162,8 +156,17 @@ def node_values(
         parse_cards(spot.get("board") or ()) + parse_cards(spot.get("dead_cards") or ())
     )
     reach0, reach1 = reach_at(index, hist, w0, w1, blocked_ids)
+    opp_combos = len(reach1) if player == 0 else len(reach0)
+    # per (combo, action): a subtree walk whose terminals pair the combo
+    # against every opponent combo still reaching
+    work = index.descendants(hist) * len(rows) * max(1, opp_combos)
+    if work > max_work:
+        raise ValueError(
+            "node evaluation needs %d combo-node visits (limit %d); narrow the spot or raise HOLDEM_NODE_EVAL_MAX_WORK"
+            % (work, max_work)
+        )
     board_now = dealt_board(spot.get("board") or (), hist)
-    pot = float(spot.get("pot", 0.0))
+    pot = float(spot.get("pot", 20.0))
     evs = node_action_evs(index, hist, reach0, reach1, board_now, pot)
 
     blocked_strs = spot_blocked(spot) | {elem[6:] for elem in hist if elem.startswith("river:")}
