@@ -136,8 +136,9 @@ re-raise, our cap-1 tree does not. EV and exploitability agree.
 Mean |Δf| cells are the reach-weighted class aggregation on both sides.
 `w-wet-cap0` is `explained` (mean 5.6 pp > 5): a demonstrated non-unique
 equilibrium — the EV-weighted gap below is 0.14% of pot, so every divergent
-mix is between equal-EV actions. `w-dry-cap1` is `explained` by the per-player
-raise count (D2).
+mix is between equal-EV actions. `w-dry-cap1` is `explained` by the shared
+per-street raise count (D2; corrected wording in Phase 8.6 — the limit
+counts raise actions shared across players, not per player).
 
 ### Step 3 — cross-evaluation
 
@@ -227,7 +228,8 @@ Skipped per spec — not simulated loosely.
   ≤0.5% of pot on every board. (`scripts/phase8/runs/random_batch.json`)
 - Turn-suite donk matching and cap-3 vs `raise_limit`: skipped — the donk
   line was already characterized by the w-turn-cap0 cross-eval (D4), and the
-  per-player raise count was characterized by w-dry-cap1 (D2).
+  raise count was characterized by w-dry-cap1 (D2). (Done later: donk in
+  8.5, cap-3 equal trees in 8.6.)
 
 ### Bugs found and fixed this phase
 
@@ -253,8 +255,13 @@ Skipped per spec — not simulated loosely.
 
 ### New semantic differences found
 
-- **D2-extension**: TS's raise limit counts per **player**, not per line —
-  cap 1 on each side yields two raises total in TS vs one in ours.
+- **D2-extension**: TS's raise limit counts raise *actions* per street,
+  shared across players (Correction, Phase 8.6: originally read as "per
+  player"; source-read at v0.2.0 shows one shared `raise_times` counter
+  that the opening bet also consumes — `raise_limit=4` ⇒ bet + 3 raises).
+  Cap 1 on each side still yields extra raises in TS vs one in ours; equal
+  trees hold at `raise_cap` 0, 3, or lower caps where extra raises are
+  physically impossible.
 - **D4 on multi-street trees**: OOP river leads after a called bet are
   absent from TS turn trees **unless `donk` sizes are configured** (the
   `set_bet_sizes oop,river,donk,<sizes>` line, verified by direct probe in

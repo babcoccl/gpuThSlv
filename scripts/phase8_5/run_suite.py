@@ -22,11 +22,13 @@ RUNS = os.path.join(os.path.dirname(__file__), "runs")
 OUT = os.path.join(RUNS, "suite8_5.json")
 
 XEVAL_EXPLANATIONS = {
-    "turn-narrow-a": "D2-ext: TS counts raises per player (raise_limit=4 "
-    "including the opening bet) while ours caps raises per street; at cap 1 "
+    "turn-narrow-a": "D2-ext: TS counts raise actions per street "
+    "(raise_limit=4 including the opening bet, shared across players) "
+    "while ours caps raises per street; at cap 1 "
     "TS keeps a re-raise line (b5 -> r17 -> r30) that our tree removes, so "
     "its frequencies at shared nodes price in a line that cannot exist for "
-    "us and are exploitable. EVs agree (0.26% of pot).",
+    "us and are exploitable. EVs agree (0.26% of pot). Confirmed in "
+    "Phase 8.6: at cap 3 (equal trees) xeval is 0.041%.",
     "w-turn-cap0": "D4 resolved in Phase 8.5: donk sizes are emitted so the "
     "trees now match; a residual failure would mean something else.",
 }

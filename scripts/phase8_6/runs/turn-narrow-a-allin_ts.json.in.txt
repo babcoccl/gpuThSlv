@@ -1,0 +1,25 @@
+set_pot 10
+set_effective_stack 30
+set_board Ks,7h,2d,5c
+set_range_oop AA,KK
+set_range_ip QQ,JJ
+set_bet_sizes oop,turn,bet,50
+set_bet_sizes oop,turn,donk,50
+set_bet_sizes oop,turn,raise,125
+set_bet_sizes ip,turn,bet,50
+set_bet_sizes ip,turn,raise,125
+set_bet_sizes oop,river,bet,50,100
+set_bet_sizes oop,river,donk,50,100
+set_bet_sizes oop,river,raise,125
+set_bet_sizes ip,river,bet,50,100
+set_bet_sizes ip,river,raise,125
+set_allin_threshold 2
+build_tree
+set_thread_num 8
+set_accuracy 0.5
+set_max_iteration 4000
+set_print_interval 25
+set_use_isomorphism 0
+start_solve
+set_dump_rounds 2
+dump_result /home/aihub/repos/gpuThSlv/scripts/phase8_6/runs/turn-narrow-a-allin_ts.json
