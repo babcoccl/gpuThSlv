@@ -5,14 +5,14 @@
   "nodes": {
    "root": {
     "player": 0,
-    "compared": 4,
+    "compared": 9,
     "max_abs_diff": 0.0,
     "worst_combo": null,
     "ok": true
    },
    "check": {
     "player": 1,
-    "compared": 4,
+    "compared": 12,
     "max_abs_diff": 0.0,
     "worst_combo": null,
     "ok": true
@@ -32,23 +32,23 @@
   "nodes": {
    "root": {
     "player": 0,
-    "compared": 12,
+    "compared": 18,
     "max_abs_diff": 1.7763568394002505e-15,
     "worst_combo": "2c2h",
     "ok": true
    },
    "check": {
     "player": 1,
-    "compared": 13,
+    "compared": 21,
     "max_abs_diff": 6.217248937900877e-15,
     "worst_combo": "AcKd",
     "ok": true
    }
   },
   "root_ev": {
-   "brute": 8.470648854069958,
+   "brute": 8.47064885406996,
    "evwalk": 8.470648854069943,
-   "abs_diff": 1.5987211554602254e-14,
+   "abs_diff": 1.7763568394002505e-14,
    "ok": true
   },
   "ok": true

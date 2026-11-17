@@ -118,8 +118,11 @@ failed+analysis).
    walk); on w-toy-check and w-dry-cap0 it recomputes per-combo hand EVs
    at the root and at the `check` child by enumerating all opponent
    combos, plus the root EV: **max |Δ| vs `node_action_evs`/`root_ev` =
-   1.5987211554602254e-14** — float64 accumulation order only, far inside
-   tolerance (`runs/brute_ev.json`).
+   1.7763568394002505e-14** — float64 accumulation order only, far inside
+   tolerance (`runs/brute_ev.json`). All combos are compared, pocket
+   pairs included (9/9 root + 12/12 child on w-toy-check, 18/21 on
+   w-dry-cap0; a suit-ordering bug that silently skipped pairs was fixed
+   in review).
 3. **SSE contract — done.** `GET /v1/solves/{id}/events` sends `retry:`
    then a `snapshot` of current job state first on every connection; event
    ids are `<boot>-<seq>` (`app.state.sse_boot`, random per process) so a

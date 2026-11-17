@@ -55,7 +55,7 @@ partial run; `scripts/phase9/check_evidence.py` now fails if a doc number
 disagrees with it). An independent brute-force check sharing no code with
 evwalk/dump_ev (`scripts/phase9/brute_ev.py`, `runs/brute_ev.json`) recomputes
 per-combo hand EVs and root EV by enumerating opponent combos: max |Δ| =
-1.5987211554602254e-14 on w-toy-check and w-dry-cap0. Equal-tree /
+1.7763568394002505e-14 on w-toy-check and w-dry-cap0. Equal-tree /
 node-count invariants were re-verified on 10 spots
 (`scripts/phase9/runs/tree_gate.json`).
 

@@ -45,12 +45,15 @@ TOL_FRAC_OF_POT = 0.01  # standing tolerance: 1.0% of pot
 TOL_CHIPS = 0.05
 
 # --- own card machinery ------------------------------------------------------
-# rank char -> 0..12 (A high), suit char -> 0..3 in "cdhs" order; a card is a
+# rank char -> 0..12 (A high), suit char -> 0..3 in "sdch" order; a card is a
 # (rank, suit) pair of small ints. Rendered for comparison as "<R><s>" with
-# ranks "AKQJT98765432" and suits "sdch" — the shared wire format only.
+# ranks "AKQJT98765432" and suits "sdch" — the shared wire format only. The
+# suit ORDER matters: combo_text's flat index must sort cards the same way
+# as the reference combo_str (4*rank+suit with suits sdch) or pocket-pair
+# keys silently mismatch and get skipped.
 
 _RANK_CH = "AKQJT98765432"
-_SUIT_CH = "cdhs"
+_SUIT_CH = "sdch"
 
 
 def card(text):
