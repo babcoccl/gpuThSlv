@@ -1,0 +1,18 @@
+# spawn mode (default): API spawns workers with --parent-pid, then the API is SIGKILLed
+api pid 178734
+worker: 178787 /home/aihub/repos/gpuThSlv/.venv-api/bin/python -m holdem_solver.engine_worker --engine fake --socket /tmp/hs-ppid/gpu0.sock --shm-dir /dev/shm/hs-ppid/gpu0 --parent-pid 178734 --gpu 0
+worker: 178847 /home/aihub/repos/gpuThSlv/.venv-api/bin/python -m holdem_solver.engine_worker --engine fake --socket /tmp/hs-ppid/gpu1.sock --shm-dir /dev/shm/hs-ppid/gpu1 --parent-pid 178734 --gpu 1
+bash: line 1: 178734 Killed                  .venv-api/bin/python -m holdem_solver.api > /tmp/hs-ppid.log 2>&1
+after SIGKILL of API: workers remaining=0 after 578 ms
+
+# external mode (systemd): workers have no --parent-pid; unit MainPIDs unchanged across the soak so far
+MainPID=169404
+NRestarts=0
+
+MainPID=169405
+NRestarts=0
+
+MainPID=169406
+NRestarts=0
+worker: 169404 /home/aihub/repos/gpuThSlv/.venv-engine/bin/python -m holdem_solver.engine_worker --engine real --gpu 0
+worker: 169405 /home/aihub/repos/gpuThSlv/.venv-engine/bin/python -m holdem_solver.engine_worker --engine real --gpu 1

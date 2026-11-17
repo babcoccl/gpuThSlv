@@ -1,0 +1,21 @@
+# jobs still non-terminal after soak:
+holdem_jobs{status="queued"} 0.0
+holdem_jobs{status="building"} 0.0
+holdem_jobs{status="solving"} 1.0
+# 1. restart the API unit: external workers keep their pids
+MainPID=169404  MainPID=169405 
+MainPID=169404  MainPID=169405  MainPID=192851 
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+TypeError: list indices must be integers or slices, not str
+# 2. SIGKILL worker@0: systemd restarts it (Restart=always), API reattaches
+MainPID=192934 NRestarts=1 
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+TypeError: list indices must be integers or slices, not str
+job bca4287436f4 done gpu 0 None
+job 5ecfcde37207 done gpu 1 None
+holdem_worker_restarts_total{gpu="0"} 1.0
+holdem_worker_restarts_total{gpu="1"} 0.0
+gpu 0 healthy True state unbuilt pid 192934 restarts 1
+gpu 1 healthy True state unbuilt pid 169405 restarts 0
