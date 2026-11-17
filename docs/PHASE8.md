@@ -124,7 +124,7 @@ script grids agree. The cap-0 river known-answer spots are unchanged
 | w-wet-cap0 | 0 | yes | −0.05 | 5.6 | 0.61 | 0.370% | 0.299% | explained |
 | w-pair-cap0 | 0 | yes | −0.01 | 2.8 | 0.27 | 0.339% | 0.279% | match |
 | w-blocker-cap0 | 0 | yes | +0.18 | 2.7 | 1.00 | 0.292% | 0.492% | match |
-| w-turn-cap0 | 0 | yes** | +0.01 | 3.1 | 1.00 | 0.074% | 0.048% | match |
+| w-turn-cap0 | 0 | yes** | +0.01 | 3.1 | 1.00 | 0.074% | 0.048% | explained |
 | w-full-cap0 | 0 | yes | +0.00 | 4.4 | 0.24 | 0.180% | 0.074% | match |
 
 \* w-dry-cap1: beyond-depth-3 structural delta — TS counts raises **per
@@ -135,7 +135,7 @@ re-raise, our cap-1 tree does not. EV and exploitability agree.
 
 Mean |Δf| cells are the reach-weighted class aggregation on both sides.
 `w-wet-cap0` is `explained` (mean 5.6 pp > 5): a demonstrated non-unique
-equilibrium — the EV-weighted gap below is 0.0% of pot, so every divergent
+equilibrium — the EV-weighted gap below is 0.14% of pot, so every divergent
 mix is between equal-EV actions. `w-dry-cap1` is `explained` by the per-player
 raise count (D2).
 
@@ -181,26 +181,29 @@ called turn bet; TS's tree has no such action (its OOP node offers only
 response exploits it for 16.5% of pot. All 414 unmapped infosets are exactly
 the post-`b25` response nodes that are unreachable under the TS profile.
 Verdict: explained — D4, not a solver bug. (A TS tree with donk leads
-cannot be configured on the console solver.)
+cannot be configured on the console solver.) The spot's overall verdict is
+`explained` — a failed cross-eval now downgrades `match` verdicts unless a
+verified cause is recorded in `XEVAL_EXPLANATIONS`.
 
 **EV-evaluated frequency gap**: per shared node and combo,
 `|Σ_a σ_ours·EV_a − Σ_a σ_ts·EV_a|` under the TS dump's own subtree EVs,
 reach-weighted:
 
-| spot | weighted mean \|Δf\| pp | EV gap %pot |
-|------|-----|------|
-| w-toy-check | 6.87 | 0.0 |
-| w-dry-cap0 | 3.46 | 0.0 |
-| w-dry-cap1 | 4.79 | 0.0 |
-| w-wet-cap0 | 1.50 | 0.0 |
-| w-pair-cap0 | 3.29 | 0.0 |
-| w-blocker-cap0 | 1.71 | 0.0 |
-| w-full-cap0 | 6.74 | 0.0 |
+| spot | combos measured | weighted mean \|Δf\| pp | EV gap %pot |
+|------|-----|-----|------|
+| w-toy-check | 42 | 3.69 | 0.14 |
+| w-dry-cap0 | 117 | 2.23 | 0.04 |
+| w-dry-cap1 | 273 | 3.28 | 0.08 |
+| w-wet-cap0 | 168 | 5.50 | 0.14 |
+| w-pair-cap0 | 114 | 2.88 | 0.10 |
+| w-blocker-cap0 | 96 | 2.38 | 0.15 |
+| w-full-cap0 | 256 | 4.99 | 0.10 |
 
-Every measured |Δf| erases to **exactly 0.0% of pot** — at 0.5%
-exploitability, divergent mixing is always between actions of equal EV; the
-frequency differences are non-EV-relevant. (w-turn-cap0 skipped: its EV-gap
-walker is river-only.)
+Every measured frequency gap erases to **≤0.15% of pot** once both
+strategies are compared by EV — at 0.5% exploitability, divergent mixing is
+almost entirely between equal-EV actions; the residual EV gap is consistent
+with convergence noise, not structural disagreement. (w-turn-cap0 skipped:
+its EV-gap walker is river-only.)
 
 **Reverse direction (ours inside TS)**: the TexasSolver console exposes only
 `set_*`/`build_tree`/`start_solve`/`dump_result`; there is no strategy-load
@@ -233,6 +236,15 @@ Skipped per spec — not simulated loosely.
 3. **Stale phase-7 dumps**: `scripts/phase7/runs/*_ts.json` predate the
    harness-fix re-run (commit `7247380`) and no longer correspond to the
    recorded suite numbers; step-3 cross-evals were run against fresh dumps.
+4. **EV-gap key normalization** (found by review): `node_action_evs` keyed
+   histories/actions by raw dump names (`CHECK`, `BET 15`) while `ev_gap`
+   looked up canonical names (`check`, `b15`) — only the root node ever
+   matched and every EV contribution read as 0. Keys now use parse_dump's
+   canonical names (`b<amt>`, `r<level>`); the table above is the corrected
+   measurement.
+5. **Failed cross-eval kept `match` verdict** (found by review): the verdict
+   didn't account for xeval failure; now a failure downgrades to `explained`
+   only when a verified cause is recorded, else `unresolved`.
 
 ### New semantic differences found
 

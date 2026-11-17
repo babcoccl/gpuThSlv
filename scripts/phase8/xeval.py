@@ -139,7 +139,7 @@ def node_action_evs(
     import json
     from holdem_solver.protocol.cards import combo_str, parse_range
     from scripts.phase7.texas_dump import (
-        _ACTION_RE, _PLAYER_MAP, _combo_tuple, canonical_combo, parse_card,
+        _ACTION_RE, _PLAYER_MAP, _combo_tuple, _num, canonical_combo, parse_card,
         rank7,
     )
 
@@ -258,6 +258,16 @@ def node_action_evs(
             total += walk(child, chips_next, next0, next1, board_now)
         return total
 
+    def canon_action(raw, ours, chips):
+        """Raw dump action -> parse_dump canonical name (check/call/fold/
+        b<amt>/r<level>)."""
+        kind, amount = _ACTION_RE.match(raw).group(1), _ACTION_RE.match(raw).group(2)
+        if kind == "BET":
+            return "b" + _num(float(amount))
+        if kind == "RAISE":
+            return "r" + _num(chips[ours] + float(amount))
+        return kind.lower()
+
     # first pass: collect (history, chips, reach0, reach1, node) at action nodes
     targets = {}  # type: Dict[Tuple[int, Tuple[str, ...]], Tuple[Any, Any, Any, Any]]
 
@@ -317,7 +327,10 @@ def node_action_evs(
                 and child.get("deal_number", 0) == 0
             ):
                 continue
-            collect(child, history + [raw], chips_next, next0, next1, board_now)
+            collect(
+                child, history + [canon_action(raw, ours, chips)], chips_next,
+                next0, next1, board_now,
+            )
 
     blocked = set(board_ids)
     init0 = {c: w for c, w in w0.items() if not (set(combo_tuple(c)) & blocked)}
@@ -364,21 +377,25 @@ def node_action_evs(
                 else:
                     chips_next = chips
                 child = (node.get("childrens") or {}).get(raw)
+                name = canon_action(raw, ours, chips)
                 if kind == "FOLD":
                     v = (pot / 2 + c1) if ours == 1 else (-pot / 2 - c0)
-                    row[raw] = -v if ours == 1 else v  # to acting-player units
+                    row[name] = -v if ours == 1 else v  # to acting-player units
                     continue
                 if child is None or (
                     child.get("node_type") == "chance_node"
                     and child.get("deal_number", 0) == 0
                 ):
                     v = showdown(single0, single1, chips_next[0], chips_next[1],
-                                 board_ids if not hist else board_ids) - valid_mass(
+                                 board_ids) - valid_mass(
                         single0, single1) * (chips_next[0] + pot / 2)
-                    row[raw] = (-v if ours == 1 else v) / opp_mass
+                    row[name] = (-v if ours == 1 else v) / opp_mass
                     continue
                 v = walk(child, chips_next, single0, single1, board_ids)
-                row[raw] = (-v if ours == 1 else v) / opp_mass
+                row[name] = (-v if ours == 1 else v) / opp_mass
             evs[combo] = row
-        out[(ours, hist)] = {"evs": evs, "actions": list(node.get("actions", []))}
+        out[(ours, hist)] = {
+            "evs": evs,
+            "actions": [canon_action(a, ours, chips) for a in node.get("actions", [])],
+        }
     return out

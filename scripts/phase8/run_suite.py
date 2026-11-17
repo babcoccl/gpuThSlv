@@ -33,6 +33,14 @@ OUT = os.path.join(RUNS, "suite8.json")
 
 XEVAL_TOL = 1.0  # TS strategy <= 1.0% of pot in our evaluator (2x 0.5% tol)
 
+# Verified causes for cross-eval failures; a failure with no cause here
+# downgrades the verdict to "unresolved".
+XEVAL_EXPLANATIONS = {
+    "w-turn-cap0": "D4: our tree offers OOP river leads after a called turn "
+    "bet; TS's tree does not, so its strategy is exploitable through that "
+    "line. Mapped profile value reproduces dump_ev exactly.",
+}
+
 
 def _range_weights(spot):
     from holdem_solver.protocol.cards import combo_str, parse_range
@@ -237,6 +245,13 @@ def main(names=None):
             rec["xeval_pass"] = (
                 rec["xeval"]["ts_in_ours"]["exploitability_pct"] <= XEVAL_TOL
             )
+            if not rec["xeval_pass"]:
+                cause = XEVAL_EXPLANATIONS.get(name)
+                if cause is not None:
+                    rec["verdict"] = "explained"
+                    rec["verdict_cause"] = cause
+                else:
+                    rec["verdict"] = "unresolved"
             print("  xeval: ts-in-ours=%.3f%% ours=%.3f%%"
                   % (rec["xeval"]["ts_in_ours"]["exploitability_pct"],
                      rec["xeval"]["ours"]["exploitability_pct"]), flush=True)

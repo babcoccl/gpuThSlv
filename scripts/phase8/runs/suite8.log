@@ -2,48 +2,48 @@
   ours: ev=10.0120 expl=0.030% iters=100
   ts: ev=10.0634 expl=0.17029762% iters=25
   xeval: ts-in-ours=0.170% ours=0.030%
-  ev_gap: {'combos': 9, 'weighted_freq_diff_pp': 6.871142710534762, 'ev_gap_pct_pot': 0.0}
+  ev_gap: {'combos': 42, 'weighted_freq_diff_pp': 3.6851283537574075, 'ev_gap_pct_pot': 0.1418871412384503}
   verdict: match
 === w-dry-cap0 ===
   ours: ev=8.4561 expl=0.279% iters=200
   ts: ev=8.4706 expl=0.16649485% iters=50
   xeval: ts-in-ours=0.166% ours=0.279%
-  ev_gap: {'combos': 18, 'weighted_freq_diff_pp': 3.4583961341717915, 'ev_gap_pct_pot': 0.0}
+  ev_gap: {'combos': 117, 'weighted_freq_diff_pp': 2.229185948618219, 'ev_gap_pct_pot': 0.04328371029189792}
   verdict: match
 === w-dry-cap1 ===
   ours: ev=8.6297 expl=0.351% iters=200
   ts: ev=8.6107 expl=0.23925067% iters=100
   xeval: ts-in-ours=0.239% ours=0.351%
-  ev_gap: {'combos': 18, 'weighted_freq_diff_pp': 4.789372290092308, 'ev_gap_pct_pot': 0.0}
+  ev_gap: {'combos': 273, 'weighted_freq_diff_pp': 3.2768064572366287, 'ev_gap_pct_pot': 0.08280426916731307}
   verdict: explained
 === w-wet-cap0 ===
   ours: ev=-8.8470 expl=0.370% iters=200
   ts: ev=-8.8375 expl=0.2994418% iters=25
   xeval: ts-in-ours=0.299% ours=0.370%
-  ev_gap: {'combos': 31, 'weighted_freq_diff_pp': 1.4956053248375163, 'ev_gap_pct_pot': 0.0}
+  ev_gap: {'combos': 168, 'weighted_freq_diff_pp': 5.4956414601475885, 'ev_gap_pct_pot': 0.14119975504827229}
   verdict: explained
 === w-pair-cap0 ===
   ours: ev=-5.6925 expl=0.339% iters=200
   ts: ev=-5.6912 expl=0.2790308% iters=50
   xeval: ts-in-ours=0.279% ours=0.339%
-  ev_gap: {'combos': 14, 'weighted_freq_diff_pp': 3.2851080007818716, 'ev_gap_pct_pot': 0.0}
+  ev_gap: {'combos': 114, 'weighted_freq_diff_pp': 2.8832155309670426, 'ev_gap_pct_pot': 0.09506681662564273}
   verdict: match
 === w-blocker-cap0 ===
-  ours: ev=-10.0838 expl=0.292% iters=200
+  ours: ev=-10.0837 expl=0.292% iters=200
   ts: ev=-10.1193 expl=0.49223426% iters=25
   xeval: ts-in-ours=0.492% ours=0.292%
-  ev_gap: {'combos': 22, 'weighted_freq_diff_pp': 1.7141213668568345, 'ev_gap_pct_pot': 0.0}
+  ev_gap: {'combos': 96, 'weighted_freq_diff_pp': 2.3771728352038504, 'ev_gap_pct_pot': 0.14880575162492882}
   verdict: match
 === w-turn-cap0 ===
   ours: ev=-10.0030 expl=0.074% iters=100
   ts: ev=-10.0056 expl=0.048451424% iters=25
   xeval: ts-in-ours=16.550% ours=0.074%
   ev_gap: {'skipped': 'turn spot — EV gap computed on river spots only'}
-  verdict: match
+  verdict: explained
 === w-full-cap0 ===
   ours: ev=1.3940 expl=0.180% iters=100
   ts: ev=1.3935 expl=0.0741604% iters=25
   xeval: ts-in-ours=0.074% ours=0.180%
-  ev_gap: {'skipped': 'no shared weighted combos'}
+  ev_gap: {'combos': 256, 'weighted_freq_diff_pp': 4.9909706397347176, 'ev_gap_pct_pot': 0.09575458141325265}
   verdict: match
 wrote /home/aihub/repos/gpuThSlv/scripts/phase8/runs/suite8.json
