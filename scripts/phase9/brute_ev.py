@@ -573,11 +573,16 @@ def main():
             compared = 0
             max_diff = 0.0
             worst = None
+            skipped = {}
             for combo_key in node_rows:
                 # profile-aggregated hand EV from the evwalk per-action EVs
                 freqs = node_rows[combo_key]
                 ev_parts = ref.get(combo_key)
                 if ev_parts is None:
+                    skipped[combo_key] = (
+                        "no conditional EV in the reference: the combo "
+                        "cannot be dealt on this board (reach = 0)"
+                    )
                     continue
                 hand_ev = sum(
                     float(freqs.get(a, 0.0)) * float(ev_parts[a])
@@ -587,6 +592,10 @@ def main():
                     hmap, hist, combo_key, my_w0, my_w1, my_board, pot
                 )
                 if brute is None:
+                    skipped[combo_key] = (
+                        "conditional EV undefined: zero reach "
+                        "(board-blocked / impossible deal)"
+                    )
                     continue
                 d = abs(brute - hand_ev)
                 compared += 1
@@ -595,14 +604,19 @@ def main():
                     worst = combo_key
             spot_out["nodes"][label] = {
                 "player": player,
+                "rows": len(node_rows),
                 "compared": compared,
+                "skipped": skipped,
                 "max_abs_diff": max_diff,
                 "worst_combo": worst,
                 "ok": max_diff <= limit and compared > 0,
             }
             worst_overall = max(worst_overall, max_diff)
-            print("  %s: %d combos compared, max |d|=%r (tol %.3f) worst=%s"
-                  % (label, compared, max_diff, limit, worst), flush=True)
+            print("  %s: %d of %d combos compared, max |d|=%r (tol %.3f) "
+                  "worst=%s%s"
+                  % (label, compared, len(node_rows), max_diff, limit, worst,
+                     " skipped=%r" % skipped if skipped else ""),
+                  flush=True)
 
         # brute root EV vs evwalk.root_ev
         my_root = brute_root_ev(tree, my_w0, my_w1, my_board, pot)

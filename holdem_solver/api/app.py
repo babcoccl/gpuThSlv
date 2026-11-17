@@ -24,7 +24,11 @@ Configuration is by environment variable:
 * ``HOLDEM_POST_RATE_PER_MINUTE`` / ``HOLDEM_POST_BURST``: token bucket per
   client for ``POST /v1/solves`` (120/min, burst 30); 429 + Retry-After.
   ``0`` disables it.
-* ``HOLDEM_SESSION_SECONDS``: browser session cookie lifetime (12 h).
+* ``HOLDEM_SESSION_TTL_SECONDS``: browser session cookie lifetime (12 h).
+  ``HOLDEM_SESSION_SECONDS`` is the deprecated fallback. Sessions are
+  stateless HMAC tokens: logout clears the cookie client-side but cannot
+  revoke a stolen token before expiry — rotate the signing material or
+  shorten the TTL to bound the risk.
 * ``HOLDEM_SESSION_SECRET``: signing secret for session cookies (default
   derived from ``HOLDEM_API_KEY``; set it to keep sessions valid across a
   key rotation).
@@ -250,7 +254,14 @@ def create_app(
         post_burst = int(os.environ.get("HOLDEM_POST_BURST", security.DEFAULT_POST_BURST))
     limiter = security.RateLimiter(post_rate_per_minute, post_burst) if post_rate_per_minute > 0 else None
     if session_seconds is None:
-        session_seconds = int(os.environ.get("HOLDEM_SESSION_SECONDS", security.DEFAULT_SESSION_SECONDS))
+        session_seconds = int(
+            os.environ.get(
+                "HOLDEM_SESSION_TTL_SECONDS",
+                os.environ.get(
+                    "HOLDEM_SESSION_SECONDS", security.DEFAULT_SESSION_SECONDS
+                ),
+            )
+        )
     if session_secret is None:
         session_secret = os.environ.get("HOLDEM_SESSION_SECRET") or None
     if login_rate_per_minute is None:

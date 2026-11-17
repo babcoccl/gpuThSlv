@@ -19,6 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = sorted(ROOT.glob("docs/*.md")) + [ROOT / "README.md"]
 
@@ -86,3 +88,42 @@ def test_ev_validation_numbers_match_committed_artifact():
         cwd=ROOT, capture_output=True, text=True,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+# Phase 9.2: the guard parses claims out of the docs, so each edited copy
+# of docs/PHASE9.md must fail for its own reason.
+CHECK_EVIDENCE = ROOT / "scripts" / "phase9" / "check_evidence.py"
+_SOURCE = (ROOT / "docs" / "PHASE9.md").read_text()
+
+_MUTATIONS = {
+    "per_spot_count": _SOURCE.replace(
+        "84 / 273 / 392 / 266 / 229 / 512",
+        "84 / 273 / 392 / 266 / 229 / 513",
+    ),
+    "total": _SOURCE.replace("1,756", "1,757"),
+    "spot_count": _SOURCE.replace("6/6 cap-0", "5/6 cap-0"),
+    "max_abs_diff": _SOURCE.replace(
+        "7.993605777301127e-15", "7.993605777301128e-15"
+    ),
+    "spot_order": _SOURCE.replace(
+        "w-wet-cap0, w-pair-cap0", "w-pair-cap0, w-wet-cap0"
+    ),
+}
+
+
+def _guard(*doc_paths):
+    return subprocess.run(
+        [sys.executable, str(CHECK_EVIDENCE), *map(str, doc_paths)],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+
+
+@pytest.mark.parametrize("case", sorted(_MUTATIONS))
+def test_check_evidence_fails_on_mutated_doc(tmp_path, case):
+    mutated = tmp_path / "PHASE9.md"
+    mutated.write_text(_MUTATIONS[case])
+    assert mutated.read_text() != _SOURCE, "mutation %s did not change the doc" % case
+    proc = _guard(mutated)
+    assert proc.returncode == 1, (
+        "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+    )

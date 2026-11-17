@@ -186,7 +186,12 @@ chars.
 `SameSite=strict` session cookie (12 h) plus a readable `holdem_csrf`
 cookie (also in the body). Cookie-authenticated GETs work as-is; mutating
 requests must echo the CSRF token in `x-csrf-token` (403 otherwise).
-`POST /v1/auth/logout` clears both. CORS is off by default — set
+`POST /v1/auth/logout` clears both client-side — sessions are stateless:
+logout does **not** revoke the token, so a stolen cookie stays valid
+until it expires (or the signing material rotates). The lifetime defaults
+to 12 h and is configurable via `HOLDEM_SESSION_TTL_SECONDS`
+(`HOLDEM_SESSION_SECONDS` is the deprecated fallback) — shorten it to
+bound that exposure. CORS is off by default — set
 `HOLDEM_CORS_ORIGINS` to allow browser origins. Login attempts are
 rate-limited (10/min, burst 5). The Bearer API key still works for
 scripts; a request that supplies both is a script call (no CSRF needed).
