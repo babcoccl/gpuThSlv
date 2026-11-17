@@ -289,28 +289,61 @@ def main():
                             # (up to the next spot mention) contains the
                             # match governs which node label counts; when
                             # a label is present, the per-spot maximum no
-                            # longer rescues a node-qualified claim
-                            pos = (
+                            # longer rescues a node-qualified claim. The
+                            # context keeps the adjacent lines so a wrapped
+                            # qualifier still binds, and the position is
+                            # re-measured after citations are stripped so
+                            # an inline `runs/*.json` ref cannot shift it.
+                            pos_raw = (
                                 m.start() if mi == i
                                 else m.start() - bounds[mi - i - 1]
                             )
-                            ctx = _RUN_REF.sub("", lines[mi])
+                            prev = (
+                                _RUN_REF.sub("", lines[mi - 1])
+                                if mi > 0 else ""
+                            )
+                            cur = _RUN_REF.sub("", lines[mi])
+                            nxt = (
+                                _RUN_REF.sub("", lines[mi + 1])
+                                if mi + 1 < len(lines) else ""
+                            )
+                            ctx = " ".join(l for l in (prev, cur, nxt) if l)
+                            pos = (len(prev) + 1 if prev else 0) + len(
+                                _RUN_REF.sub("", lines[mi][:pos_raw])
+                            )
                             occs = sorted(
                                 mm.start()
                                 for mm in spot_name_re.finditer(ctx)
                             )
+                            bound = [
+                                k for k, p in enumerate(occs)
+                                if p <= pos < (
+                                    occs[k + 1]
+                                    if k + 1 < len(occs) else len(ctx)
+                                )
+                            ]
+                            if not bound and occs:
+                                # the qualifier wrapped onto an adjacent
+                                # line — bind the nearest occurrence
+                                bound = [
+                                    min(range(len(occs)),
+                                        key=lambda k: abs(occs[k] - pos))
+                                ]
                             node_qualified = set()
-                            for k, p in enumerate(occs):
-                                end = occs[k + 1] if k + 1 < len(occs) else len(ctx)
-                                if p <= pos < end:
-                                    s = spot_name_re.match(ctx, p).group(0)
-                                    for label in re.findall(
-                                        r"\b\w[\w-]*\b", ctx[p:end].lower()
-                                    ):
-                                        d = brute["node_diffs"].get((s, label))
-                                        if d is not None:
-                                            diffs.add(d)
-                                            node_qualified.add(s)
+                            for k in bound:
+                                p = occs[k]
+                                end = (
+                                    occs[k + 1]
+                                    if k + 1 < len(occs) else len(ctx)
+                                )
+                                s = spot_name_re.match(ctx, p).group(0)
+                                for label in re.findall(
+                                    r"\b\w[\w-]*\b", ctx[p:end].lower()
+                                ):
+                                    d = brute["node_diffs"].get((s, label))
+                                    if d is not None:
+                                        diffs.add(d)
+                                        node_qualified.add(s)
                             diffs |= {
                                 brute["spot_diffs"][s]
                                 for s in named
@@ -386,7 +419,7 @@ def main():
                     after = text[m.end():] + " " + " ".join(
                         lines[mi + 1:mi + 3]
                     )
-                    before = " ".join(lines[max(0, mi - 1):mi]) + " " + \
+                    before = " ".join(lines[max(0, i - 1):i]) + " " + \
                         text[:m.start()]
                     names = list(dict.fromkeys(
                         spot_name_re.findall(_RUN_REF.sub("", after))
