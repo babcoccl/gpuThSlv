@@ -357,10 +357,16 @@ def main():
                                     )
                                     tail = re.match(
                                         r"\s*(?:(?:at|on|of|for|in|vs\.?|over)"
-                                        r"\s+(?:the\s+)?)?(\w[\w-]*)",
+                                        r"\s+(?:the\s+)?)?(\w[\w-]*)"
+                                        r"(?:\s+(\w[\w-]*))?",
                                         ctx[pos_end:end],
                                     )
-                                    if tail:
+                                    # "<label> EV" names the root-EV
+                                    # aggregate, not the node itself
+                                    if tail and (
+                                        not tail.group(2)
+                                        or tail.group(2).lower() != "ev"
+                                    ):
                                         labtext += " " + tail.group(1)
                                 else:
                                     cut = re.search(r"[,.;]", ctx[p:end])
