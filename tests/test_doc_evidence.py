@@ -173,6 +173,24 @@ _SUITE_MUTATIONS = {
         "| river-dry-cap0 | 1.62e-07 | 6.24e-06 |",
         "| river-dry-cap0 | 1.62e-07 | 6.25e-06 |",
     ),
+    # one last-digit step on a sci-notation cell exceeds half-ulp
+    "phase8_5_float32_halfulp": (
+        "PHASE8_5.md",
+        "| river-dry-cap0 | 1.62e-07 | 6.24e-06 |",
+        "| river-dry-cap0 | 1.61e-07 | 6.24e-06 |",
+    ),
+    # a deleted evidence table is an error, not a pass
+    "phase8_5_missing_table": (
+        "PHASE8_5.md",
+        "| spot | ΔEV (chips) | Δexploitability (pp) |",
+        "| spot | ΔEV (chips) | Δexpl pp |",
+    ),
+    # a malformed mapped-infosets fraction is an error, not a skip
+    "phase8_mapping_malformed": (
+        "PHASE8.md",
+        "| w-turn-cap0 | 0.048% | 16.55% | 0.074% | 5424/5838 |",
+        "| w-turn-cap0 | 0.048% | 16.55% | 0.074% | garbage |",
+    ),
     # xeval percentage off on the equal-tree table
     "phase8_6_xeval": (
         "PHASE8_6.md",

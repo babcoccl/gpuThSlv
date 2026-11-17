@@ -63,7 +63,9 @@ def num_close(doc: Path, cell: str, ref: float, what: str) -> None:
         fail(doc, f"{what}: unparseable number {cell!r}")
         return
     tol = 0.5 * 10 ** (-decimals(cell))
-    if abs(v - ref) > tol + 1e-9:
+    # float slack proportional to the tolerance: a fixed 1e-9 would exceed
+    # half the displayed unit for sci-notation cells like 2.07e-07.
+    if abs(v - ref) > tol + max(1e-12, tol * 1e-6):
         fail(doc, f"{what}: doc {cell} vs artifact {ref!r}")
 
 
@@ -99,15 +101,25 @@ def find_table(
     return []
 
 
+def req_table(
+    doc: Path, text: str, *markers: str, exclude: tuple[str, ...] = ()
+) -> list[tuple[int, list[str]]]:
+    """find_table that fails when the table is absent — a missing evidence
+    table is an error, not a pass."""
+    rows = find_table(text, *markers, exclude=exclude)
+    if not rows:
+        fail(doc, f"table not found: {', '.join(markers)}")
+    return rows
+
+
 def verdict_of(cell: str) -> str:
     return cell.replace("*", "").strip().split(" ", 1)[0].rstrip("—")
 
 
 def check_phase7(doc: Path, suite: dict) -> None:
     text = doc.read_text()
-    rows = find_table(text, "our EV", "verdict")
+    rows = req_table(doc, text, "our EV", "verdict")
     if not rows:
-        fail(doc, "results table not found")
         return
     seen = set()
     for ln, c in rows:
@@ -149,9 +161,9 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
     text = doc.read_text()
     phase7_ts = {k: v["ts"] for k, v in suite7.items()}
 
-    rows = find_table(text, "tree ok", "verdict")
+    rows = req_table(doc, text, "tree ok", "verdict")
     if not rows:
-        fail(doc, "step-2 results table not found")
+        return
     for ln, c in rows:
         spot = c[0]
         s = suite.get(spot)
@@ -171,11 +183,12 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
 
     # cross-eval tables (weighted suite + phase-7 re-run)
     for src, table_rows in (
-        (suite, find_table(text, "TS reported", "mapped infosets")),
+        (suite, req_table(doc, text, "TS reported", "mapped infosets")),
         (
             phase7_xeval,
-            find_table(
-                text, "TS reported", "-in-ours", exclude=("mapped infosets",)
+            req_table(
+                doc, text, "TS reported", "-in-ours",
+                exclude=("mapped infosets",),
             ),
         ),
     ):
@@ -201,20 +214,21 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
                 doc, c[3], xe["ours"]["exploitability_pct"], f"{spot} xeval ours"
             )
             if len(c) > 4:
-                m = re.match(r"(\d+)/(\d+)", c[4])
+                m = re.fullmatch(r"(\d+)/(\d+)", c[4])
                 mp = xe["ts_in_ours"]["mapping"]
-                if m and (
-                    int(m.group(1)) != mp["mapped"]
+                if (
+                    m is None
+                    or int(m.group(1)) != mp["mapped"]
                     or int(m.group(2)) != mp["infosets"]
                 ):
                     fail(
                         doc,
-                        f"{spot} mapped infosets: doc {c[4]} vs "
+                        f"{spot} mapped infosets: doc {c[4]!r} vs "
                         f"{mp['mapped']}/{mp['infosets']}",
                     )
 
     # EV-gap table
-    for ln, c in find_table(text, "EV gap %pot"):
+    for ln, c in req_table(doc, text, "EV gap %pot"):
         spot = c[0]
         s = suite.get(spot)
         if s is None or "ev_gap" not in s:
@@ -271,7 +285,7 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
 def check_phase8_5(doc: Path, suite: dict, float32: dict) -> None:
     text = doc.read_text()
 
-    for ln, c in find_table(text, "Δexploitability"):
+    for ln, c in req_table(doc, text, "Δexploitability"):
         spot = c[0]
         s = float32["spots"].get(spot)
         if s is None:
@@ -285,7 +299,7 @@ def check_phase8_5(doc: Path, suite: dict, float32: dict) -> None:
         num_close(doc, c[1], dev, f"{spot} f32 dEV chips")
         num_close(doc, c[2], dexpl, f"{spot} f32 dexpl pp")
 
-    for ln, c in find_table(text, "xeval ts-in-ours"):
+    for ln, c in req_table(doc, text, "xeval ts-in-ours"):
         spot = c[0]
         s = suite.get(spot)
         if s is None:
@@ -342,9 +356,8 @@ def check_phase8_5(doc: Path, suite: dict, float32: dict) -> None:
 
 def check_phase8_6(doc: Path, suite: dict) -> None:
     text = doc.read_text()
-    rows = find_table(text, "tree check", "xeval")
+    rows = req_table(doc, text, "tree check", "xeval")
     if not rows:
-        fail(doc, "results table not found")
         return
     for ln, c in rows:
         spot = c[0]
@@ -382,7 +395,7 @@ def check_phase8_6(doc: Path, suite: dict) -> None:
 
 def check_validation(doc: Path, suites: dict[str, dict]) -> None:
     text = doc.read_text()
-    for ln, c in find_table(text, "Match", "Unresolved"):
+    for ln, c in req_table(doc, text, "Match", "Unresolved"):
         m = re.search(r"Phase (\d+(?:\.\d+)?)", c[0])
         if not m:
             continue
