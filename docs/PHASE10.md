@@ -144,3 +144,88 @@ here, not fixed.
 - `tests/test_api_sse.py` stable over 20 runs, the cancelled-job test over
   50;
 - `check_suites.py` exits 0 and fails on every mutated doc.
+
+---
+
+# Phase 10 — Part 1: web UI at /ui
+
+Date: 2026-11-17. Status: complete.
+
+A React + TypeScript + Vite app in `ui/`, built to `ui/dist/` and mounted
+on the API at `/ui` (deep links fall back to `index.html`; `/` redirects
+to `/ui/`). Data flows through a client generated from the OpenAPI schema
+(`ui/scripts/gen-api.sh` → `openapi-typescript` → `openapi-fetch`) plus
+TanStack Query; no request shapes are hand-written.
+
+Auth follows the cookie contract: `POST /v1/auth/login` exchanges the key
+for a stateless session cookie + a readable `holdem_csrf` cookie; every
+mutation sends its value in `x-csrf-token`; logout clears the client
+cookie only. SSE ids (`<boot>-<seq>`) are opaque; `snapshot` replaces
+state, `progress` below the current iteration is dropped, `done`/`gone`
+close the stream, and the browser's built-in reconnect (Last-Event-ID
+replay) is relied on.
+
+New API surface for the UI (Part 1):
+
+- `GET /v1/solves` — newest-first job list (`?status=` filter).
+- `POST /v1/estimate` — nodes/VRAM prediction without queueing.
+- `SolveStatus` gains `pinned` and `spot_name`.
+- `/ui` static mount with SPA fallback (`_SPAFiles`).
+
+## Test cases (fixed)
+
+1. Playwright against the fake engine (`ui/tests/e2e.spec.ts`, server
+   `ui/scripts/serve-fake.sh` on an isolated runtime dir): login
+   (bad key rejected → good key lands on jobs); build a river spot,
+   estimate, solve, view root, navigate to a child via the tree
+   navigator; save/rename/tag/duplicate a spot and solve it from the
+   library; SSE reconnect after a dropped events stream; inline 422 on
+   a 3-card board. Full transcript: `scripts/phase10/logs/
+   playwright_e2e.log`.
+2. One real end-to-end run on the outpost with both GPUs
+   (`ui/scripts/real-e2e.mjs` against the systemd API on :8000): log in,
+   build a river spot, estimate, solve twice (one job per GPU), watch
+   the live chart to `done`, open the strategy viewer at root and a
+   child, save a spot. Screenshots:
+   `scripts/phase10/logs/01-login.png` … `07-spot-library.png`;
+   job status snapshot: `scripts/phase10/logs/real_e2e.json`.
+
+## Part-1 results
+
+Playwright suite: **6 passed** (15.9 s) — see `playwright_e2e.log`.
+
+Real run (`real_e2e.json`, `04-jobs-done.png`):
+
+| job | gpu | iterations | exploitability | elapsed | nodes |
+|-----|-----|-----------:|---------------:|--------:|------:|
+| `1da488305561` | 0 | 120 | 0.0931 | 1.22 s | 12,556 |
+| `08a0453b5a93` | 1 | 120 | 0.2259 | 1.11 s | 9,361 |
+
+Both finished `done` with `strategy_available` true; the strategy grid,
+tree children, and per-hand table rendered (05/06).
+
+## UI limits (documented)
+
+- Range editor weight slider edits the focused class only; drag paints
+  the brush value uniformly (no per-drag partial weights).
+- Reach lists in hand detail are truncated to the first 20 entries
+  (sorted by share).
+- Compare screen shows strategy grids only — no EV/frequency table diff;
+  histories are typed manually there (no tree click-through).
+- Strategy grid cells summarize a node's action mix; individual combo
+  inspection needs the `per combo` toggle on hand detail.
+- Dead-card picker allows up to 8 cards (river only); deck cap is 5 for
+  board.
+- No bulk job operations (cancel/pin are per-row), no delete for jobs.
+- SSE chart starts empty for jobs that finished before the page opened
+  (points come from live progress events only).
+- The SPA is served from `ui/dist`; a missing build disables `/ui`
+  entirely (API still works).
+
+## Part-1 gate
+
+- Playwright suite green: 6/6 (`playwright_e2e.log`).
+- Real run recorded on both GPUs (`real_e2e.json`, screenshots 01–07).
+- UI limits listed above.
+- `check_suites.py` verifies Part-1 numbers against `real_e2e.json`,
+  `playwright_e2e.log`, and the committed screenshots.

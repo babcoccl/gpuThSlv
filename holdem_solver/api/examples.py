@@ -83,10 +83,23 @@ _STATUS = {
     "measured_vram": {"peak_reserved_bytes": 102760448}, "target_exploitability": 0.002,
     "target_reached": None, "profile_value_p0": None, "error": None, "error_code": None, "priority": 0,
     "timeout_seconds": 600.0, "predicted_vram_bytes": 105150873, "peak_vram_bytes": None,
-    "strategy_available": False, "strategy_expired_at": None,
+    "strategy_available": False, "strategy_expired_at": None, "pinned": False,
+    "spot_name": "dry-river-polar",
 }
 
 GET_SOLVE = _json(_STATUS)
+
+LIST_SOLVES = _json([_STATUS])
+
+ESTIMATE = _json(
+    {
+        "num_nodes": 153422, "estimated_vram_bytes": 65719296,
+        "predicted_vram_bytes": 105150873, "vram_limit_bytes": 15032385536,
+        "over_vram_budget": False, "street": "river", "num_hands": [40, 62],
+        "num_removed": [2, 0], "num_deals": 2401, "weighted": False,
+        "bet_fractions": [0.5, 1.0],
+    }
+)
 
 DELETE_SOLVE = _json(dict(_STATUS, status="cancelled", finished_at=1789000013.2))
 

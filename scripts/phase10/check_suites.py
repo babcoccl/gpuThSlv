@@ -424,6 +424,58 @@ def check_validation(doc: Path, suites: dict[str, dict]) -> None:
                 )
 
 
+def check_phase10(doc: Path) -> None:
+    """Part 1: real-run table vs real_e2e.json, playwright log, screenshots."""
+    text = doc.read_text()
+
+    log_dir = RUNS / "phase10" / "logs"
+    e2e = load("phase10/logs/real_e2e.json")
+
+    rows = req_table(doc, text, "gpu", "exploitability", "elapsed", "nodes")
+    seen = set()
+    for ln, c in rows:
+        jid = c[0].strip("`")
+        if jid not in e2e["jobs"]:
+            fail(doc, f"line {ln}: job {jid} not in real_e2e.json")
+            continue
+        j = e2e["jobs"][jid]
+        seen.add(jid)
+        if c[1] != str(j["gpu"]):
+            fail(doc, f"{jid} gpu: doc {c[1]} vs {j['gpu']}")
+        if c[2] != str(j["iterations_run"]):
+            fail(doc, f"{jid} iterations: doc {c[2]} vs {j['iterations_run']}")
+        num_close(doc, c[3], j["exploitability"], f"{jid} exploitability")
+        num_close(doc, c[4].replace(" s", ""), j["elapsed_seconds"], f"{jid} elapsed")
+        num_close(doc, c[5].replace(",", ""), j["num_nodes"], f"{jid} nodes")
+    missing = set(e2e["jobs"]) - seen
+    if missing:
+        fail(doc, f"jobs missing from Part-1 results table: {sorted(missing)}")
+
+    # Playwright suite count vs committed log.
+    plog = log_dir / "playwright_e2e.log"
+    if not plog.exists():
+        fail(doc, "playwright_e2e.log not committed")
+    else:
+        m = re.search(r"(\d+) passed", plog.read_text())
+        claimed = re.search(r"Playwright suite: \*\*(\d+) passed\*\*", text)
+        if not m:
+            fail(doc, "no 'N passed' line in playwright_e2e.log")
+        elif not claimed or int(claimed.group(1)) != int(m.group(1)):
+            fail(
+                doc,
+                f"Playwright count: doc {claimed and claimed.group(1)} vs log "
+                f"{m and m.group(1)}",
+            )
+
+    # Screenshot set 01–07 must all be committed.
+    for name in (
+        "01-login", "02-spot-setup-estimate", "03-jobs-midrun", "04-jobs-done",
+        "05-strategy-root", "06-strategy-child", "07-spot-library",
+    ):
+        if not (log_dir / f"{name}.png").exists():
+            fail(doc, f"missing screenshot {name}.png")
+
+
 def check_doc_status(doc: Path) -> None:
     """'Status: in progress' + a recorded gate result is contradictory."""
     text = doc.read_text()
@@ -471,6 +523,8 @@ def main(argv: list[str]) -> int:
             check_phase8_5(doc, suite8_5, float32)
         elif name == "PHASE8_6.md":
             check_phase8_6(doc, suite8_6)
+        elif name == "PHASE10.md":
+            check_phase10(doc)
         elif name == "VALIDATION.md":
             check_validation(
                 doc,

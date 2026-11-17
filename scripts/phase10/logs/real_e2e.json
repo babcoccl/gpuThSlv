@@ -1,0 +1,28 @@
+{
+  "jobs": {
+    "1da488305561": {
+      "id": "1da488305561",
+      "status": "done",
+      "gpu": 0,
+      "iterations_run": 120,
+      "exploitability": 0.09308624267578125,
+      "elapsed_seconds": 1.2176871299743652,
+      "num_nodes": 12556,
+      "dtype": "float32",
+      "strategy_available": true,
+      "spot_name": "phase10-e2e-river"
+    },
+    "08a0453b5a93": {
+      "id": "08a0453b5a93",
+      "status": "done",
+      "gpu": 1,
+      "iterations_run": 120,
+      "exploitability": 0.22592401504516602,
+      "elapsed_seconds": 1.1149499416351318,
+      "num_nodes": 9361,
+      "dtype": "float32",
+      "strategy_available": true,
+      "spot_name": "phase10-e2e-river-gpu1"
+    }
+  }
+}

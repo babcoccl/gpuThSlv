@@ -1,0 +1,3464 @@
+{
+  "components": {
+    "schemas": {
+      "EstimateRequest": {
+        "additionalProperties": false,
+        "description": "``POST /v1/estimate`` body (Phase 10): dry-run admission for a spot.\n\nReturns the node count and VRAM prediction a ``POST /v1/solves`` would\ncompute, without queueing a job.",
+        "properties": {
+          "dtype": {
+            "default": "float32",
+            "enum": [
+              "float32",
+              "float64"
+            ],
+            "title": "Dtype",
+            "type": "string"
+          },
+          "spot": {
+            "additionalProperties": true,
+            "title": "Spot",
+            "type": "object"
+          }
+        },
+        "required": [
+          "spot"
+        ],
+        "title": "EstimateRequest",
+        "type": "object"
+      },
+      "EstimateResponse": {
+        "properties": {
+          "bet_fractions": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Bet Fractions",
+            "type": "array"
+          },
+          "estimated_vram_bytes": {
+            "title": "Estimated Vram Bytes",
+            "type": "integer"
+          },
+          "num_deals": {
+            "title": "Num Deals",
+            "type": "integer"
+          },
+          "num_hands": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Num Hands",
+            "type": "array"
+          },
+          "num_nodes": {
+            "title": "Num Nodes",
+            "type": "integer"
+          },
+          "num_removed": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Num Removed",
+            "type": "array"
+          },
+          "over_vram_budget": {
+            "title": "Over Vram Budget",
+            "type": "boolean"
+          },
+          "predicted_vram_bytes": {
+            "title": "Predicted Vram Bytes",
+            "type": "integer"
+          },
+          "street": {
+            "title": "Street",
+            "type": "string"
+          },
+          "vram_limit_bytes": {
+            "title": "Vram Limit Bytes",
+            "type": "integer"
+          },
+          "weighted": {
+            "title": "Weighted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "num_nodes",
+          "estimated_vram_bytes",
+          "predicted_vram_bytes",
+          "vram_limit_bytes",
+          "over_vram_budget",
+          "street",
+          "num_hands",
+          "num_removed",
+          "num_deals",
+          "weighted",
+          "bet_fractions"
+        ],
+        "title": "EstimateResponse",
+        "type": "object"
+      },
+      "GpuInfo": {
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "gpu": {
+            "title": "Gpu",
+            "type": "integer"
+          },
+          "healthy": {
+            "default": true,
+            "title": "Healthy",
+            "type": "boolean"
+          },
+          "heartbeat_age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat Age Seconds"
+          },
+          "heartbeat_latency_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat Latency Seconds"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "pynvml": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pynvml"
+          },
+          "restarts": {
+            "default": 0,
+            "title": "Restarts",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "vram_capacity_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vram Capacity Bytes"
+          },
+          "worker_pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Pid"
+          },
+          "worker_vram": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Worker Vram",
+            "type": "object"
+          }
+        },
+        "required": [
+          "gpu",
+          "state"
+        ],
+        "title": "GpuInfo",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HandGridAction": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "HandGridAction",
+        "type": "object"
+      },
+      "HandGridCell": {
+        "properties": {
+          "combos": {
+            "description": "combos of this class with positive reach weight at the node",
+            "title": "Combos",
+            "type": "integer"
+          },
+          "frequencies": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Frequencies",
+            "type": "object"
+          },
+          "hand_class": {
+            "title": "Hand Class",
+            "type": "string"
+          },
+          "reach": {
+            "description": "total reach weight of the class at the node",
+            "title": "Reach",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hand_class",
+          "combos",
+          "reach",
+          "frequencies"
+        ],
+        "title": "HandGridCell",
+        "type": "object"
+      },
+      "HandGridNode": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/HandGridAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "combos": {
+            "title": "Combos",
+            "type": "integer"
+          },
+          "grid": {
+            "description": "169 classes in 13x13 chart order (row-major, AA first)",
+            "items": {
+              "$ref": "#/components/schemas/HandGridCell"
+            },
+            "title": "Grid",
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "type": "string"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "player": {
+            "title": "Player",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "player",
+          "history",
+          "actions",
+          "combos",
+          "grid"
+        ],
+        "title": "HandGridNode",
+        "type": "object"
+      },
+      "HandGridResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "iteration": {
+            "title": "Iteration",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/HandGridNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "num_infosets": {
+            "title": "Num Infosets",
+            "type": "integer"
+          },
+          "view": {
+            "const": "hand_grid",
+            "default": "hand_grid",
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "iteration",
+          "num_infosets",
+          "nodes"
+        ],
+        "title": "HandGridResponse",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "InfosetStrategy": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/StrategyAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "hand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hand"
+          },
+          "history": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "player": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player"
+          }
+        },
+        "required": [
+          "key",
+          "player",
+          "hand",
+          "history",
+          "actions"
+        ],
+        "title": "InfosetStrategy",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 512,
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "properties": {
+          "csrf": {
+            "title": "Csrf",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "expires_at",
+          "csrf"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "NodeHandRow": {
+        "properties": {
+          "action_evs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Action Evs",
+            "type": "object"
+          },
+          "combo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combo"
+          },
+          "combos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combos"
+          },
+          "equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity"
+          },
+          "ev": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ev"
+          },
+          "frequencies": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Frequencies",
+            "type": "object"
+          },
+          "hand_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hand Class"
+          },
+          "reach": {
+            "title": "Reach",
+            "type": "number"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "reach",
+          "weight",
+          "frequencies",
+          "action_evs",
+          "ev",
+          "equity"
+        ],
+        "title": "NodeHandRow",
+        "type": "object"
+      },
+      "NodeValuesResponse": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/HandGridAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "board": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Board",
+            "type": "array"
+          },
+          "hands": {
+            "items": {
+              "$ref": "#/components/schemas/NodeHandRow"
+            },
+            "title": "Hands",
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "type": "string"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "iteration": {
+            "title": "Iteration",
+            "type": "integer"
+          },
+          "player": {
+            "title": "Player",
+            "type": "integer"
+          },
+          "pot": {
+            "title": "Pot",
+            "type": "number"
+          },
+          "ranges": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/RangeEntry"
+              },
+              "type": "array"
+            },
+            "title": "Ranges",
+            "type": "object"
+          },
+          "stacks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Stacks",
+            "type": "object"
+          },
+          "street": {
+            "title": "Street",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "iteration",
+          "history",
+          "street",
+          "player",
+          "pot",
+          "stacks",
+          "board",
+          "actions",
+          "ranges",
+          "hands"
+        ],
+        "title": "NodeValuesResponse",
+        "type": "object"
+      },
+      "PinResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "pinned"
+        ],
+        "title": "PinResponse",
+        "type": "object"
+      },
+      "RangeEntry": {
+        "properties": {
+          "combo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combo"
+          },
+          "combos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combos"
+          },
+          "hand_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hand Class"
+          },
+          "reach": {
+            "title": "Reach",
+            "type": "number"
+          },
+          "share": {
+            "title": "Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "reach",
+          "share"
+        ],
+        "title": "RangeEntry",
+        "type": "object"
+      },
+      "SolveAccepted": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "predicted_vram_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Vram Bytes"
+          },
+          "queue_depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Depth"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "queued",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "SolveAccepted",
+        "type": "object"
+      },
+      "SolveParams": {
+        "additionalProperties": false,
+        "description": "Solver parameters shared by ``POST /v1/solves`` and\n``POST /v1/spots/{id}/solve`` (Phase 9).",
+        "properties": {
+          "dtype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "float32",
+                  "float64"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "solver precision; default float32. float64 doubles VRAM for the same tree. Same as solver_options.dtype (give one, or the same value in both).",
+            "title": "Dtype"
+          },
+          "iterations": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iterations"
+          },
+          "max_iterations": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Iterations"
+          },
+          "priority": {
+            "default": 0,
+            "description": "higher runs first; FIFO within a priority",
+            "maximum": 100.0,
+            "minimum": -100.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "progress_every": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Every"
+          },
+          "solver_options": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Solver Options"
+          },
+          "target_exploitability": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Exploitability"
+          },
+          "time_budget": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Budget"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "wall-clock limit from start of build; the job fails with error_code=timeout",
+            "title": "Timeout Seconds"
+          },
+          "variant": {
+            "default": "cfr_plus",
+            "enum": [
+              "cfr",
+              "cfr_plus",
+              "dcfr",
+              "pcfr_plus"
+            ],
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "title": "SolveParams",
+        "type": "object"
+      },
+      "SolveRequest": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /v1/solves``: a ``SpotConfig`` plus solver parameters.",
+        "examples": [
+          {
+            "bet_sizes": "standard",
+            "board": "KsJsTh7d2c",
+            "dtype": "float32",
+            "max_iterations": 20000,
+            "pot": 20.0,
+            "priority": 0,
+            "progress_every": 100,
+            "range0": "QQ+, AKs",
+            "range1": "TT+, AQs+, AKo",
+            "stack": 100.0,
+            "target_exploitability": 0.002,
+            "timeout_seconds": 600,
+            "variant": "cfr_plus"
+          }
+        ],
+        "properties": {
+          "all_in": {
+            "default": false,
+            "title": "All In",
+            "type": "boolean"
+          },
+          "bet_sizes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "additionalProperties": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              }
+            ],
+            "default": "standard",
+            "description": "a preset name or pot fractions; a dict gives per-player ({\"0\": [...], \"1\": [...]}) or per-street ({\"turn\": [...], \"river\": [...]}, turn spots only) lists",
+            "maxLength": 64,
+            "title": "Bet Sizes"
+          },
+          "board": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "5 river cards (or 4 for a turn spot)",
+            "maxLength": 32,
+            "title": "Board"
+          },
+          "dead_cards": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Dead Cards",
+            "type": "array"
+          },
+          "dtype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "float32",
+                  "float64"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "solver precision; default float32. float64 doubles VRAM for the same tree. Same as solver_options.dtype (give one, or the same value in both).",
+            "title": "Dtype"
+          },
+          "iterations": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iterations"
+          },
+          "max_iterations": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Iterations"
+          },
+          "max_nodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 2000000,
+            "title": "Max Nodes"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pot": {
+            "default": 20.0,
+            "title": "Pot",
+            "type": "number"
+          },
+          "priority": {
+            "default": 0,
+            "description": "higher runs first; FIFO within a priority",
+            "maximum": 100.0,
+            "minimum": -100.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "progress_every": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Every"
+          },
+          "raise_cap": {
+            "default": 0,
+            "description": "max raises per street; 0 disables raises",
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Raise Cap",
+            "type": "integer"
+          },
+          "raise_sizes": {
+            "description": "raise options as [kind, value]: [\"x\", m] raises to m times the bet faced, [\"p\", f] to the bet plus f times the pot after calling",
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Raise Sizes",
+            "type": "array"
+          },
+          "range0": {
+            "maxLength": 4096,
+            "title": "Range0",
+            "type": "string"
+          },
+          "range1": {
+            "maxLength": 4096,
+            "title": "Range1",
+            "type": "string"
+          },
+          "solver_options": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Solver Options"
+          },
+          "stack": {
+            "default": 100.0,
+            "title": "Stack",
+            "type": "number"
+          },
+          "target_exploitability": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Exploitability"
+          },
+          "time_budget": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Budget"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "wall-clock limit from start of build; the job fails with error_code=timeout",
+            "title": "Timeout Seconds"
+          },
+          "variant": {
+            "default": "cfr_plus",
+            "enum": [
+              "cfr",
+              "cfr_plus",
+              "dcfr",
+              "pcfr_plus"
+            ],
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "board",
+          "range0",
+          "range1"
+        ],
+        "title": "SolveRequest",
+        "type": "object"
+      },
+      "SolveStatus": {
+        "properties": {
+          "build_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Seconds"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "dtype": {
+            "default": "float32",
+            "description": "solver precision: float32 or float64",
+            "title": "Dtype",
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Seconds"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "estimated_vram_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Vram Bytes"
+          },
+          "exploitability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "latest measured exploitability of the average strategy",
+            "title": "Exploitability"
+          },
+          "exploitability_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Exploitability History",
+            "type": "array"
+          },
+          "exploitability_iteration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "solver iteration at which `exploitability` was measured",
+            "title": "Exploitability Iteration"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "gpu": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "iteration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iteration"
+          },
+          "iterations_run": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iterations Run"
+          },
+          "measured_vram": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Vram"
+          },
+          "num_infosets": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Infosets"
+          },
+          "num_nodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Nodes"
+          },
+          "peak_vram_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Vram Bytes"
+          },
+          "pinned": {
+            "default": false,
+            "description": "pinned strategies are never deleted by retention",
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "predicted_vram_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Vram Bytes"
+          },
+          "priority": {
+            "default": 0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "profile_value_p0": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Value P0"
+          },
+          "spot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the spot's name field, when the request carried one",
+            "title": "Spot Name"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "building",
+              "solving",
+              "done",
+              "cancelled",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy_available": {
+            "default": false,
+            "title": "Strategy Available",
+            "type": "boolean"
+          },
+          "strategy_expired_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Expired At"
+          },
+          "target_exploitability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Exploitability"
+          },
+          "target_reached": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Reached"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "created_at"
+        ],
+        "title": "SolveStatus",
+        "type": "object"
+      },
+      "SpotCreate": {
+        "additionalProperties": false,
+        "description": "``POST /v1/spots`` body (Phase 9).",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "spot": {
+            "additionalProperties": true,
+            "title": "Spot",
+            "type": "object"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "spot"
+        ],
+        "title": "SpotCreate",
+        "type": "object"
+      },
+      "SpotRecord": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "spot": {
+            "additionalProperties": true,
+            "title": "Spot",
+            "type": "object"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "spot",
+          "tags",
+          "notes",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SpotRecord",
+        "type": "object"
+      },
+      "SpotUpdate": {
+        "additionalProperties": false,
+        "description": "``PATCH /v1/spots/{id}`` body (Phase 9); omitted fields are unchanged.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "spot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spot"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "title": "SpotUpdate",
+        "type": "object"
+      },
+      "StrategyAction": {
+        "properties": {
+          "frequency": {
+            "title": "Frequency",
+            "type": "number"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "frequency"
+        ],
+        "title": "StrategyAction",
+        "type": "object"
+      },
+      "StrategyResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "infosets": {
+            "items": {
+              "$ref": "#/components/schemas/InfosetStrategy"
+            },
+            "title": "Infosets",
+            "type": "array"
+          },
+          "iteration": {
+            "title": "Iteration",
+            "type": "integer"
+          },
+          "num_infosets": {
+            "title": "Num Infosets",
+            "type": "integer"
+          },
+          "unmapped_keys": {
+            "title": "Unmapped Keys",
+            "type": "integer"
+          },
+          "view": {
+            "const": "infosets",
+            "default": "infosets",
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "iteration",
+          "num_infosets",
+          "infosets",
+          "unmapped_keys"
+        ],
+        "title": "StrategyResponse",
+        "type": "object"
+      },
+      "TreeChild": {
+        "properties": {
+          "actions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HandGridAction"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actions"
+          },
+          "edge": {
+            "title": "Edge",
+            "type": "string"
+          },
+          "history": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History"
+          },
+          "kind": {
+            "enum": [
+              "player",
+              "chance",
+              "terminal"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "player": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player"
+          }
+        },
+        "required": [
+          "edge",
+          "kind"
+        ],
+        "title": "TreeChild",
+        "type": "object"
+      },
+      "TreeNodeResponse": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/HandGridAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "board": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Board",
+            "type": "array"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/TreeChild"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "dealt_cards": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dealt Cards"
+          },
+          "history": {
+            "items": {
+              "type": "string"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_chance": {
+            "title": "Is Chance",
+            "type": "boolean"
+          },
+          "iteration": {
+            "title": "Iteration",
+            "type": "integer"
+          },
+          "player": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player"
+          },
+          "pot": {
+            "title": "Pot",
+            "type": "number"
+          },
+          "stacks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Stacks",
+            "type": "object"
+          },
+          "street": {
+            "title": "Street",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "iteration",
+          "history",
+          "street",
+          "pot",
+          "stacks",
+          "board",
+          "is_chance"
+        ],
+        "title": "TreeNodeResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "\nRiver (and turn) heads-up NLHE solves on the GPU-CFR engine.\n\n* Limits: no raises (bet/check/call/fold only), no flop or preflop trees,\n  one bet-size list shared by every node.\n* `dtype` (`float32` default, or `float64`) sets solver precision; float64\n  doubles VRAM for the same tree.\n* `GET /v1/solves/{id}/strategy` returns solver output only (average strategy\n  frequencies of the submitted spot); it does not expose other jobs, files or\n  server state.\n* Auth: `Authorization: Bearer <key>` or `X-API-Key` on every endpoint except\n  `/healthz` when `HOLDEM_API_KEY` is set. `POST /v1/auth/login` exchanges\n  the key for an HttpOnly session cookie plus a CSRF token (send it back as\n  `X-CSRF-Token` on mutating requests). CORS is disabled unless\n  `HOLDEM_CORS_ORIGINS` is set.\n* `GET /v1/solves/{id}/tree` and `/node` navigate the solved tree and return\n  reach-weighted frequencies, per-action EVs, hand EV, equity, and ranges;\n  `/events` streams live progress over server-sent events; `/v1/spots`\n  stores named reusable spots.\n",
+    "title": "holdem-solver",
+    "version": "0.5.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "get_metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "example": "# HELP holdem_queue_depth Queued jobs waiting for a GPU.\n# TYPE holdem_queue_depth gauge\nholdem_queue_depth 2.0\nholdem_jobs{status=\"done\"} 41.0\nholdem_jobs_failed{error_code=\"cuda_oom\"} 1.0\nholdem_vram_factor{dtype=\"float32\",source=\"seed\"} 1.6\nholdem_iterations_per_second{gpu=\"0\"} 118.4\nholdem_gpu_utilization_ratio{gpu=\"0\"} 0.97\nholdem_worker_restarts_total{gpu=\"1\"} 1.0\nholdem_build_duration_seconds_bucket{dtype=\"float32\",gpu=\"0\",le=\"1.0\"} 12.0\n"
+              }
+            },
+            "description": "Prometheus text exposition format"
+          }
+        },
+        "summary": "Prometheus metrics (same auth as /v1)"
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "login_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "csrf": "lV9eHk3Zx2QwT0yR8nM6pA1sD4fG7hJk",
+                  "expires_at": 1789043200.0
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exchange the API key for an HttpOnly session cookie + CSRF token"
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "logged_out"
+                },
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Logout V1 Auth Logout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout"
+      }
+    },
+    "/v1/estimate": {
+      "post": {
+        "operationId": "estimate_v1_estimate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "bet_fractions": [
+                    0.5,
+                    1.0
+                  ],
+                  "estimated_vram_bytes": 65719296,
+                  "num_deals": 2401,
+                  "num_hands": [
+                    40,
+                    62
+                  ],
+                  "num_nodes": 153422,
+                  "num_removed": [
+                    2,
+                    0
+                  ],
+                  "over_vram_budget": false,
+                  "predicted_vram_bytes": 105150873,
+                  "street": "river",
+                  "vram_limit_bytes": 15032385536,
+                  "weighted": false
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/EstimateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dry-run admission: node count and VRAM prediction for a spot"
+      }
+    },
+    "/v1/gpus": {
+      "get": {
+        "operationId": "list_gpus_v1_gpus_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "device": "NVIDIA GeForce RTX 5060 Ti",
+                    "gpu": 0,
+                    "healthy": true,
+                    "heartbeat_age_seconds": 1.2,
+                    "heartbeat_latency_seconds": 0.0011,
+                    "pynvml": {
+                      "memory_total_bytes": 17103323136,
+                      "memory_used_bytes": 512753664,
+                      "utilization_gpu_pct": 0,
+                      "utilization_memory_pct": 0
+                    },
+                    "restarts": 0,
+                    "state": "unbuilt",
+                    "vram_capacity_bytes": 17103323136,
+                    "worker_pid": 41230,
+                    "worker_vram": {
+                      "allocated_bytes": 0,
+                      "reserved_bytes": 0
+                    }
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GpuInfo"
+                  },
+                  "title": "Response List Gpus V1 Gpus Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Gpus"
+      }
+    },
+    "/v1/solves": {
+      "get": {
+        "operationId": "list_solves_v1_solves_get",
+        "parameters": [
+          {
+            "description": "keep only jobs in this state",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "building",
+                    "solving",
+                    "done",
+                    "cancelled",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "keep only jobs in this state",
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "build_seconds": 2.9,
+                    "created_at": 1789000000.1,
+                    "dtype": "float32",
+                    "elapsed_seconds": 12.6,
+                    "estimated_vram_bytes": 65719296,
+                    "exploitability": 0.00231,
+                    "exploitability_history": [
+                      {
+                        "elapsed_seconds": 9.4,
+                        "exploitability": 0.00247,
+                        "iteration": 2300
+                      },
+                      {
+                        "elapsed_seconds": 9.7,
+                        "exploitability": 0.00231,
+                        "iteration": 2400
+                      }
+                    ],
+                    "exploitability_iteration": 2400,
+                    "gpu": 1,
+                    "id": "3f9c2a7b1d04",
+                    "iteration": 2400,
+                    "iterations_run": 2400,
+                    "measured_vram": {
+                      "peak_reserved_bytes": 102760448
+                    },
+                    "num_infosets": 3608,
+                    "num_nodes": 153422,
+                    "pinned": false,
+                    "predicted_vram_bytes": 105150873,
+                    "priority": 0,
+                    "spot_name": "dry-river-polar",
+                    "started_at": 1789000000.4,
+                    "status": "solving",
+                    "strategy_available": false,
+                    "target_exploitability": 0.002,
+                    "timeout_seconds": 600.0
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SolveStatus"
+                  },
+                  "title": "Response List Solves V1 Solves Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every job, newest first"
+      },
+      "post": {
+        "operationId": "post_solve_v1_solves_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "3f9c2a7b1d04",
+                  "predicted_vram_bytes": 156237414,
+                  "queue_depth": 1,
+                  "replayed": false,
+                  "status": "queued"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SolveAccepted"
+                }
+              }
+            },
+            "description": "Accepted and queued"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Solve"
+      }
+    },
+    "/v1/solves/{job_id}": {
+      "delete": {
+        "operationId": "delete_solve_v1_solves__job_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "build_seconds": 2.9,
+                  "created_at": 1789000000.1,
+                  "dtype": "float32",
+                  "elapsed_seconds": 12.6,
+                  "estimated_vram_bytes": 65719296,
+                  "exploitability": 0.00231,
+                  "exploitability_history": [
+                    {
+                      "elapsed_seconds": 9.4,
+                      "exploitability": 0.00247,
+                      "iteration": 2300
+                    },
+                    {
+                      "elapsed_seconds": 9.7,
+                      "exploitability": 0.00231,
+                      "iteration": 2400
+                    }
+                  ],
+                  "exploitability_iteration": 2400,
+                  "finished_at": 1789000013.2,
+                  "gpu": 1,
+                  "id": "3f9c2a7b1d04",
+                  "iteration": 2400,
+                  "iterations_run": 2400,
+                  "measured_vram": {
+                    "peak_reserved_bytes": 102760448
+                  },
+                  "num_infosets": 3608,
+                  "num_nodes": 153422,
+                  "pinned": false,
+                  "predicted_vram_bytes": 105150873,
+                  "priority": 0,
+                  "spot_name": "dry-river-polar",
+                  "started_at": 1789000000.4,
+                  "status": "cancelled",
+                  "strategy_available": false,
+                  "target_exploitability": 0.002,
+                  "timeout_seconds": 600.0
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SolveStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Solve"
+      },
+      "get": {
+        "operationId": "get_solve_v1_solves__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "build_seconds": 2.9,
+                  "created_at": 1789000000.1,
+                  "dtype": "float32",
+                  "elapsed_seconds": 12.6,
+                  "estimated_vram_bytes": 65719296,
+                  "exploitability": 0.00231,
+                  "exploitability_history": [
+                    {
+                      "elapsed_seconds": 9.4,
+                      "exploitability": 0.00247,
+                      "iteration": 2300
+                    },
+                    {
+                      "elapsed_seconds": 9.7,
+                      "exploitability": 0.00231,
+                      "iteration": 2400
+                    }
+                  ],
+                  "exploitability_iteration": 2400,
+                  "gpu": 1,
+                  "id": "3f9c2a7b1d04",
+                  "iteration": 2400,
+                  "iterations_run": 2400,
+                  "measured_vram": {
+                    "peak_reserved_bytes": 102760448
+                  },
+                  "num_infosets": 3608,
+                  "num_nodes": 153422,
+                  "pinned": false,
+                  "predicted_vram_bytes": 105150873,
+                  "priority": 0,
+                  "spot_name": "dry-river-polar",
+                  "started_at": 1789000000.4,
+                  "status": "solving",
+                  "strategy_available": false,
+                  "target_exploitability": 0.002,
+                  "timeout_seconds": 600.0
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SolveStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Solve"
+      }
+    },
+    "/v1/solves/{job_id}/events": {
+      "get": {
+        "operationId": "get_events_v1_solves__job_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {
+                "example": "id: 1\nevent: snapshot\ndata: {\"status\": \"solving\", \"iteration\": 2400, \"iterations_run\": 2400, \"exploitability\": 0.00231, \"exploitability_iteration\": 2400}\n\nid: 2\nevent: progress\ndata: {\"status\": \"solving\", \"iteration\": 2500, \"iterations_run\": 2500, \"exploitability\": 0.00231, \"exploitability_iteration\": 2400}\n\nid: 3\nevent: done\ndata: {\"status\": \"done\", \"iteration\": 4000, \"iterations_run\": 4000, \"exploitability\": 0.00198, \"exploitability_iteration\": 4000}\n\n"
+              }
+            },
+            "description": "text/event-stream of progress events (snapshot, progress, done)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Server-sent progress events; Last-Event-ID resumes a disconnected stream"
+      }
+    },
+    "/v1/solves/{job_id}/node": {
+      "get": {
+        "operationId": "get_node_v1_solves__job_id__node_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "comma- or pipe-separated history; '' = root",
+            "in": "query",
+            "name": "history",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma- or pipe-separated history; '' = root",
+              "title": "History"
+            }
+          },
+          {
+            "description": "per combo instead of per hand class",
+            "in": "query",
+            "name": "combos",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "per combo instead of per hand class",
+              "title": "Combos",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "actions": [
+                    {
+                      "label": "check",
+                      "name": "check"
+                    },
+                    {
+                      "label": "bet 10",
+                      "name": "b10"
+                    }
+                  ],
+                  "board": [
+                    "Ks",
+                    "Js",
+                    "Th",
+                    "7d",
+                    "2c"
+                  ],
+                  "hands": [
+                    {
+                      "action_evs": {
+                        "b10": 6.7,
+                        "check": 5.1
+                      },
+                      "combos": 6,
+                      "equity": 0.72,
+                      "ev": 6.04,
+                      "frequencies": {
+                        "b10": 0.59,
+                        "check": 0.41
+                      },
+                      "hand_class": "AA",
+                      "reach": 0.55,
+                      "weight": 0.9
+                    }
+                  ],
+                  "history": [],
+                  "id": "3f9c2a7b1d04",
+                  "iteration": 4000,
+                  "player": 0,
+                  "pot": 20.0,
+                  "ranges": {
+                    "p0": [
+                      {
+                        "combos": 6,
+                        "hand_class": "AA",
+                        "reach": 0.55,
+                        "share": 0.31
+                      }
+                    ],
+                    "p1": [
+                      {
+                        "combos": 6,
+                        "hand_class": "TT",
+                        "reach": 0.5,
+                        "share": 0.4
+                      }
+                    ]
+                  },
+                  "stacks": {
+                    "p0": 100.0,
+                    "p1": 100.0
+                  },
+                  "street": "river"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/NodeValuesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Per-node values: reach-weighted frequencies, per-action EVs, hand EV, equity, ranges"
+      }
+    },
+    "/v1/solves/{job_id}/pin": {
+      "post": {
+        "operationId": "pin_solve_v1_solves__job_id__pin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "3f9c2a7b1d04",
+                  "pinned": true
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/PinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pin a solve's strategy so retention never deletes it"
+      }
+    },
+    "/v1/solves/{job_id}/strategy": {
+      "get": {
+        "operationId": "get_strategy_v1_solves__job_id__strategy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`infosets`: one row per infoset (default). `hand_grid`: per decision point, the 169 hand classes with reach-weighted action frequencies.",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "infosets",
+              "description": "`infosets`: one row per infoset (default). `hand_grid`: per decision point, the 169 hand classes with reach-weighted action frequencies.",
+              "enum": [
+                "infosets",
+                "hand_grid"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "description": "hand_grid only: keep one player's decisions",
+            "in": "query",
+            "name": "player",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "hand_grid only: keep one player's decisions",
+              "title": "Player"
+            }
+          },
+          {
+            "description": "hand_grid only: keep one decision point, e.g. `check,b10` ('' = root)",
+            "in": "query",
+            "name": "history",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "hand_grid only: keep one decision point, e.g. `check,b10` ('' = root)",
+              "title": "History"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "view=hand_grid": {
+                    "id": "3f9c2a7b1d04",
+                    "iteration": 4000,
+                    "nodes": [
+                      {
+                        "actions": [
+                          {
+                            "label": "check",
+                            "name": "check"
+                          },
+                          {
+                            "label": "bet 20",
+                            "name": "b20"
+                          }
+                        ],
+                        "combos": 22,
+                        "grid": [
+                          {
+                            "combos": 6,
+                            "frequencies": {
+                              "b20": 0.59,
+                              "check": 0.41
+                            },
+                            "hand_class": "AA"
+                          },
+                          {
+                            "combos": 4,
+                            "frequencies": {
+                              "b20": 0.88,
+                              "check": 0.12
+                            },
+                            "hand_class": "AKs"
+                          },
+                          {
+                            "combos": 0,
+                            "frequencies": {},
+                            "hand_class": "AQs"
+                          }
+                        ],
+                        "history": [],
+                        "player": 0
+                      }
+                    ],
+                    "num_infosets": 72,
+                    "view": "hand_grid"
+                  },
+                  "view=infosets": {
+                    "id": "3f9c2a7b1d04",
+                    "infosets": [
+                      {
+                        "actions": [
+                          {
+                            "frequency": 0.38,
+                            "label": "check",
+                            "name": "check"
+                          },
+                          {
+                            "frequency": 0.62,
+                            "label": "bet 20",
+                            "name": "b20"
+                          }
+                        ],
+                        "hand": "AhAd",
+                        "history": [],
+                        "key": "p0|AhAd|",
+                        "player": 0
+                      }
+                    ],
+                    "iteration": 4000,
+                    "num_infosets": 72,
+                    "unmapped_keys": 0,
+                    "view": "infosets"
+                  }
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/StrategyResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/HandGridResponse"
+                    }
+                  ],
+                  "title": "Response Get Strategy V1 Solves  Job Id  Strategy Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Strategy"
+      }
+    },
+    "/v1/solves/{job_id}/tree": {
+      "get": {
+        "operationId": "get_tree_v1_solves__job_id__tree_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "comma- or pipe-separated history; '' = root",
+            "in": "query",
+            "name": "history",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma- or pipe-separated history; '' = root",
+              "title": "History"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "actions": [
+                    {
+                      "label": "check",
+                      "name": "check"
+                    },
+                    {
+                      "label": "bet 10",
+                      "name": "b10"
+                    }
+                  ],
+                  "board": [
+                    "Ks",
+                    "Js",
+                    "Th",
+                    "7d",
+                    "2c"
+                  ],
+                  "children": [
+                    {
+                      "actions": [
+                        {
+                          "label": "check",
+                          "name": "check"
+                        },
+                        {
+                          "label": "bet 10",
+                          "name": "b10"
+                        }
+                      ],
+                      "edge": "check",
+                      "history": [
+                        "check"
+                      ],
+                      "kind": "player",
+                      "player": 1
+                    },
+                    {
+                      "actions": [
+                        {
+                          "label": "fold",
+                          "name": "fold"
+                        },
+                        {
+                          "label": "call",
+                          "name": "call"
+                        }
+                      ],
+                      "edge": "b10",
+                      "history": [
+                        "b10"
+                      ],
+                      "kind": "player",
+                      "player": 1
+                    }
+                  ],
+                  "history": [],
+                  "id": "3f9c2a7b1d04",
+                  "is_chance": false,
+                  "iteration": 4000,
+                  "player": 0,
+                  "pot": 20.0,
+                  "stacks": {
+                    "p0": 100.0,
+                    "p1": 100.0
+                  },
+                  "street": "river"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/TreeNodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One tree node: player/street/pot/stacks/board/actions/children; no history parsing needed"
+      }
+    },
+    "/v1/solves/{job_id}/unpin": {
+      "post": {
+        "operationId": "unpin_solve_v1_solves__job_id__unpin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "3f9c2a7b1d04",
+                  "pinned": true
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/PinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unpin a solve; retention applies again"
+      }
+    },
+    "/v1/spots": {
+      "get": {
+        "operationId": "list_spots_v1_spots_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "created_at": 1789000000.0,
+                    "id": "7a1c4e9b2d10",
+                    "name": "dry-river-polar",
+                    "notes": "baseline test spot",
+                    "spot": {
+                      "bet_sizes": "standard",
+                      "board": "KsJsTh7d2c",
+                      "pot": 20.0,
+                      "range0": "QQ+, AKs",
+                      "range1": "TT, AQ",
+                      "stack": 100.0
+                    },
+                    "tags": [
+                      "river",
+                      "dry"
+                    ],
+                    "updated_at": 1789000000.0
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SpotRecord"
+                  },
+                  "title": "Response List Spots V1 Spots Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Spots"
+      },
+      "post": {
+        "operationId": "create_spot_v1_spots_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpotCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "created_at": 1789000000.0,
+                  "id": "7a1c4e9b2d10",
+                  "name": "dry-river-polar",
+                  "notes": "baseline test spot",
+                  "spot": {
+                    "bet_sizes": "standard",
+                    "board": "KsJsTh7d2c",
+                    "pot": 20.0,
+                    "range0": "QQ+, AKs",
+                    "range1": "TT, AQ",
+                    "stack": 100.0
+                  },
+                  "tags": [
+                    "river",
+                    "dry"
+                  ],
+                  "updated_at": 1789000000.0
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SpotRecord"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Spot"
+      }
+    },
+    "/v1/spots/{spot_id}": {
+      "delete": {
+        "operationId": "delete_spot_v1_spots__spot_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "title": "Spot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "deleted"
+                },
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Spot V1 Spots  Spot Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Spot"
+      },
+      "get": {
+        "operationId": "get_spot_v1_spots__spot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "title": "Spot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "created_at": 1789000000.0,
+                    "id": "7a1c4e9b2d10",
+                    "name": "dry-river-polar",
+                    "notes": "baseline test spot",
+                    "spot": {
+                      "bet_sizes": "standard",
+                      "board": "KsJsTh7d2c",
+                      "pot": 20.0,
+                      "range0": "QQ+, AKs",
+                      "range1": "TT, AQ",
+                      "stack": 100.0
+                    },
+                    "tags": [
+                      "river",
+                      "dry"
+                    ],
+                    "updated_at": 1789000000.0
+                  }
+                ],
+                "schema": {
+                  "$ref": "#/components/schemas/SpotRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Spot"
+      },
+      "patch": {
+        "operationId": "update_spot_v1_spots__spot_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "title": "Spot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpotUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "created_at": 1789000000.0,
+                    "id": "7a1c4e9b2d10",
+                    "name": "dry-river-polar",
+                    "notes": "baseline test spot",
+                    "spot": {
+                      "bet_sizes": "standard",
+                      "board": "KsJsTh7d2c",
+                      "pot": 20.0,
+                      "range0": "QQ+, AKs",
+                      "range1": "TT, AQ",
+                      "stack": 100.0
+                    },
+                    "tags": [
+                      "river",
+                      "dry"
+                    ],
+                    "updated_at": 1789000000.0
+                  }
+                ],
+                "schema": {
+                  "$ref": "#/components/schemas/SpotRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Spot"
+      }
+    },
+    "/v1/spots/{spot_id}/duplicate": {
+      "post": {
+        "operationId": "duplicate_spot_v1_spots__spot_id__duplicate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "title": "Spot Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "default '<name> (copy)'",
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "default '<name> (copy)'",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "created_at": 1789000000.0,
+                  "id": "7a1c4e9b2d10",
+                  "name": "dry-river-polar",
+                  "notes": "baseline test spot",
+                  "spot": {
+                    "bet_sizes": "standard",
+                    "board": "KsJsTh7d2c",
+                    "pot": 20.0,
+                    "range0": "QQ+, AKs",
+                    "range1": "TT, AQ",
+                    "stack": 100.0
+                  },
+                  "tags": [
+                    "river",
+                    "dry"
+                  ],
+                  "updated_at": 1789000000.0
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SpotRecord"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Duplicate Spot"
+      }
+    },
+    "/v1/spots/{spot_id}/solve": {
+      "post": {
+        "operationId": "solve_spot_v1_spots__spot_id__solve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "title": "Spot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolveParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "3f9c2a7b1d04",
+                  "predicted_vram_bytes": 156237414,
+                  "queue_depth": 1,
+                  "replayed": false,
+                  "status": "queued"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SolveAccepted"
+                }
+              }
+            },
+            "description": "Accepted and queued"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue a solve of the saved spot (same admission as POST /v1/solves)"
+      }
+    }
+  }
+}

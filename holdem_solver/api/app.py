@@ -60,7 +60,9 @@ import numpy as np
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from holdem_solver.client import RemoteEngineError
 from holdem_solver.protocol import SpotConfig
@@ -73,6 +75,8 @@ from . import security
 from .metrics import CONTENT_TYPE as METRICS_CONTENT_TYPE
 from .metrics import Metrics
 from .models import (
+    EstimateRequest,
+    EstimateResponse,
     GpuInfo,
     HandGridResponse,
     HealthResponse,
@@ -168,6 +172,8 @@ def _status(job: dict[str, Any]) -> SolveStatus:
         peak_vram_bytes=job.get("peak_vram_bytes"),
         strategy_available=bool(job["strategy_path"]) and os.path.exists(job["strategy_path"]),
         strategy_expired_at=job.get("strategy_expired_at"),
+        pinned=bool(job.get("pinned")),
+        spot_name=job["spot"].get("name"),
     )
 
 
@@ -375,6 +381,31 @@ def create_app(
             infos.append(GpuInfo(**info))
         return infos
 
+    def _vram_limit() -> int:
+        limit = max_vram_bytes
+        gpu_limit = scheduler.max_usable_vram()
+        if gpu_limit is not None:
+            limit = min(limit, gpu_limit)
+        return limit
+
+    def _predicted(spot: dict[str, Any], dtype: str) -> tuple[int, int, int]:
+        """``(num_nodes, estimated_vram, predicted_peak_vram)`` for a spot.
+
+        Engine errors become 422s (a spot the engine rejects) or 503s (no
+        worker), exactly as in ``_admit``."""
+        try:
+            estimate = scheduler.estimate(spot, dtype=dtype)
+        except RemoteEngineError as exc:
+            raise HTTPException(status_code=422, detail=_engine_error_detail(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"engine unavailable: {exc}") from exc
+        factor, _source, _samples = scheduler.vram.factor(dtype)
+        return (
+            int(estimate["num_nodes"]),
+            int(estimate["estimated_vram_bytes"]),
+            int(estimate["estimated_vram_bytes"] * factor),
+        )
+
     def _admit(
         spot: dict[str, Any],
         request: SolveParams,
@@ -406,29 +437,17 @@ def create_app(
             raise HTTPException(status_code=422, detail=f"bad spot: {exc}") from exc
 
         dtype = request.effective_dtype()
-        try:
-            estimate = scheduler.estimate(spot, dtype=dtype)
-        except RemoteEngineError as exc:
-            raise HTTPException(status_code=422, detail=_engine_error_detail(exc)) from exc
-        except Exception as exc:
-            raise HTTPException(status_code=503, detail=f"engine unavailable: {exc}") from exc
-
-        num_nodes = int(estimate["num_nodes"])
+        num_nodes, est_vram, predicted = _predicted(spot, dtype)
         if config.max_nodes is not None and num_nodes > config.max_nodes:
             raise HTTPException(
                 status_code=422,
                 detail=f"spot needs {num_nodes} nodes, over max_nodes={config.max_nodes}; "
                 "narrow the ranges or bet sizes, or raise max_nodes",
             )
-        est_vram = int(estimate["estimated_vram_bytes"])
-        factor, source, samples = scheduler.vram.factor(dtype)
-        predicted = int(est_vram * factor)
-        limit = max_vram_bytes
-        gpu_limit = scheduler.max_usable_vram()
-        if gpu_limit is not None:
-            limit = min(limit, gpu_limit)
+        limit = _vram_limit()
         if predicted > limit:
             gib = 1024**3
+            factor, source, samples = scheduler.vram.factor(dtype)
             basis = (
                 f"x{factor:.3f} from {samples} measured peak(s)" if source == "measured" else f"x{factor:.2f} seed ({samples} of {scheduler.vram.min_samples} samples)"
             )
@@ -491,6 +510,48 @@ def create_app(
             request.spot_dict(), request, response, idempotency_key,
             request_hash(request.hash_body()),
         )
+
+    @app.post(
+        "/v1/estimate", response_model=EstimateResponse,
+        dependencies=[Depends(auth), Depends(csrf), Depends(rate_limit)],
+        responses=examples.ESTIMATE,
+        summary="Dry-run admission: node count and VRAM prediction for a spot",
+    )
+    def estimate(request: EstimateRequest) -> EstimateResponse:
+        try:
+            config = SpotConfig.from_dict(request.spot)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"bad spot: {exc}") from exc
+        num_nodes, est_vram, predicted = _predicted(request.spot, request.dtype)
+        limit = _vram_limit()
+        summary = config.resolve().summary()
+        return EstimateResponse(
+            num_nodes=num_nodes,
+            estimated_vram_bytes=est_vram,
+            predicted_vram_bytes=predicted,
+            vram_limit_bytes=limit,
+            over_vram_budget=predicted > limit,
+            street=summary["street"],
+            num_hands=summary["num_hands"],
+            num_removed=summary["num_removed"],
+            num_deals=summary["num_deals"],
+            weighted=summary["weighted"],
+            bet_fractions=summary["bet_fractions"],
+        )
+
+    @app.get(
+        "/v1/solves", response_model=list[SolveStatus], dependencies=[Depends(auth)],
+        responses=examples.LIST_SOLVES, summary="Every job, newest first",
+    )
+    def list_solves(
+        status: Literal["queued", "building", "solving", "done", "cancelled", "failed"] | None = Query(
+            None, description="keep only jobs in this state"
+        ),
+    ) -> list[SolveStatus]:
+        jobs = store.all_jobs()
+        if status is not None:
+            jobs = [job for job in jobs if job["status"] == status]
+        return [_status(job) for job in reversed(jobs)]
 
     @app.get("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)], responses=examples.GET_SOLVE)
     def get_solve(job_id: str) -> SolveStatus:
@@ -891,6 +952,34 @@ def create_app(
         except QueueFullError as exc:
             raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "30"}) from exc
         return SpotRecord(**copy)
+
+    # -- Phase 10: web UI (static SPA) -----------------------------------------
+
+    ui_dir = os.environ.get("HOLDEM_UI_DIR") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "ui", "dist",
+    )
+    if os.path.isdir(ui_dir):
+
+        class _SPAFiles(StaticFiles):
+            """StaticFiles with an index.html fallback so client-side routes
+            like ``/ui/jobs`` load the SPA."""
+
+            async def get_response(self, path: str, scope: dict[str, Any]) -> Response:
+                try:
+                    return await super().get_response(path, scope)
+                except StarletteHTTPException as exc:
+                    if exc.status_code == 404:
+                        return await super().get_response("index.html", scope)
+                    raise
+
+        @app.get("/", include_in_schema=False)
+        def index() -> RedirectResponse:
+            return RedirectResponse("/ui/")
+
+        app.mount("/ui", _SPAFiles(directory=ui_dir, html=True), name="ui")
+    else:
+        LOG.info("no UI build at %s; /ui is not served (run `npm run build` in ui/)", ui_dir)
 
     @app.post(
         "/v1/spots/{spot_id}/solve", status_code=202, response_model=SolveAccepted,

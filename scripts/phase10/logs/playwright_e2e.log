@@ -1,0 +1,19 @@
+[WebServer] INFO:     Started server process [160266]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8317 (Press CTRL+C to quit)
+
+Running 6 tests using 1 worker
+
+  ✓  1 tests/e2e.spec.ts:34:1 › login flow: bad key rejected, good key lands on jobs (424ms)
+[WebServer] {"ts": 1794956994.411, "level": "INFO", "logger": "holdem_solver.api", "msg": "job d8e831921e5d queued: 12556 nodes, priority 0, predicted 0.02 GiB"}
+  ✓  2 tests/e2e.spec.ts:45:1 › build a river spot, estimate, solve, view root and a child node (2.1s)
+[WebServer] {"ts": 1794956996.428, "level": "INFO", "logger": "holdem_solver.api", "msg": "job 9ed63271f273 queued: 12556 nodes, priority 0, predicted 0.02 GiB"}
+  ✓  3 tests/e2e.spec.ts:67:1 › jobs list shows status and pin works (2.0s)
+[WebServer] {"ts": 1794956998.841, "level": "INFO", "logger": "holdem_solver.api", "msg": "job b4c1f9fcf5fa queued: 12556 nodes, priority 0, predicted 0.02 GiB"}
+  ✓  4 tests/e2e.spec.ts:79:1 › spot library: save, rename/tag, duplicate, solve from saved spot (2.7s)
+[WebServer] {"ts": 1794957001.298, "level": "INFO", "logger": "holdem_solver.api", "msg": "job 8ecdebf53baf queued: 12556 nodes, priority 0, predicted 0.02 GiB"}
+  ✓  5 tests/e2e.spec.ts:107:1 › SSE reconnects after the events stream is dropped (5.4s)
+  ✓  6 tests/e2e.spec.ts:136:1 › inline 422 on an invalid spot (569ms)
+
+  6 passed (15.9s)
