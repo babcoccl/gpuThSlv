@@ -662,8 +662,16 @@ def create_app(
     # -- Phase 9: live progress (SSE) --------------------------------------------
 
     def _sse_snapshot(job: dict[str, Any]) -> dict[str, Any]:
+        # A running job with cancel_requested stays "building"/"solving" in
+        # the store until the runner's finish() lands, but the DELETE that
+        # requested it already reported "cancelled". A client connecting in
+        # that window must see the effective (cancelled) status, not the
+        # stale active one.
+        status = job["status"]
+        if status in ACTIVE_STATES and job.get("cancel_requested"):
+            status = "cancelled"
         return {
-            "status": job["status"],
+            "status": status,
             "iteration": job["iteration"],
             "iterations_run": job["iterations_run"],
             "exploitability": job["exploitability"],
@@ -742,7 +750,9 @@ def create_app(
             yield frame(seq, "snapshot", payload)
 
             # Finished jobs: snapshot then the terminal done event, no replay.
-            if job_now["status"] in TERMINAL_STATES:
+            # The payload's effective status decides: a cancel_requested job
+            # reads "cancelled" and ends the stream right after the snapshot.
+            if payload["status"] in TERMINAL_STATES:
                 yield frame(seq, "done", payload)
                 return
 
@@ -765,7 +775,7 @@ def create_app(
                     last_payload = payload
                 elif ticks % heartbeat_ticks == 0:
                     yield ": keep-alive\n\n"
-                if job_now["status"] in TERMINAL_STATES:
+                if payload["status"] in TERMINAL_STATES:
                     yield frame(seq, "done", payload)
                     return
 

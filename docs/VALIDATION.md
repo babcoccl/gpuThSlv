@@ -32,7 +32,7 @@ our evaluator).
 | Suite | Spots | Match | Explained | Unresolved |
 |---|---|---|---|---|
 | Phase 7 (`scripts/phase7/runs/suite.json`) | 15 | 4 | 11 | 0 |
-| Phase 8 weighted (`scripts/phase8/runs/suite8.json`) | 8 | 6 | 2 | 0 |
+| Phase 8 weighted (`scripts/phase8/runs/suite8.json`) | 8 | 5 | 3 | 0 |
 | Phase 8.5 (`scripts/phase8_5/runs/suite8_5.json`) | 12 | 5 | 7 | 0 |
 | Phase 8.6 equal-tree raises (`scripts/phase8_6/runs/suite8_6.json`) | 4 | 1 | 3 | 0 |
 | Phase 8 cross-eval (13 identical-tree spots) | 13 | — | — | all ≤ ~0.001pp of TS's own exploitability |

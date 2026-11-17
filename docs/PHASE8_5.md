@@ -110,8 +110,8 @@ failed+analysis).
    | spot | ΔEV % pot | xeval ts-in-ours | verdict |
    |---|---|---|---|
    | turn-narrow-a | 0.263% | 15.37% | explained (D2-ext: TS allows a `b5→r17→r30` re-raise our cap-1 street removes) |
-   | turn-narrow-b | 0.069% | 0.063% | match |
-   | w-turn-cap0 | 0.035% | 0.069% | **match** — the Phase-8 16.5% xeval gap is closed |
+   | turn-narrow-b | 0.034% | 0.063% | match |
+   | w-turn-cap0 | 0.018% | 0.069% | **match** — the Phase-8 16.5% xeval gap is closed |
 
    Turn validation is now full, not partial: the w-turn-cap0 tree is
    identical and its strategy cross-evaluates at 0.069% of pot.

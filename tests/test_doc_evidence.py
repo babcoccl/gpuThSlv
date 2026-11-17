@@ -127,3 +127,95 @@ def test_check_evidence_fails_on_mutated_doc(tmp_path, case):
     assert proc.returncode == 1, (
         "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
     )
+
+
+# Phase 10: docs/PHASE7|8|8_5|8_6.md and VALIDATION.md result tables must
+# equal the committed suite JSONs (scripts/phase10/check_suites.py).
+CHECK_SUITES = ROOT / "scripts" / "phase10" / "check_suites.py"
+
+
+def _suites_guard(*doc_paths):
+    return subprocess.run(
+        [sys.executable, str(CHECK_SUITES), *map(str, doc_paths)],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+
+
+def test_suite_tables_match_committed_artifacts():
+    proc = _suites_guard()
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+_SUITE_MUTATIONS = {
+    # verdict-count note must equal the suite verdict histogram
+    "phase7_verdict_count": ("PHASE7.md", "explained (11)", "explained (10)"),
+    # a verdict cell flipped in the step-2 table
+    "phase8_verdict": (
+        "PHASE8.md",
+        "| w-blocker-cap0 | 0 | yes | +0.18 | 2.7 | 1.00 | 0.292% | 0.492% | match |",
+        "| w-blocker-cap0 | 0 | yes | +0.18 | 2.7 | 1.00 | 0.292% | 0.492% | explained |",
+    ),
+    # a cross-eval percentage off in the last digit
+    "phase8_xeval": (
+        "PHASE8.md",
+        "| w-turn-cap0 | 0.048% | 16.55% | 0.074% | 5424/5838 |",
+        "| w-turn-cap0 | 0.048% | 16.56% | 0.074% | 5424/5838 |",
+    ),
+    # xeval ts-in-ours off in the turn table
+    "phase8_5_xeval": (
+        "PHASE8_5.md",
+        "| turn-narrow-b | 0.034% | 0.063% | match |",
+        "| turn-narrow-b | 0.034% | 0.064% | match |",
+    ),
+    # float32 delta cell off
+    "phase8_5_float32": (
+        "PHASE8_5.md",
+        "| river-dry-cap0 | 1.62e-07 | 6.24e-06 |",
+        "| river-dry-cap0 | 1.62e-07 | 6.25e-06 |",
+    ),
+    # xeval percentage off on the equal-tree table
+    "phase8_6_xeval": (
+        "PHASE8_6.md",
+        "| river-cap3-eq | 3 | equal (19 nodes) | **0.016%** | explained |",
+        "| river-cap3-eq | 3 | equal (19 nodes) | **0.017%** | explained |",
+    ),
+    # verdict count off in the summary table
+    "validation_counts": (
+        "VALIDATION.md",
+        "| Phase 8 weighted (`scripts/phase8/runs/suite8.json`) | 8 | 5 | 3 | 0 |",
+        "| Phase 8 weighted (`scripts/phase8/runs/suite8.json`) | 8 | 6 | 3 | 0 |",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_SUITE_MUTATIONS))
+def test_check_suites_fails_on_mutated_doc(tmp_path, case):
+    doc_name, old, new = _SUITE_MUTATIONS[case]
+    source = (ROOT / "docs" / doc_name).read_text()
+    mutated = tmp_path / doc_name
+    mutated.write_text(source.replace(old, new))
+    assert mutated.read_text() != source, "mutation %s did not change the doc" % case
+    proc = _suites_guard(mutated)
+    assert proc.returncode == 1, (
+        "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+    )
+
+
+def test_no_in_progress_status_with_recorded_gate(tmp_path):
+    """A doc may not carry 'Status: in progress' next to a recorded gate
+    result — the recorded outcome means the phase is done."""
+    bad = tmp_path / "PHASE_TEST.md"
+    bad.write_text(
+        "# Test\n\nDate: 2026-11-17. Status: in progress.\n\n"
+        "**Gate result:** api suite 203 passed / 9 skipped.\n"
+    )
+    proc = _suites_guard(bad)
+    assert proc.returncode == 1, proc.stdout
+
+    good = tmp_path / "PHASE_TEST2.md"
+    good.write_text(
+        "# Test\n\nDate: 2026-11-17. Status: in progress.\n\n"
+        "**Phase gate:** `scripts/run_all_tests.sh` green.\n"
+    )
+    proc = _suites_guard(good)
+    assert proc.returncode == 0, proc.stdout
