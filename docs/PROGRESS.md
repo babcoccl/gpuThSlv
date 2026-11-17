@@ -316,3 +316,40 @@
   (GPU VRAM assertion, an SSE race failing identically on `main`, one
   timing flake that passed on rerun).
 - Evidence: `docs/PHASE9_2.md`, `scripts/phase9/check_evidence.py`.
+## Phase 10 Part 0 — green gate, SSE race fix, evidence guards (2026-11-17)
+
+- SSE race root cause (fixed in the server): `store.cancel()` on a
+  running job sets `cancel_requested=1` but leaves `status` active until
+  the runner's `finish()` lands — an SSE client connecting in that window
+  saw a stale `solving`/`building` snapshot after DELETE had reported
+  `cancelled`. `_sse_snapshot` now reports the effective status; both
+  terminal-state checks compare it. `test_sse_finished_and_cancelled_jobs`
+  **50/50 consecutive runs green**; `test_sse_evicted_id_gets_snapshot_
+  no_replay` rewritten deterministic (store-driven job, lockstep
+  `store.update()` reads, no timing sleeps); whole SSE file
+  **20/20 consecutive runs green** (~44 s each, 11 tests).
+- `scripts/phase10/check_suites.py`: verifies the Phase 7/8/8.5/8.6
+  result tables and the VALIDATION verdict-counts table against the
+  committed suite JSONs — EVs, ΔEV chips/%pot, mean/max freq diffs,
+  exploitability %, verdicts, cross-eval percentages, mapped-infoset
+  `N/M`, EV-gap bounds and ranges — at half-ulp of the doc's printed
+  precision. Missing tables, malformed `N/M` cells and verdict-count
+  drift all fail. Review round hardened it further: `req_table`, fullmatch
+  on `N/M`, proportional float slack.
+- Doc corrections the guard forced (printed values stale vs committed
+  artifacts): PHASE7 explained count 10→**11**; PHASE8 w-pair-cap0
+  max|df| 0.27→**0.26**; PHASE8_5 turn-narrow-b ΔEV 0.069→**0.034** and
+  w-turn-cap0 0.035→**0.018**; VALIDATION Phase-8 row 6/2/0→**5/3/0**.
+- Doc-status check: `Status: in progress` + a recorded gate result fails;
+  PHASE9_2.md corrected to `complete` (its no-GPU gate relabeled
+  superseded).
+- Artifact gap recorded, not fixed: per-spot `*_ts.json` TS dumps for
+  phases 7/8/8.5 stay gitignored; the guard checks only committed suite
+  JSONs.
+- Gate: `run_all_tests.sh` on gpu-5060ti — engine **160 passed /
+  7 skipped** (all deliberate per-venv exclusions), api **225 passed /
+  0 skipped**, collection coverage PASS. Guard: 19 docs OK;
+  `test_doc_evidence.py` **20 passed** (incl. 10 parametrized mutations +
+  doc-status).
+- Evidence: `docs/PHASE10.md`, `scripts/phase10/logs/` (real-GPU SSE curl
+  transcripts: running solve, valid/stale reconnect, finished job).
