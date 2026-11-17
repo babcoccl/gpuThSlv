@@ -109,16 +109,28 @@ def _ev_values(manifest):
 def _brute_values(data):
     """Claim values the brute_ev artifact explains."""
     ints, diffs = set(), set()
-    for spot in data.values():
+    spot_diffs = {}
+    for name, spot in data.items():
+        per = []
         for node in (spot.get("nodes") or {}).values():
             ints.add(node["compared"])
             if node.get("rows") is not None:
                 ints.add(node["rows"])
             diffs.add(node["max_abs_diff"])
+            per.append(node["max_abs_diff"])
         root = spot.get("root_ev") or {}
         if root.get("abs_diff") is not None:
             diffs.add(root["abs_diff"])
-    return {"ints": ints, "diffs": diffs}
+            per.append(root["abs_diff"])
+        if per:
+            spot_diffs[name] = max(per)
+    # an unqualified "max |D|" is the run's worst diff; per-spot values
+    # count only beside a named spot
+    return {
+        "ints": ints,
+        "diffs": {max(diffs)} if diffs else set(),
+        "spot_diffs": spot_diffs,
+    }
 
 
 def _cited_windows(cited, i):
@@ -134,12 +146,14 @@ def _cited_windows(cited, i):
     for c in cited:
         if abs(c - i) <= CITE_WINDOW:
             text = cited[c]
+            # one line may cite several artifacts
             if "brute_ev" in text:
                 arts.add("brute")
-            elif "ev_validation" in text or "validate_node_evs" in text:
+            if "ev_validation" in text or "validate_node_evs" in text:
                 arts.add("ev")
-            else:
-                arts.add("other")
+            for ref in _RUN_REF.findall(text):
+                if "ev_validation" not in ref and "brute_ev" not in ref:
+                    arts.add("other")
     return arts
 
 
@@ -202,6 +216,8 @@ def main():
             failures.append("%s:%d %s: %s" % (doc, lineno, why, line.strip()[:100]))
 
         ev_empty = {"ints": set(), "diffs": set(), "spot_diffs": {}}
+        if "spot_diffs" not in brute:
+            brute["spot_diffs"] = {}
         for i, line in enumerate(lines):
             # claims may wrap: also scan this line joined with the next
             candidates = [line]
@@ -249,11 +265,20 @@ def main():
                     # an unqualified max |Δ| is the run's overall maximum;
                     # a per-spot diff counts only when that spot is named
                     # beside the claim (artifact filenames stripped first)
-                    if ev and "ev" in near and spot_name_re:
+                    if spot_name_re:
                         named = spot_name_re.findall(
-                            _RUN_REF.sub("", " ".join(lines[mi:mi + 3]))
+                            _RUN_REF.sub(
+                                "",
+                                " ".join(lines[max(0, mi - 1):mi + 3]),
+                            )
                         )
-                        diffs |= {ev["spot_diffs"][s] for s in named}
+                        if ev and "ev" in near:
+                            diffs |= {ev["spot_diffs"][s] for s in named}
+                        if "brute" in near:
+                            diffs |= {
+                                brute["spot_diffs"][s]
+                                for s in named if s in brute["spot_diffs"]
+                            }
                     ok = any(
                         m.group(1) in {repr(d), "%.6f" % d, "%g" % d, "%.2e" % d}
                         for d in diffs
@@ -318,7 +343,10 @@ def main():
                     # runs/*.json references before extracting names
                     names = (
                         spot_name_re.findall(
-                            _RUN_REF.sub("", " ".join(lines[mi:mi + 3]))
+                            _RUN_REF.sub(
+                                "",
+                                " ".join(lines[max(0, mi - 1):mi + 3]),
+                            )
                         )
                         if spot_name_re
                         else []
@@ -367,10 +395,16 @@ def main():
                 # -- bare N/M fractions -------------------------------------
                 for m in _BARE_FRACTION.finditer(text):
                     mi = claim_line(m)
-                    # a fraction inside a longer slash list is the list's
-                    # claim, not a standalone N/M
-                    if re.search(r"/\s*$", text[:m.start()]) or \
-                            re.match(r"\s*/", text[m.end():]):
+                    # a fraction inside a longer slash list — including
+                    # one that wraps onto the next/previous line — is the
+                    # list's claim, not a standalone N/M
+                    before = text[:m.start()]
+                    after = text[m.end():]
+                    if not before.strip() and mi > 0:
+                        before = lines[mi - 1]
+                    if not after.strip() and mi + 1 < len(lines):
+                        after = lines[mi + 1]
+                    if re.search(r"/\s*$", before) or re.match(r"\s*/", after):
                         continue
                     key = (mi, "fraction", m.group(0))
                     if key in seen:
