@@ -246,11 +246,13 @@ def main(names=None):
                 rec["xeval"]["ts_in_ours"]["exploitability_pct"] <= XEVAL_TOL
             )
             if not rec["xeval_pass"]:
+                # A failed cross-eval can only worsen the verdict: never
+                # overwrite "unresolved" with "explained".
                 cause = XEVAL_EXPLANATIONS.get(name)
-                if cause is not None:
+                if cause is not None and rec["verdict"] == "match":
                     rec["verdict"] = "explained"
                     rec["verdict_cause"] = cause
-                else:
+                elif rec["verdict"] != "unresolved":
                     rec["verdict"] = "unresolved"
             print("  xeval: ts-in-ours=%.3f%% ours=%.3f%%"
                   % (rec["xeval"]["ts_in_ours"]["exploitability_pct"],
