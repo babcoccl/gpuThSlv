@@ -344,6 +344,24 @@ def main():
                                 # sentences inside the segment do not count
                                 if pos >= p:
                                     labtext = ctx[p:pos]
+                                    # a trailing qualifier is the word
+                                    # right after the claim, optionally
+                                    # after a small preposition ("at root",
+                                    # "on the check node")
+                                    pos_end_raw = (
+                                        m.end() if mi == i
+                                        else m.end() - bounds[mi - i - 1]
+                                    )
+                                    pos_end = (len(prev) + 1 if prev else 0) + len(
+                                        _RUN_REF.sub("", lines[mi][:pos_end_raw])
+                                    )
+                                    tail = re.match(
+                                        r"\s*(?:(?:at|on|of|for|in|vs\.?|over)"
+                                        r"\s+(?:the\s+)?)?(\w[\w-]*)",
+                                        ctx[pos_end:end],
+                                    )
+                                    if tail:
+                                        labtext += " " + tail.group(1)
                                 else:
                                     cut = re.search(r"[,.;]", ctx[p:end])
                                     labtext = (
