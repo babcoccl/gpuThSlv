@@ -459,6 +459,9 @@ class Scheduler:
         cutoff = now - (self.config.retention_seconds or 0.0)
         removed = expired = 0
         for job in self._store.expired_strategies(cutoff):
+            current = self._store.get(job["id"])
+            if current is None or current.get("pinned"):
+                continue  # pinned between selection and deletion
             try:
                 os.unlink(job["strategy_path"])
                 removed += 1
