@@ -118,3 +118,56 @@ Mean over both GPUs of float64 ÷ float32:
 - An earlier pass of this script measured it/s without the warm-up solve
   (so it included one-time CUDA setup) and was discarded; only the warm
   numbers are reported.
+
+# Benchmarks (Phase 6 — raise trees)
+
+Measured 2026-11-16 on GPU 0, float32, `cuda_graph=False`, pot-sized
+raises `("p",1.0)`, 200 warm CFR+ iterations. Raw rows:
+`scripts/phase6/logs/raise_measurements.json`.
+
+## Node scaling at raise caps
+
+| spot | cap 0 nodes | cap 1 nodes | cap 2 nodes |
+| --- | ---: | ---: | ---: |
+| river-toy | 37 | 37 | 37 |
+| river-narrow | 11,341 | 20,413 | 29,485 |
+| river-broad-standard | 573,031 | 1,031,455 | 1,489,879 |
+| river-broad-wide-allin | 1,031,455 | 1,719,091 | 2,406,727 |
+| river-full-pot | 4,446,091 | 7,410,151 | 10,374,211 |
+
+## Build time (s) — spec (Python) vs solver allocation
+
+| spot | cap | spec | solver |
+| --- | ---: | ---: | ---: |
+| river-broad-standard | 0 | 3.64 | 1.73 |
+| river-broad-standard | 1 | 6.40 | 3.37 |
+| river-broad-standard | 2 | 11.94 | 5.24 |
+| river-broad-wide-allin | 0 | 6.29 | 2.99 |
+| river-broad-wide-allin | 1 | 9.58 | 5.23 |
+| river-broad-wide-allin | 2 | 16.50 | 8.39 |
+| river-full-pot | 0 | 38.79 | 14.51 |
+| river-full-pot | 1 | 60.03 | 25.27 |
+| river-full-pot | 2 | 60.74 | 37.02 |
+
+## it/s and peak reserved VRAM
+
+| spot | cap | it/s | peak MiB | B/node |
+| --- | ---: | ---: | ---: | ---: |
+| river-broad-standard | 0 | 1775 | 170 | 311 |
+| river-broad-standard | 1 | 1436 | 272 | 277 |
+| river-broad-standard | 2 | 903 | 388 | 273 |
+| river-broad-wide-allin | 0 | 1422 | 290 | 295 |
+| river-broad-wide-allin | 1 | 730 | 448 | 273 |
+| river-broad-wide-allin | 2 | 470 | 628 | 274 |
+| river-full-pot | 0 | 194 | 1162 | 274 |
+| river-full-pot | 1 | 111 | 1882 | 266 |
+| river-full-pot | 2 | 77 | 2642 | 267 |
+
+Notes:
+
+- Reserved VRAM converges to ~266–274 B/node on large custom trees; the
+  estimator's 322 B/node keeps ~18% headroom.
+- Largest tree built and solved: 10.37M nodes (river-full-pot cap 2),
+  2.64 GiB — the compiler handles it fine; 14 GiB admits ≈ 53M nodes.
+- The Python spec build is ~6.4 s/M nodes and exceeds solver allocation
+  past ~1M nodes; on the 10.4M-node tree it is 61 s of a 98 s total build.
