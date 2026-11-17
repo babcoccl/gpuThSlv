@@ -222,3 +222,29 @@
 - Evidence: `docs/PHASE8_5.md`, `scripts/phase8_5/runs/suite8_5.json`,
   `float32_rerun.json`. Docs added: VALIDATION.md, ARCHITECTURE.md,
   INDEX.md, CHANGELOG.md; README game-rules/API sections rewritten.
+
+## Phase 8.6 — raise-cap equivalence, full turn validation (2026-11-17)
+
+- TexasSolver `raise_limit` resolved from v0.2.0 source
+  (`src/GameTree.cpp::buildAction`): one shared `raise_times` counter per
+  street; the opening bet counts (sets it to 1), each raise increments it
+  regardless of player; `raise_limit=4` hard-coded → bet + 3 raises max.
+  Earlier "counts per player" wording corrected (harmless — raises
+  alternate players anyway). Equal trees iff `raise_cap` ∈ {0, 3} or lower
+  caps where deeper raises are physically impossible.
+- `scripts/phase8_6/` — 4 equal-tree spots, all `tree.ok` with 0
+  mismatches, all cross-evals under 1.0% of pot:
+  `turn-narrow-a-cap3` 0.041% (the D2-ext re-raise line `b5→r17→r30` now
+  exists on both sides — the 15.37% gap was the missing line, not a solver
+  difference); `turn-narrow-a-allin` 0.347% (cap 1, all-in raise);
+  `river-cap2-eq` 0.000% (cap 2, second raise already all-in);
+  `river-cap3-eq` 0.016% (full TS depth `b10→r34→r86.8→r100`).
+  "explained" verdicts are equal-EV mixing only; EV gaps ≤ 0.003% pot.
+- VALIDATION.md: "Not validated" section added (flop, multiway, reverse
+  xeval impossible — no strategy-load command, cap ≥4, per-phase skips);
+  turn-narrow-a moved from explained to resolved.
+- REST test `test_raises_and_per_player_bet_sizes_over_rest`
+  (tests/test_api_gpu.py): POSTs raise_cap/raise_sizes/per-player
+  bet_sizes, verifies num_nodes = 1 + 108×15 and every node's action set
+  against SpotConfig semantics via /strategy.
+- Evidence: `docs/PHASE8_6.md`, `scripts/phase8_6/runs/suite8_6.json`.
