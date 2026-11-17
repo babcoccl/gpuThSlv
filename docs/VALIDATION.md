@@ -37,17 +37,27 @@ our evaluator).
 | Phase 8.6 equal-tree raises (`scripts/phase8_6/runs/suite8_6.json`) | 4 | 1 | 3 | 0 |
 | Phase 8 cross-eval (13 identical-tree spots) | 13 | — | — | all ≤ ~0.001pp of TS's own exploitability |
 | Phase 8.5 dtype re-run (`float32_rerun.json`) | 4 | — | — | f32 vs f64 differ ≤3e-6 chips; f32 bitwise deterministic |
-| Phase 9 API-side EV walk (`scripts/phase9/runs/ev_validation.json`) | 6 cap-0 river | — | — | 1,657 node/combo/action EVs, max \|Δ\| = 0.000000 vs the dump_ev walk; root EV = `dump_ev` = `profile_value_p0` |
+| Phase 9 API-side EV walk (`scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`) | 6 cap-0 river | — | — | 1,756 node/combo/action EVs, max \|Δ\| = 7.993605777301127e-15 vs the dump_ev walk; root EV = `dump_ev` = `profile_value_p0` to ~1e-14 |
 
 **Phase 9 — API EV walk.** `holdem_solver/protocol/evwalk.py` is a pure-Python
 reimplementation of the Phase 7 `dump_ev` evaluation walk (reach products,
 chance-node averaging, `rank7` showdown). On the 6 river raise_cap=0 spots it
 was checked three ways (`scripts/phase9/validate_node_evs.py`): root EV on the
-TS-dumped tree equals `dump_ev` exactly; per-combo per-action EVs equal
-`scripts/phase8/xeval.py::node_action_evs` at every shared node (1,657 values,
-max |Δ| 0.000000); and the same walk on our own strategy equals the reported
-`profile_value_p0` status value. Equal-tree / node-count invariants were
-re-verified on 10 spots (`scripts/phase9/runs/tree_gate.json`).
+TS-dumped tree equals `dump_ev` to ~1e-14 (full-precision digits recorded);
+per-combo per-action EVs equal `scripts/phase8/xeval.py::node_action_evs` at
+every shared node (1,756 values, max |Δ| = 7.993605777301127e-15); and the same
+walk on our own strategy equals the reported `profile_value_p0` status value
+to ~1e-14. Comparisons use float64 strategies; the strategy source is recorded
+per comparison in the artifact
+(`scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`,
+regenerated in Phase 9.1 — the originally committed file was a stale 4-spot
+partial run; `scripts/phase9/check_evidence.py` now fails if a doc number
+disagrees with it). An independent brute-force check sharing no code with
+evwalk/dump_ev (`scripts/phase9/brute_ev.py`, `runs/brute_ev.json`) recomputes
+per-combo hand EVs and root EV by enumerating opponent combos: max |Δ| =
+1.7763568394002505e-14 on w-toy-check and w-dry-cap0. Equal-tree /
+node-count invariants were re-verified on 10 spots
+(`scripts/phase9/runs/tree_gate.json`).
 
 **Turn validation is full** (Phase 8.5, confirmed in 8.6): emitting
 `set_bet_sizes oop,<street>,donk,<sizes>` closes the Phase-8 donk gap —

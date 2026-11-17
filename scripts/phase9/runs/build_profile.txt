@@ -1,0 +1,88 @@
+Phase 9.1 spec-build profile — river-full-pot cap 2 (river spot, 494010 deals x 21 template nodes = 10374211 spec nodes)
+build_river_spec wall time: 81.27 s (phase6 recorded 60.7 s; phase9 tree_gate measured 68.01 s)
+
+Stamp-loop micro-split (same loop body as _stamp_deal):
+  node object creation (NodeSpec only):        8.38 s
+  dict insertion (nodes[off+rel] = pre-made):   1.08 s
+  stamping copy (full _stamp_deal per deal):  103.57 s
+  (creation+insertion < stamp total: the rest is ActionSpec lists, infoset key strings, and terminal payoffs)
+
+=== cProfile top 30 by cumulative ===
+         57799429 function calls (57799388 primitive calls) in 73.515 seconds
+
+   Ordered by: cumulative time
+   List reduced from 45 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.009    0.009   81.270   81.270 /home/aihub/repos/gpuThSlv/scripts/phase9/profile_build.py:54(build)
+        1    0.018    0.018   81.261   81.261 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:360(build_river_spec)
+        1    1.609    1.609   80.918   80.918 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:328(_assemble)
+   494010   52.899    0.000   78.298    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:282(_stamp_deal)
+ 10374210    3.425    0.000    8.941    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:314(<listcomp>)
+ 10374211    8.568    0.000    8.568    0.000 <string>:2(__init__)
+  6422130    2.873    0.000    4.151    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:237(_terminal_payoff)
+ 13832280    1.111    0.000    1.111    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:304(<genexpr>)
+   988020    0.685    0.000    0.796    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:266(river_rank)
+  3952080    0.569    0.000    0.569    0.000 {method 'replace' of 'str' objects}
+  3458070    0.498    0.000    0.498    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:228(_showdown_payoff)
+  3458084    0.449    0.000    0.449    0.000 {built-in method builtins.min}
+  2964060    0.330    0.000    0.330    0.000 {method 'split' of 'str' objects}
+        2    0.000    0.000    0.325    0.162 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:248(_enumerate_deals)
+        2    0.325    0.162    0.325    0.162 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:250(<listcomp>)
+   988020    0.111    0.000    0.111    0.000 {method 'get' of 'dict' objects}
+   494051    0.036    0.000    0.036    0.000 {method 'append' of 'list' objects}
+      8/1    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:179(build)
+        1    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:152(__init__)
+        2    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:58(_size_list)
+      6/2    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+        2    0.000    0.000    0.000    0.000 /home/aihub/.local/share/uv/python/cpython-3.9-linux-x86_64-gnu/lib/python3.9/typing.py:719(__instancecheck__)
+        2    0.000    0.000    0.000    0.000 /home/aihub/.local/share/uv/python/cpython-3.9-linux-x86_64-gnu/lib/python3.9/typing.py:848(__subclasscheck__)
+        2    0.000    0.000    0.000    0.000 {built-in method builtins.issubclass}
+     17/2    0.000    0.000    0.000    0.000 /home/aihub/.local/share/uv/python/cpython-3.9-linux-x86_64-gnu/lib/python3.9/abc.py:121(__subclasscheck__)
+     17/2    0.000    0.000    0.000    0.000 {built-in method _abc._abc_subclasscheck}
+       21    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:130(place)
+        7    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:382(street_end)
+        4    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:72(_raise_amounts)
+        2    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:65(_street_bet_amounts)
+
+
+
+=== cProfile top 30 by tottime ===
+         57799429 function calls (57799388 primitive calls) in 73.515 seconds
+
+   Ordered by: internal time
+   List reduced from 45 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   494010   52.899    0.000   78.298    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:282(_stamp_deal)
+ 10374211    8.568    0.000    8.568    0.000 <string>:2(__init__)
+ 10374210    3.425    0.000    8.941    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:314(<listcomp>)
+  6422130    2.873    0.000    4.151    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:237(_terminal_payoff)
+        1    1.609    1.609   80.918   80.918 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:328(_assemble)
+ 13832280    1.111    0.000    1.111    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:304(<genexpr>)
+   988020    0.685    0.000    0.796    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:266(river_rank)
+  3952080    0.569    0.000    0.569    0.000 {method 'replace' of 'str' objects}
+  3458070    0.498    0.000    0.498    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:228(_showdown_payoff)
+  3458084    0.449    0.000    0.449    0.000 {built-in method builtins.min}
+  2964060    0.330    0.000    0.330    0.000 {method 'split' of 'str' objects}
+        2    0.325    0.162    0.325    0.162 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:250(<listcomp>)
+   988020    0.111    0.000    0.111    0.000 {method 'get' of 'dict' objects}
+   494051    0.036    0.000    0.036    0.000 {method 'append' of 'list' objects}
+        1    0.018    0.018   81.261   81.261 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:360(build_river_spec)
+        1    0.009    0.009   81.270   81.270 /home/aihub/repos/gpuThSlv/scripts/phase9/profile_build.py:54(build)
+      8/1    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:179(build)
+     17/2    0.000    0.000    0.000    0.000 {built-in method _abc._abc_subclasscheck}
+        4    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:72(_raise_amounts)
+        1    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:373(<listcomp>)
+       21    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:125(reserve)
+       21    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:130(place)
+        1    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:152(__init__)
+        7    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:382(street_end)
+        2    0.000    0.000    0.325    0.162 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:248(_enumerate_deals)
+        2    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:58(_size_list)
+        2    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:65(_street_bet_amounts)
+        6    0.000    0.000    0.000    0.000 /home/aihub/repos/gpuThSlv/scripts/phase9/../../holdem_solver/engine_worker/tree_builder.py:53(_fmt_amount)
+     17/2    0.000    0.000    0.000    0.000 /home/aihub/.local/share/uv/python/cpython-3.9-linux-x86_64-gnu/lib/python3.9/abc.py:121(__subclasscheck__)
+      6/2    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+
+

@@ -1,0 +1,27 @@
+=== w-toy-check ===
+  ts-tree root ev: evwalk=10.063393305813008 dump_ev=10.063393305813008 |d|=0.0 (tol 0.250)
+  node EVs: 84 compared, max |d|=0.0 (tol 0.250) worst=None
+  own root ev: evwalk=10.012043746335033 profile_value_p0=10.012043746335038 |d|=5.329070518200751e-15
+=== w-dry-cap0 ===
+  ts-tree root ev: evwalk=8.470648854069943 dump_ev=8.470648854069944 |d|=1.7763568394002505e-15 (tol 0.250)
+  node EVs: 273 compared, max |d|=7.993605777301127e-15 (tol 0.250) worst=(1, ('check',), 'AsKd', 'b20')
+  own root ev: evwalk=8.456054258367729 profile_value_p0=8.456054258367747 |d|=1.7763568394002505e-14
+=== w-wet-cap0 ===
+  ts-tree root ev: evwalk=-8.83747504240893 dump_ev=-8.837475042408927 |d|=1.7763568394002505e-15 (tol 0.250)
+  node EVs: 392 compared, max |d|=1.7763568394002505e-15 (tol 0.250) worst=(1, ('check',), 'AhJs', 'b10')
+  own root ev: evwalk=-8.847019809150343 profile_value_p0=-8.847019809150353 |d|=1.0658141036401503e-14
+=== w-pair-cap0 ===
+  ts-tree root ev: evwalk=-5.691173115783226 dump_ev=-5.6911731157832275 |d|=1.7763568394002505e-15 (tol 0.250)
+  node EVs: 266 compared, max |d|=7.549516567451064e-15 (tol 0.250) worst=(1, ('check',), 'AcJd', 'b20')
+  own root ev: evwalk=-5.692547638814184 profile_value_p0=-5.692547638814183 |d|=8.881784197001252e-16
+=== w-blocker-cap0 ===
+  ts-tree root ev: evwalk=-10.119347567909221 dump_ev=-10.119347567909225 |d|=3.552713678800501e-15 (tol 0.250)
+  node EVs: 229 compared, max |d|=0.0 (tol 0.250) worst=None
+  own root ev: evwalk=-10.083615534035715 profile_value_p0=-10.083615534035712 |d|=3.552713678800501e-15
+=== w-full-cap0 ===
+  ts-tree root ev: evwalk=1.3935390875666454 dump_ev=1.3935390875666471 |d|=1.7763568394002505e-15 (tol 0.250)
+  node EVs: 512 compared, max |d|=1.7763568394002505e-15 (tol 0.250) worst=(1, ('check',), 'KdKc', 'b10')
+  own root ev: evwalk=1.3939801881981284 profile_value_p0=1.393980188198125 |d|=3.3306690738754696e-15
+
+6/6 spots within tolerance
+written to /home/aihub/repos/gpuThSlv/scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json

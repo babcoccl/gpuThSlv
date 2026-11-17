@@ -1,0 +1,56 @@
+{
+ "w-toy-check": {
+  "pot": 20.0,
+  "tol_chips": 0.25,
+  "nodes": {
+   "root": {
+    "player": 0,
+    "compared": 9,
+    "max_abs_diff": 0.0,
+    "worst_combo": null,
+    "ok": true
+   },
+   "check": {
+    "player": 1,
+    "compared": 12,
+    "max_abs_diff": 0.0,
+    "worst_combo": null,
+    "ok": true
+   }
+  },
+  "root_ev": {
+   "brute": 10.063393305812998,
+   "evwalk": 10.063393305813008,
+   "abs_diff": 1.0658141036401503e-14,
+   "ok": true
+  },
+  "ok": true
+ },
+ "w-dry-cap0": {
+  "pot": 20.0,
+  "tol_chips": 0.25,
+  "nodes": {
+   "root": {
+    "player": 0,
+    "compared": 18,
+    "max_abs_diff": 1.7763568394002505e-15,
+    "worst_combo": "2c2h",
+    "ok": true
+   },
+   "check": {
+    "player": 1,
+    "compared": 21,
+    "max_abs_diff": 6.217248937900877e-15,
+    "worst_combo": "AcKd",
+    "ok": true
+   }
+  },
+  "root_ev": {
+   "brute": 8.47064885406996,
+   "evwalk": 8.470648854069943,
+   "abs_diff": 1.7763568394002505e-14,
+   "ok": true
+  },
+  "ok": true
+ }
+}

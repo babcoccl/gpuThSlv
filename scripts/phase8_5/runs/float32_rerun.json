@@ -1,0 +1,90 @@
+{
+ "buffer_dtypes": {
+  "float32": {
+   "requested": "float32",
+   "config_device_dtype": "float32",
+   "describe": "float32",
+   "flat_strategy": "torch.float32",
+   "regret_sum": "torch.float32",
+   "strategy_sum": "torch.float64"
+  },
+  "float64": {
+   "requested": "float64",
+   "config_device_dtype": "float64",
+   "describe": "float64",
+   "flat_strategy": "torch.float64",
+   "regret_sum": "torch.float64",
+   "strategy_sum": "torch.float64"
+  }
+ },
+ "spots": {
+  "toy-check": {
+   "float64": {
+    "ev_p0": "10.012043746335037",
+    "exploitability_pct": "0.030132013201251695",
+    "exploitability_chips": "0.006026402640250339",
+    "iterations": 100
+   },
+   "float32": {
+    "ev_p0": "10.012043952941895",
+    "exploitability_pct": "0.030128955841064453",
+    "exploitability_chips": "0.006025791168212891",
+    "iterations": 100
+   }
+  },
+  "toy-bet": {
+   "float64": {
+    "ev_p0": "5.006207686495506",
+    "exploitability_pct": "0.04233656124226215",
+    "exploitability_chips": "0.004233656124226215",
+    "iterations": 100
+   },
+   "float32": {
+    "ev_p0": "5.006210803985596",
+    "exploitability_pct": "0.04236459732055664",
+    "exploitability_chips": "0.004236459732055664",
+    "iterations": 100
+   }
+  },
+  "river-dry-cap0": {
+   "float64": {
+    "ev_p0": "10.013074083018862",
+    "exploitability_pct": "0.0327095536778188",
+    "exploitability_chips": "0.006541910735563761",
+    "iterations": 100
+   },
+   "float32": {
+    "ev_p0": "10.013073921203613",
+    "exploitability_pct": "0.032715797424316406",
+    "exploitability_chips": "0.006543159484863281",
+    "iterations": 100
+   }
+  },
+  "river-wet-cap0": {
+   "float64": {
+    "ev_p0": "-10.008578570728362",
+    "exploitability_pct": "0.021452145214482243",
+    "exploitability_chips": "0.004290429042896449",
+    "iterations": 100
+   },
+   "float32": {
+    "ev_p0": "-10.008580207824707",
+    "exploitability_pct": "0.02145528793334961",
+    "exploitability_chips": "0.004291057586669922",
+    "iterations": 100
+   }
+  }
+ },
+ "float32_run_to_run": [
+  {
+   "ev_p0": "10.012043952941895",
+   "exploitability_pct": "0.030128955841064453",
+   "iterations": 100
+  },
+  {
+   "ev_p0": "10.012043952941895",
+   "exploitability_pct": "0.030128955841064453",
+   "iterations": 100
+  }
+ ]
+}
