@@ -1,0 +1,31 @@
+$ curl -N http://127.0.0.1:8000/v1/solves/<job>/events -H "Authorization: Bearer $HOLDEM_API_KEY" -H "Last-Event-ID: deadbeef-3"
+retry: 2000
+
+id: a56acaaa-12
+event: snapshot
+data: {"status": "solving", "iteration": 19600, "iterations_run": 19600, "exploitability": 0.0004379451274871826, "exploitability_iteration": 19200}
+
+id: a56acaaa-13
+event: progress
+data: {"status": "solving", "iteration": 21600, "iterations_run": 21600, "exploitability": 0.0004177689552307129, "exploitability_iteration": 21200}
+
+id: a56acaaa-14
+event: progress
+data: {"status": "solving", "iteration": 24000, "iterations_run": 24000, "exploitability": 0.00038379430770874023, "exploitability_iteration": 23600}
+
+id: a56acaaa-15
+event: progress
+data: {"status": "solving", "iteration": 26000, "iterations_run": 26000, "exploitability": 0.0003598928451538086, "exploitability_iteration": 25600}
+
+id: a56acaaa-16
+event: progress
+data: {"status": "solving", "iteration": 28000, "iterations_run": 28000, "exploitability": 0.00034615397453308105, "exploitability_iteration": 27600}
+
+id: a56acaaa-17
+event: progress
+data: {"status": "solving", "iteration": 30400, "iterations_run": 30400, "exploitability": 0.0003216266632080078, "exploitability_iteration": 30000}
+
+id: a56acaaa-18
+event: progress
+data: {"status": "solving", "iteration": 32400, "iterations_run": 32400, "exploitability": 0.00031173229217529297, "exploitability_iteration": 32000}
+

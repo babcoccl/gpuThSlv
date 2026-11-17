@@ -116,7 +116,7 @@ Plots: `scripts/phase7/runs/plots/freq_diff_by_spot.png` (per-spot mean/max
 
 - **match (4)**: toy-check, river-dry-cap0, river-pair-cap0, short-stack —
   trees identical, EV and frequencies inside all tolerances.
-- **explained (10)**: EVs agree; frequency diffs sit above the 5 pp clean bar.
+- **explained (11)**: EVs agree; frequency diffs sit above the 5 pp clean bar.
   Causes, in order of contribution:
   1. **Non-unique equilibria.** Diffs concentrate at river action nodes and
      at raise-cap boundary lines where many strategies carry identical EV.

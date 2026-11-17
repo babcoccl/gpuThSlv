@@ -122,7 +122,7 @@ script grids agree. The cap-0 river known-answer spots are unchanged
 | w-dry-cap0 | 0 | yes | −0.07 | 2.2 | 0.11 | 0.279% | 0.166% | match |
 | w-dry-cap1 | 1 | no* | +0.09 | 2.6 | 1.00 | 0.351% | 0.239% | explained |
 | w-wet-cap0 | 0 | yes | −0.05 | 5.6 | 0.61 | 0.370% | 0.299% | explained |
-| w-pair-cap0 | 0 | yes | −0.01 | 2.8 | 0.27 | 0.339% | 0.279% | match |
+| w-pair-cap0 | 0 | yes | −0.01 | 2.8 | 0.26 | 0.339% | 0.279% | match |
 | w-blocker-cap0 | 0 | yes | +0.18 | 2.7 | 1.00 | 0.292% | 0.492% | match |
 | w-turn-cap0 | 0 | yes** | +0.01 | 3.1 | 1.00 | 0.074% | 0.048% | explained |
 | w-full-cap0 | 0 | yes | +0.00 | 4.4 | 0.24 | 0.180% | 0.074% | match |

@@ -1,0 +1,19 @@
+$ curl -N http://127.0.0.1:8000/v1/solves/<job>/events -H "Authorization: Bearer $HOLDEM_API_KEY"
+retry: 2000
+
+id: a56acaaa-1
+event: snapshot
+data: {"status": "building", "iteration": null, "iterations_run": null, "exploitability": null, "exploitability_iteration": null}
+
+id: a56acaaa-2
+event: progress
+data: {"status": "solving", "iteration": null, "iterations_run": null, "exploitability": null, "exploitability_iteration": null}
+
+id: a56acaaa-3
+event: progress
+data: {"status": "solving", "iteration": 400, "iterations_run": 400, "exploitability": null, "exploitability_iteration": null}
+
+id: a56acaaa-4
+event: progress
+data: {"status": "solving", "iteration": 2000, "iterations_run": 2000, "exploitability": 0.005579739809036255, "exploitability_iteration": 1600}
+

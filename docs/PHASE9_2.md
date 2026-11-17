@@ -1,6 +1,6 @@
 # Phase 9.2 — harden the evidence guard
 
-Date: 2026-11-17. Status: in progress.
+Date: 2026-11-17. Status: complete.
 
 Everything in this file's test-case section is written **before**
 implementation and is not revised after seeing results.
@@ -56,14 +56,17 @@ implementation and is not revised after seeing results.
 **Phase gate:** `scripts/run_all_tests.sh` green; the guard fails on every
 negative test; this doc records the step-3 cause.
 
-**Gate result:** engine suite 144 passed / 14 skipped; api suite
+**Gate result (recorded on a no-GPU host; superseded):** engine suite
+144 passed / 14 skipped; api suite
 203 passed / 9 skipped with **3 failures, none from this phase** —
 `test_river_spot_exploitability_decreases` asserts
-`measured_vram.reserved_bytes > 0` and needs a real GPU (none on this
-host); `test_sse_finished_and_cancelled_jobs` fails identically on `main`
-(a cancel-vs-connect race in the app, pre-existing);
-`test_sse_evicted_id_gets_snapshot_no_replay` is timing-flaky and passed
-on a standalone rerun.
+`measured_vram.reserved_bytes > 0` and needs a real GPU (none on that
+host); `test_sse_finished_and_cancelled_jobs` failed identically on
+`main` (a cancel-vs-connect race in the app) and
+`test_sse_evicted_id_gets_snapshot_no_replay` was timing-flaky. Phase 10
+Part 0 fixed the race in `holdem_solver/api/app.py`, rewrote the evicted
+test deterministically, and re-ran the gate green on the gpu-5060ti
+outpost — see docs/PHASE10.md.
 
 ## Step outcomes
 

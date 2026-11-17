@@ -244,35 +244,81 @@ def test_sse_reconnect_at_buffer_edge_still_replays(tmp_path):
 
 
 def test_sse_evicted_id_gets_snapshot_no_replay(tmp_path):
-    _app, client = make_client(
-        tmp_path, gpus=[0], engine="fake", sse_buffer_size=4
+    """Deterministic: the job is a store-driven job on a no-worker app —
+    the dispatcher never claims it, and progress events are emitted by
+    explicit ``store.update`` calls read in lockstep off the stream. No
+    sleeps, no timing assumptions: one update = exactly one buffered seq
+    (identical consecutive payloads are deduped)."""
+    app, client = make_client(
+        tmp_path, gpus=[], engine="fake", sse_buffer_size=4
     )
     with client:
-        job_id = start_job(client)
-        first_ids = []
-        for _r, f in stream_frames(client, job_id, max_frames=60):
-            if f[0] and f[1] in ("snapshot", "progress"):
-                first_ids.append(f[0])
-        assert len(first_ids) >= 6  # enough to evict the oldest from a 4-slot buffer
+        store = app.state.store
+        job, _replayed = store.create(RIVER_SPOT, {"iterations": 10})
+        job_id = job["id"]
+        assert store.transition(job_id, "solving", ("queued", "building"))
 
-        boot = boot_of(first_ids[0])
-        evicted = first_ids[0]
-        # buffer only kept the last 4 seqs
-        buf = _app.state.sse_buffers[job_id]
-        assert seq_of(evicted) < buf[0][0]
+        # Stream the connect snapshot, then drive 6 progress updates: seqs
+        # 2..7 land in the 4-slot buffer and evict seqs 1..3.
+        stream = stream_frames(client, job_id, max_frames=60)
+        snap_id = None
+        for _r, f in stream:
+            if f[1] == "snapshot":
+                snap_id = f[0]
+                break
+        assert snap_id is not None
+        for i in range(1, 7):
+            assert store.update(job_id, iteration=i, iterations_run=i)
+            progress = None
+            for _r, f in stream:
+                if f[1] == "progress":
+                    progress = f
+                    break
+            assert progress is not None
+            assert progress[2]["iterations_run"] == i
+        buf = app.state.sse_buffers[job_id]
+        assert seq_of(snap_id) < buf[0][0]  # oldest is evicted, always
 
-        # reconnect while the job may still run: snapshot then live — the
-        # evicted window is not replayed
-        _, frames = collect_frames(
-            client, job_id, headers={"Last-Event-ID": evicted}
-        )
+        # Reconnect with the evicted id while the job still runs: snapshot
+        # then live — the evicted window is not replayed.
+        frames = []
+        for _r, f in stream_frames(
+            client, job_id, headers={"Last-Event-ID": snap_id}, max_frames=10
+        ):
+            frames.append(f)
+            if f[1] == "snapshot":
+                assert store.finish(job_id, "done")
         events = [f for f in frames if f[1]]
         assert events[0][1] == "snapshot"
+        assert events[0][2]["status"] == "solving"
         snap_seq = seq_of(events[0][0])
-        replayed = [f for f in events[1:] if seq_of(f[0]) < snap_seq]
-        if seq_of(evicted) < buf[0][0] and events[0][2]["status"] != "done":
-            assert replayed == []
-        assert f"{boot}-" in events[0][0]
+        assert all(
+            seq_of(f[0]) > snap_seq for f in events[1:] if f[0]
+        )  # nothing replayed
+        assert events[-1][1] == "done"
+
+
+def test_sse_cancel_requested_snapshot_reports_cancelled(tmp_path):
+    """Deterministic regression for the cancel-vs-connect race: a running
+    job that got DELETEd keeps ``status`` in a RUNNING state until the
+    runner's finish lands, but a connecting client must already see
+    "cancelled" — snapshot then done, never a stale "solving"."""
+    app, client = make_client(tmp_path, gpus=[], engine="fake")
+    with client:
+        store = app.state.store
+        job, _ = store.create(RIVER_SPOT, {"iterations": 10})
+        job_id = job["id"]
+        assert store.transition(job_id, "solving", ("queued", "building"))
+        # DELETE on a running job: cancel_requested set, status still
+        # "solving" (no worker exists to finish it — the race window is
+        # held open).
+        resp = client.delete(f"/v1/solves/{job_id}")
+        assert resp.status_code == 200
+        assert store.get(job_id)["status"] == "solving"
+        _, frames = collect_frames(client, job_id)
+        events = [f for f in frames if f[1]]
+        assert [f[1] for f in events] == ["snapshot", "done"]
+        assert events[0][2]["status"] == "cancelled"
 
 
 def test_sse_finished_and_cancelled_jobs(tmp_path):
