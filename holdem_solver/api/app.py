@@ -522,24 +522,27 @@ def create_app(
 
     @app.post(
         "/v1/auth/login", response_model=LoginResponse,
-        dependencies=[Depends(security.rate_limit_dependency(login_limiter))],
+        dependencies=[Depends(security.rate_limit_dependency(login_limiter, ip_only=True))],
         responses=examples.LOGIN,
         summary="Exchange the API key for an HttpOnly session cookie + CSRF token",
     )
-    def login(request: LoginRequest, response: Response) -> LoginResponse:
+    def login(request: Request, body: LoginRequest, response: Response) -> LoginResponse:
         if signer is None:
             raise HTTPException(status_code=503, detail="auth is disabled (HOLDEM_API_KEY unset); no login needed")
-        if not security.key_matches(request.key, api_key or ""):
+        if not security.key_matches(body.key, api_key or ""):
             raise HTTPException(status_code=401, detail="invalid API key")
         token, expires_at = signer.issue()
         csrf_value = security.csrf_token()
+        secure = request.url.scheme == "https" or os.environ.get(
+            "HOLDEM_SECURE_COOKIES", ""
+        ).lower() in ("1", "true")
         response.set_cookie(
             security.SESSION_COOKIE, token, max_age=signer.ttl_seconds,
-            httponly=True, samesite="strict", path="/",
+            httponly=True, samesite="strict", path="/", secure=secure,
         )
         response.set_cookie(
             security.CSRF_COOKIE, csrf_value, max_age=signer.ttl_seconds,
-            httponly=False, samesite="strict", path="/",
+            httponly=False, samesite="strict", path="/", secure=secure,
         )
         return LoginResponse(expires_at=expires_at, csrf=csrf_value)
 
@@ -791,9 +794,12 @@ def create_app(
         spot = store.get_spot(spot_id)
         if spot is None:
             raise HTTPException(status_code=404, detail="unknown spot id")
+        copy_name = name or (spot["name"] + " (copy)")
+        if len(copy_name) > 200:
+            raise HTTPException(status_code=422, detail="name must be at most 200 chars; pass ?name=")
         try:
             copy = store.create_spot(
-                name or (spot["name"] + " (copy)"),
+                copy_name,
                 spot["spot"], spot["tags"], spot["notes"], max_spots=max_spots,
             )
         except QueueFullError as exc:
