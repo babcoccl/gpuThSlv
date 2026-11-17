@@ -274,7 +274,6 @@ def dump_ev(
         strat_actions = strat.get("actions") or node.get("actions", [])
         strat_combos = strat.get("strategy", {})
         reach = reach0 if ours == 0 else reach1
-        own = w0 if ours == 0 else w1
 
         childrens = node.get("childrens") or {}
         total = 0.0
@@ -295,9 +294,9 @@ def dump_ev(
             for combo, freqs in strat_combos.items():
                 ours_combo = canonical_combo(combo)
                 seen.add(ours_combo)
-                child_reach[ours_combo] = reach.get(
-                    ours_combo, own.get(ours_combo, 0.0)
-                ) * float(freqs[idx])
+                # combos dropped upstream (board or dealt card) stay at zero;
+                # never fall back to the raw range weight
+                child_reach[ours_combo] = reach.get(ours_combo, 0.0) * float(freqs[idx])
             for combo in reach:
                 if combo not in seen:
                     child_reach[combo] = 0.0

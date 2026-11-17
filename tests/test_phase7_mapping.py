@@ -307,6 +307,90 @@ def test_canonical_combo():
     assert canonical_combo("AcAh") == combo_str(parse_combo("AcAh"))
 
 
+def test_action_sets_one_to_one():
+    """Rounding may collapse two of our sizes onto one TS action -> mismatch,
+    not equality."""
+    from scripts.phase7.compare import action_sets_equal
+    equal, notes = action_sets_equal(["check", "b5", "b5.4"], ["check", "b5"])
+    assert not equal
+    equal, _ = action_sets_equal(["check", "b5"], ["check", "b5", "b5.4"])
+    assert not equal
+    equal, _ = action_sets_equal(["check", "b5"], ["check", "b5.4"])
+    assert equal
+
+
+def test_dump_ev_blocked_combo_no_weight(tmp_path):
+    """Dealt river Qh removes IP's only combo (QhQc): the subtree must
+    contribute 0, not restore the combo's raw range weight."""
+    river = {
+        "node_type": "action_node", "player": 1, "actions": ["CHECK"],
+        "childrens": {
+            "CHECK": {
+                "node_type": "action_node", "player": 0, "actions": ["CHECK"],
+                "childrens": {"CHECK": {"node_type": "chance_node",
+                                        "deal_number": 0}},
+                "strategy": {"actions": ["CHECK"],
+                             "strategy": {"QhQc": [1.0]}},
+            }
+        },
+        "strategy": {"actions": ["CHECK"], "strategy": {"KdKc": [1.0]}},
+    }
+    dump = {
+        "node_type": "action_node", "player": 1, "actions": ["CHECK"],
+        "childrens": {
+            "CHECK": {
+                "node_type": "action_node", "player": 0, "actions": ["CHECK"],
+                "childrens": {
+                    "CHECK": {"node_type": "chance_node", "deal_number": 52,
+                              "dealcards": {"Qh": river}},
+                },
+                "strategy": {"actions": ["CHECK"],
+                             "strategy": {"QhQc": [1.0]}},
+            }
+        },
+        "strategy": {"actions": ["CHECK"], "strategy": {"KdKc": [1.0]}},
+    }
+    path = str(tmp_path / "blocked.json")
+    with open(path, "w") as fh:
+        json.dump(dump, fh)
+    ev = dump_ev(path, pot=10.0, board=["Ts", "9s", "8s", "Jh"],
+                 range0="KdKc", range1="QhQc")
+    assert ev == pytest.approx(0.0, abs=1e-9)
+
+
+def test_solve_ts_stale_dump(monkeypatch, tmp_path):
+    """A leftover dump file must not be read when the subprocess fails."""
+    from scripts.phase7 import theirs
+
+    dump_path = str(tmp_path / "spot_ts.json")
+    with open(dump_path, "w") as fh:
+        fh.write("{}")
+
+    class _Failed:
+        returncode = 1
+        stdout = ""
+        stderr = "solver exploded"
+
+    monkeypatch.setattr(theirs.subprocess, "run", lambda *a, **k: _Failed())
+    with pytest.raises(RuntimeError):
+        theirs.solve_ts(RIVER_SPOT, dump_path)
+    assert not os.path.exists(dump_path)
+
+
+def test_solve_ts_missing_dump(monkeypatch, tmp_path):
+    """Exit 0 without a dump file is still a failure."""
+    from scripts.phase7 import theirs
+
+    class _NoDump:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(theirs.subprocess, "run", lambda *a, **k: _NoDump())
+    with pytest.raises(RuntimeError):
+        theirs.solve_ts(RIVER_SPOT, str(tmp_path / "nope_ts.json"))
+
+
 def test_grid_shape(tmp_path):
     path = _synthetic_dump(tmp_path / "dump.json")
     grid = to_grid(parse_dump(path))

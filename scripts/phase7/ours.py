@@ -63,9 +63,12 @@ def solve_ours(
     t0 = time.perf_counter()
     built = build_spot(spot)
     engine = SolverEngine(built.spec, dtype=dtype, device=device)
+    built.apply_weights(engine._require_solver())  # nonuniform ranges -> root deal
     build_s = time.perf_counter() - t0
 
-    target_chips = (accuracy_pct / 100.0) * 2.0 * spot.pot  # 2*pot normalizer -> chips
+    # engine exploitability = NashConv/2 in chips; TS's percent is the same
+    # quantity over the pot, so target chips = pct/100 * pot.
+    target_chips = (accuracy_pct / 100.0) * spot.pot
     t0 = time.perf_counter()
     result = engine.solve(target_exploitability=target_chips)
     solve_s = result.elapsed_seconds
@@ -88,7 +91,7 @@ def solve_ours(
                 },
             }
         )
-    expl_pct = result.exploitability / (2.0 * spot.pot) * 100.0
+    expl_pct = result.exploitability / spot.pot * 100.0
     return {
         "nodes": nodes,
         "ev_p0": float(result.profile_value_p0),

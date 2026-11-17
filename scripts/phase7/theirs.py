@@ -41,6 +41,8 @@ def solve_ts(
     with open(input_path, "w") as fh:
         fh.write(text)
 
+    if os.path.exists(dump_path):
+        os.remove(dump_path)  # never read output from an earlier solve
     t0 = time.perf_counter()
     proc = subprocess.run(
         ["./console_solver", "-i", input_path],
@@ -48,6 +50,12 @@ def solve_ts(
     )
     wall_s = time.perf_counter() - t0
     log = proc.stdout + "\n" + proc.stderr
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "TexasSolver exited %d: %s" % (proc.returncode, log[-2000:])
+        )
+    if not os.path.exists(dump_path):
+        raise RuntimeError("TexasSolver produced no dump: %s" % log[-2000:])
 
     expls = _TS_EXPL_RE.findall(log)
     expl_pct = float(expls[-1]) if expls else None

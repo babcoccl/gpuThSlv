@@ -63,6 +63,8 @@ def action_sets_equal(ours: List[str], ts: List[str]) -> Tuple[bool, List[str]]:
     for (kind, amt), name in ok.items():
         found = None
         for (tkind, tamt), tname in tk.items():
+            if (tkind, tamt) in matched_ts:
+                continue  # one-to-one: a TS action already claimed can't absorb another
             if tkind == kind and _amounts_close(amt, tamt):
                 found = (tkind, tamt)
                 break

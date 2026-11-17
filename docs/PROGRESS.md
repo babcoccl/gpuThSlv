@@ -154,11 +154,12 @@
   per-node strategy + pure-python EV walk), `grid.py`, `compare.py`,
   `run_treecheck.py`, `run_suite.py`, `plot_freq.py`. Suite: 15 spots, both
   solvers to <=0.5% of pot, ours float64.
-- Results: 4 match / 11 explained / 0 unresolved. Root EV within tolerance on
-  14/15 (|dEV| <= 0.63% pot); turn-narrow-b gap 3.24% diagnosed as a TS dump
-  artifact (average strategy retains dominated-line bleed; TS prints
-  current-iterate exploitability). No solver bugs; mapping-layer bugs fixed
-  with regression tests (14/14 pass, both venvs).
+- Results: 4 match / 11 explained / 0 unresolved; root EV within the 1%-of-pot
+  tolerance on all 15 spots. Review caught 5 harness bugs (halved
+  exploitability units + doubled stop target, unapplied range weights,
+  blocked-combo weight restoration in dump_ev, many-to-one action matching,
+  stale dump reuse); all fixed, suite re-run. No solver bugs; regression
+  tests 18/18 pass in both venvs.
 - Semantics decoded + documented: raise_limit=4 hard-coded, all-in snap
   threshold, auto-all-in raise at cap boundary, donk flag on call-ended
   streets, dealcard stubs for all 52 cards, dump=average vs expl=current.

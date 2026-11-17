@@ -35,8 +35,8 @@ chance_node: {node_type: "chance_node", deal_number: int,
 - Street order: OOP (player 1) always acts first. `call` or `check`-`check` ends the street; river end → showdown, earlier streets → chance node dealing next card. No raise/check-raise after `call` or `check` except preflop — irrelevant for our spots.
 - **Donk**: a chance node after a street ending in an *OOP call* is flagged donk; OOP's lead on the next street then uses `donk` sizes. OOP's lead after check-check uses `bet` sizes. We leave `donk` unset (disabled) per spec — a deliberate semantic difference on turn spots (see below).
 - Solver: `PCfrSolver` with `discounted_cfr` trainer.
-- **Exploitability**: `printExploitability` returns `(BR_ev_p0 + BR_ev_p1) / 2 / pot × 100` (percent). Verified against probe output: (3.75 + 0.833)/2/10×100 = 22.9% ✓. Ours (`TwoPlayerZeroSumEvaluator`) reports the same BR sum in chips → convert: `expl_pct = expl_chips / (2 × pot) × 100`.
-- **Known-case check**: Kuhn (PHASE1's −1/18 = −0.0556 game value) — our solver reports profile_value_p0 = −0.0555 and exploitability 0.0019 chips at convergence; units verified end-to-end.
+- **Exploitability**: `printExploitability` returns `(BR_ev_p0 + BR_ev_p1) / 2 / pot × 100` (percent). Verified against probe output: (3.75 + 0.833)/2/10×100 = 22.9% ✓. Our evaluator reports NashConv/2 = `(BR_p0 + BR_p1) / 2` in chips — the same numerator — so `expl_pct = expl_chips / pot × 100`. (An earlier draft divided by 2×pot — halving reported exploitability and doubling the solve target; caught in review and fixed.)
+- **Known-case check**: Kuhn (PHASE1's −1/18 = −0.0556 game value, pot 2) — our solver reports profile_value_p0 = −0.0555 and exploitability 0.0019 chips ≈ 0.10% of pot at convergence; units verified end-to-end.
 - `set_use_isomorphism 0` disables card-suit isomorphism for the suite.
 - `set_allin_threshold` — we run with `2.0` so no legal bet/raise snaps to
   all-in; all-in is only offered via the explicit `stack/pot` bet size
@@ -92,21 +92,21 @@ TS inputs are kept in `scripts/phase7/runs/` (gitignored); metrics in
 
 | spot | pot | our EV | TS EV | ΔEV chips | ΔEV %pot | mean\|Δf\| pp | max\|Δf\| pp | our expl % | TS expl % | build s | solve s | TS wall s | verdict |
 |------|-----|--------|-------|-----------|----------|------------|-----------|------------|-----------|---------|---------|-----------|---------|
-| toy-check        | 20 | 10.012 | 10.063 | −0.051 | −0.26 | 1.6  | 6.9  | 0.015 | 0.170 | 1.4 | 0.2 | 29.4 | match |
-| toy-bet          | 10 | 5.006  | 5.035  | −0.029 | −0.29 | 7.9  | 50.0 | 0.021 | 0.175 | 0.0 | 0.1 | 29.4 | explained |
-| river-dry-cap0   | 20 | 10.013 | 10.119 | −0.106 | −0.53 | 0.9  | 5.9  | 0.016 | 0.318 | 0.0 | 0.1 | 29.3 | match |
-| river-dry-cap1   | 20 | 10.018 | 10.006 | 0.012  | 0.06  | 20.9 | 75.0 | 0.024 | 0.016 | 0.1 | 0.1 | 29.3 | explained |
-| river-dry-cap2   | 20 | 10.010 | 10.006 | 0.003  | 0.02  | 18.6 | 55.1 | 0.013 | 0.016 | 0.1 | 0.1 | 29.5 | explained |
-| river-wet-cap0   | 20 | −10.009| −10.019| 0.011  | 0.05  | 9.2  | 74.8 | 0.011 | 0.055 | 0.0 | 0.1 | 29.6 | explained |
-| river-wet-cap1   | 20 | −10.031| −10.023| −0.007 | −0.04 | 16.2 | 88.8 | 0.039 | 0.068 | 0.1 | 0.1 | 29.5 | explained |
-| river-wet-cap2   | 20 | −10.029| −10.023| −0.006 | −0.03 | 18.8 | 66.7 | 0.037 | 0.068 | 0.1 | 0.1 | 29.5 | explained |
-| river-pair-cap0  | 20 | 10.013 | 10.119 | −0.106 | −0.53 | 0.8  | 5.9  | 0.016 | 0.318 | 0.0 | 0.1 | 29.9 | match |
-| river-pair-cap1  | 20 | 10.018 | 10.006 | 0.012  | 0.06  | 19.8 | 75.0 | 0.024 | 0.016 | 0.0 | 0.1 | 29.7 | explained |
-| river-pair-cap2  | 20 | 10.010 | 10.006 | 0.003  | 0.02  | 19.4 | 55.1 | 0.013 | 0.016 | 0.1 | 0.1 | 29.5 | explained |
-| turn-narrow-a    | 10 | 5.029  | 5.092  | −0.063 | −0.63 | 30.7 | 99.9 | 0.091 | 0.120 | 7.7 | 1.0 | 30.6 | explained |
-| turn-narrow-b    | 20 | −10.004| −10.652| 0.648  | 3.24  | 17.2 | 86.3 | 0.037 | 0.036 | 1.6 | 0.3 | 30.0 | explained* |
-| short-stack      | 20 | 6.330  | 6.318  | 0.012  | 0.06  | 4.9  | 55.1 | 0.418 | 0.286 | 0.0 | 0.1 | 29.8 | match |
-| river-full       | 20 | −0.529 | −0.539 | 0.010  | 0.05  | 5.5  | 44.2 | 0.167 | 0.120 | 85.7| 16.2| 30.4 | explained |
+| toy-check        | 20 | 10.012 | 10.063 | −0.051 | −0.26 | 1.6  | 6.9  | 0.030 | 0.170 | 1.4 | 0.2 | 29.5 | match |
+| toy-bet          | 10 | 5.006  | 5.035  | −0.029 | −0.29 | 7.9  | 50.0 | 0.042 | 0.175 | 0.0 | 0.1 | 29.6 | explained |
+| river-dry-cap0   | 20 | 10.013 | 10.119 | −0.106 | −0.53 | 0.9  | 5.9  | 0.033 | 0.318 | 0.0 | 0.1 | 29.7 | match |
+| river-dry-cap1   | 20 | 10.018 | 10.006 | 0.012  | 0.06  | 20.9 | 75.0 | 0.047 | 0.016 | 0.1 | 0.1 | 29.4 | explained |
+| river-dry-cap2   | 20 | 10.010 | 10.006 | 0.003  | 0.02  | 18.6 | 55.1 | 0.026 | 0.016 | 0.1 | 0.1 | 29.7 | explained |
+| river-wet-cap0   | 20 | −10.009| −10.019| 0.011  | 0.05  | 9.2  | 74.8 | 0.021 | 0.055 | 0.0 | 0.1 | 29.8 | explained |
+| river-wet-cap1   | 20 | −10.031| −10.023| −0.007 | −0.04 | 16.2 | 88.8 | 0.078 | 0.068 | 0.1 | 0.1 | 29.7 | explained |
+| river-wet-cap2   | 20 | −10.029| −10.023| −0.006 | −0.03 | 18.8 | 66.7 | 0.075 | 0.068 | 0.1 | 0.1 | 29.8 | explained |
+| river-pair-cap0  | 20 | 10.013 | 10.119 | −0.106 | −0.53 | 0.8  | 5.9  | 0.033 | 0.318 | 0.0 | 0.1 | 29.2 | match |
+| river-pair-cap1  | 20 | 10.018 | 10.006 | 0.012  | 0.06  | 19.8 | 75.0 | 0.047 | 0.016 | 0.0 | 0.1 | 29.6 | explained |
+| river-pair-cap2  | 20 | 10.010 | 10.006 | 0.003  | 0.02  | 19.4 | 55.1 | 0.026 | 0.016 | 0.1 | 0.1 | 29.4 | explained |
+| turn-narrow-a    | 10 | 5.029  | 5.002  | 0.027  | 0.27  | 30.7 | 99.9 | 0.181 | 0.120 | 6.2 | 1.2 | 29.9 | explained |
+| turn-narrow-b    | 20 | −10.004| −9.998 | −0.006 | −0.03 | 17.2 | 86.3 | 0.073 | 0.036 | 1.9 | 0.3 | 29.9 | explained |
+| short-stack      | 20 | 6.323  | 6.318  | 0.005  | 0.02  | 4.3  | 55.1 | 0.465 | 0.286 | 0.1 | 0.2 | 29.8 | match |
+| river-full       | 20 | −0.529 | −0.539 | 0.010  | 0.05  | 5.5  | 44.2 | 0.334 | 0.120 | 85.7| 15.8| 30.4 | explained |
 
 Plots: `scripts/phase7/runs/plots/freq_diff_by_spot.png` (per-spot mean/max
 |Δfreq| vs tolerances), `freq_diff_turn-narrow-a.png`,
@@ -126,25 +126,21 @@ Plots: `scripts/phase7/runs/plots/freq_diff_by_spot.png` (per-spot mean/max
      by construction.
   3. **D1 rounding.** TS rounds pct×pot to whole chips; fuzzy node matching
      absorbs it.
-- **explained\* (1)**: turn-narrow-b — EV gap 1.94 chips = 3.24% of pot,
-  **outside** the 1% tolerance. Diagnosed (see below); not a builder bug.
+All 15 spots have |ΔEV| ≤ 0.53% of pot — inside the 1% tolerance.
 
 ### turn-narrow-b EV investigation
 
 Board `Ts9s8sJh` — IP's QQ holds the 8-Q straight, JJ holds trips: OOP's
 AA/KK lose every showdown and the equilibrium is OOP fold-everything, value
-exactly −pot/2 = −10.00. Our solver reports −10.0035 ✓. The TS dump
-evaluates to −10.6520.
+exactly −pot/2 = −10.00. Our solver reports −10.0035.
 
-Per-line decomposition of the dumped strategy: OOP's residual frequencies on
-dominated lines — calling the turn bet at ~0.1% and leading rivers at
-~0.1–0.3% — bleed ≈ −0.65 chips. Re-solving TS to 1.2e-05% exploitability
-leaves the dumped EV at −10.65 unchanged: the bleed is structural to the
-**average** strategy that `dump_result` writes, while TS's printed
-exploitability tracks the current iterate. Our solver evaluates the average
-(`solver.average_strategy_flat()` → NashConv/2 = −10.0035 consistent with its
-0.037% exploitability). Verdict: **explained difference** — a reporting
-artifact of TS's dump, flagged per the pre-set tolerances.
+A first run of the suite showed a 0.65-chip gap (TS dump EV −10.65) and was
+initially diagnosed as an average-strategy artifact of TS's dump (D9). The
+real cause turned out to be a bug in `dump_ev`: at action nodes it restored
+the raw range weight for combos that a chance node had already filtered out
+for containing the dealt river card, re-inflating reach on every river line.
+After the fix the dump evaluates to −9.9976, within 0.03% of pot of ours.
+Regression test: `test_dump_ev_blocked_combo_no_weight`.
 
 ### Bugs found and fixed (mapping layer; solver code untouched)
 
@@ -153,12 +149,27 @@ artifact of TS's dump, flagged per the pre-set tolerances.
   weight — including stubs TS emits for cards already on the board. Fixed:
   subtrees for board cards are skipped, possible rivers are weighted
   1/(52 − board − 4 hole), and combos containing the dealt card are excluded
-  from reach. Regression tests: `test_dump_ev_turn_chance_node`,
-  `test_parse_dump_turn_histories` (14/14 pass in both venvs).
-- `compare_trees`/`compare_strategies` now filter TS dead-card stub nodes
+  from reach.
+- `dump_ev` restored the raw range weight for combos filtered out by the
+  dealt card — blocked combos regained probability on every river line
+  (found in code review; this produced the original turn-narrow-b EV gap).
+- `solve_ours` halved exploitability percentages and doubled the stopping
+  target — engine `exploitability` is NashConv/2 in chips, matching TS's
+  numerator. Fixed; suite re-run at the true ≤0.5%-of-pot target.
+- `solve_ours` never applied `BuiltSpot.apply_weights` — nonuniform ranges
+  would have been solved as uniform deals. Fixed (all suite ranges are
+  uniform, so no metric moved).
+- `action_sets_equal` allowed many-to-one fuzzy matching: two of our bet
+  sizes could both match one TS action, hiding rounded-away branches. Now
+  one-to-one.
+- `solve_ts` parsed a stale `dump_result` file after a failed subprocess.
+  Fixed: the dump is removed before each run and a nonzero exit or missing
+  dump raises.
+- `compare_trees`/`compare_strategies` filter TS dead-card stub nodes
   (board=`spot.board`).
 - `texas_input.py`: TS rejects `*` ranges → expanded to the explicit
   169-class list.
+- Regression tests added for each (18/18 pass in both venvs).
 - **No solver-side bugs found.** No changes to builders were needed.
 
 ### Additional semantic differences found during the suite
@@ -166,19 +177,18 @@ artifact of TS's dump, flagged per the pre-set tolerances.
 | #  | Difference | Consequence |
 |----|------------|-------------|
 | D8 | TS `dealcards` dumps a subtree for all 52 cards, including board cards (unreachable stubs) | filtered in compare + EV walk |
-| D9 | `dump_result` writes the **average** strategy; the printed exploitability reflects the current iterate | TS dump EV can sit below equilibrium even at ~0 exploitability (turn-narrow-b) |
+| D9 | `dump_result` writes the **average** strategy; the printed exploitability reflects the current iterate | TS dump frequencies can differ from equilibrium even at ~0 exploitability |
 | D10 | TS rejects `*` as a range string | expanded to 169 explicit classes |
 
 ### Timing
 
-Our solver builds river spots in <0.2 s, the turn spots in 1.6–7.7 s, and
-river-full (~9.6 M nodes, 1.07 M dealt pairs) in ~86 s; solves run 0.1–1.3 s
-(16.2 s on river-full). TexasSolver carries a ~29 s startup cost per run
-(compairer dictionary load) plus 0.05–0.5 s of solve time at 25–75
-iterations. Exploitability targets met everywhere (ours ≤0.42%, TS ≤0.32%).
+Our solver builds river spots in <0.2 s, the turn spots in 1.9–6.2 s, and
+river-full (~9.6 M nodes, 1.07 M dealt pairs) in ~86 s; solves run 0.1–1.2 s
+(15.8 s on river-full). TexasSolver carries a ~29 s startup cost per run
+(compairer dictionary load) plus ~0.5–1 s of solve time at 25–75
+iterations. Exploitability targets met everywhere (ours ≤0.47%, TS ≤0.32%).
 
-**Gate status**: all 15 spots carry a verdict — 4 `match`, 11 `explained`
-(one flagged outside the EV tolerance with a diagnosed cause), 0
-`unresolved`. No solver bugs found; mapping-layer bugs fixed with regression
-tests.
+**Gate status**: all 15 spots carry a verdict — 4 `match`, 11 `explained`,
+0 `unresolved`; every EV within the pre-set 1%-of-pot tolerance. No solver
+bugs found; mapping-layer bugs fixed with regression tests.
 
