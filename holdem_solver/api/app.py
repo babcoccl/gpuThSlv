@@ -24,6 +24,17 @@ Configuration is by environment variable:
 * ``HOLDEM_POST_RATE_PER_MINUTE`` / ``HOLDEM_POST_BURST``: token bucket per
   client for ``POST /v1/solves`` (120/min, burst 30); 429 + Retry-After.
   ``0`` disables it.
+* ``HOLDEM_SESSION_SECONDS``: browser session cookie lifetime (12 h).
+* ``HOLDEM_SESSION_SECRET``: signing secret for session cookies (default
+  derived from ``HOLDEM_API_KEY``; set it to keep sessions valid across a
+  key rotation).
+* ``HOLDEM_LOGIN_RATE_PER_MINUTE`` / ``HOLDEM_LOGIN_BURST``: login attempts
+  per client (10/min, burst 5); ``0`` disables.
+* ``HOLDEM_CORS_ORIGINS``: comma-separated allowed origins; unset or empty
+  disables CORS entirely (default).
+* ``HOLDEM_MAX_SPOTS``: saved-spot limit for ``/v1/spots`` (512).
+* ``HOLDEM_NODE_EVAL_MAX_WORK``: max combo-node visits a ``/node`` request
+  may schedule in the pure-Python EV walk (5,000,000).
 """
 
 from __future__ import annotations
@@ -31,19 +42,24 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Literal
+import threading
+import time
+from collections import deque
+from typing import Any, Iterator, Literal
 
 import numpy as np
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from holdem_solver.client import RemoteEngineError
 from holdem_solver.protocol import SpotConfig
+from holdem_solver.protocol.evwalk import parse_history
 
 from . import gpus as gpu_stats
 from . import examples
+from . import nodes as api_nodes
 from . import security
 from .metrics import CONTENT_TYPE as METRICS_CONTENT_TYPE
 from .metrics import Metrics
@@ -51,10 +67,19 @@ from .models import (
     GpuInfo,
     HandGridResponse,
     HealthResponse,
+    LoginRequest,
+    LoginResponse,
+    NodeValuesResponse,
+    PinResponse,
     SolveAccepted,
+    SolveParams,
     SolveRequest,
     SolveStatus,
+    SpotCreate,
+    SpotRecord,
+    SpotUpdate,
     StrategyResponse,
+    TreeNodeResponse,
 )
 from .scheduler import Scheduler, SchedulerConfig
 from .store import IdempotencyConflictError, JobStore, QueueFullError, request_hash
@@ -64,8 +89,12 @@ LOG = logging.getLogger("holdem_solver.api")
 
 DEFAULT_MAX_VRAM_BYTES = 14 * 1024**3
 DEFAULT_MAX_QUEUE_DEPTH = 64
+DEFAULT_MAX_SPOTS = 512
+SSE_BUFFER = 256
+SSE_POLL_SECONDS = 0.5
 
 ACTIVE_STATES = ("queued", "building", "solving")
+TERMINAL_STATES = ("done", "cancelled", "failed")
 
 
 class _JsonFormatter(logging.Formatter):
@@ -175,6 +204,13 @@ def create_app(
     max_body_bytes: int | None = None,
     post_rate_per_minute: float | None = None,
     post_burst: int | None = None,
+    session_seconds: int | None = None,
+    session_secret: str | None = None,
+    login_rate_per_minute: float | None = None,
+    login_burst: int | None = None,
+    cors_origins: list[str] | None = None,
+    max_spots: int | None = None,
+    node_eval_max_work: int | None = None,
 ) -> FastAPI:
     """Build the app; keyword args override the environment (tests use them)."""
     configure_logging()
@@ -202,6 +238,34 @@ def create_app(
     if post_burst is None:
         post_burst = int(os.environ.get("HOLDEM_POST_BURST", security.DEFAULT_POST_BURST))
     limiter = security.RateLimiter(post_rate_per_minute, post_burst) if post_rate_per_minute > 0 else None
+    if session_seconds is None:
+        session_seconds = int(os.environ.get("HOLDEM_SESSION_SECONDS", security.DEFAULT_SESSION_SECONDS))
+    if session_secret is None:
+        session_secret = os.environ.get("HOLDEM_SESSION_SECRET") or None
+    if login_rate_per_minute is None:
+        login_rate_per_minute = float(
+            os.environ.get("HOLDEM_LOGIN_RATE_PER_MINUTE", security.DEFAULT_LOGIN_RATE_PER_MINUTE)
+        )
+    if login_burst is None:
+        login_burst = int(os.environ.get("HOLDEM_LOGIN_BURST", security.DEFAULT_LOGIN_BURST))
+    if cors_origins is None:
+        cors_origins = [
+            part.strip() for part in os.environ.get("HOLDEM_CORS_ORIGINS", "").split(",") if part.strip()
+        ]
+    if max_spots is None:
+        max_spots = int(os.environ.get("HOLDEM_MAX_SPOTS", DEFAULT_MAX_SPOTS))
+    if node_eval_max_work is None:
+        node_eval_max_work = int(
+            os.environ.get("HOLDEM_NODE_EVAL_MAX_WORK", api_nodes.DEFAULT_MAX_EVAL_WORK)
+        )
+    signer = (
+        security.SessionSigner(api_key, secret=session_secret, ttl_seconds=session_seconds)
+        if api_key
+        else None
+    )
+    login_limiter = (
+        security.RateLimiter(login_rate_per_minute, login_burst) if login_rate_per_minute > 0 else None
+    )
     if api_key is None:
         LOG.warning("HOLDEM_API_KEY is unset: authentication is disabled (development only)")
 
@@ -231,10 +295,23 @@ def create_app(
 
     app = FastAPI(title="holdem-solver", version="0.5.0", lifespan=lifespan, description=examples.DESCRIPTION)
     app.add_middleware(security.BodySizeLimit, max_bytes=max_body_bytes)
+    if cors_origins:
+        from fastapi.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
     app.state.store = store
     app.state.scheduler = scheduler
     app.state.metrics = metrics
-    auth = security.auth_dependency(api_key)
+    app.state.sse_buffers = {}  # job_id -> deque[(seq, payload)]
+    app.state.sse_lock = threading.Lock()
+    auth = security.auth_dependency(api_key, signer)
+    csrf = security.csrf_dependency
     rate_limit = security.rate_limit_dependency(limiter)
 
     @app.exception_handler(RequestValidationError)
@@ -261,16 +338,14 @@ def create_app(
             infos.append(GpuInfo(**info))
         return infos
 
-    @app.post(
-        "/v1/solves", status_code=202, response_model=SolveAccepted, dependencies=[Depends(auth), Depends(rate_limit)],
-        responses=examples.POST_SOLVE,
-    )
-    def post_solve(
-        request: SolveRequest,
+    def _admit(
+        spot: dict[str, Any],
+        request: SolveParams,
         response: Response,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=200),
+        idempotency_key: str | None,
+        body_hash: str,
     ) -> SolveAccepted:
-        body_hash = request_hash(request.hash_body())
+        """Shared admission for ``POST /v1/solves`` and ``POST /v1/spots/{id}/solve``."""
         if idempotency_key is not None:
             # Retries of an accepted request are answered before any engine
             # work or queue-depth check: the job already exists.
@@ -288,7 +363,6 @@ def create_app(
         if depth >= max_queue_depth:
             raise _queue_full(QueueFullError(depth, max_queue_depth))
 
-        spot = request.spot_dict()
         try:
             config = SpotConfig.from_dict(spot)
         except ValueError as exc:
@@ -366,6 +440,21 @@ def create_app(
             predicted_vram_bytes=predicted,
         )
 
+    @app.post(
+        "/v1/solves", status_code=202, response_model=SolveAccepted,
+        dependencies=[Depends(auth), Depends(csrf), Depends(rate_limit)],
+        responses=examples.POST_SOLVE,
+    )
+    def post_solve(
+        request: SolveRequest,
+        response: Response,
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=200),
+    ) -> SolveAccepted:
+        return _admit(
+            request.spot_dict(), request, response, idempotency_key,
+            request_hash(request.hash_body()),
+        )
+
     @app.get("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)], responses=examples.GET_SOLVE)
     def get_solve(job_id: str) -> SolveStatus:
         job = store.get(job_id)
@@ -419,7 +508,8 @@ def create_app(
         return StrategyResponse(id=job_id, **mapped)
 
     @app.delete(
-        "/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)], responses=examples.DELETE_SOLVE
+        "/v1/solves/{job_id}", response_model=SolveStatus,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.DELETE_SOLVE
     )
     def delete_solve(job_id: str) -> SolveStatus:
         job = store.cancel(job_id)
@@ -427,6 +517,306 @@ def create_app(
             raise HTTPException(status_code=404, detail="unknown job id")
         scheduler.wake()
         return _status(job)
+
+    # -- Phase 9: browser auth --------------------------------------------------
+
+    @app.post(
+        "/v1/auth/login", response_model=LoginResponse,
+        dependencies=[Depends(security.rate_limit_dependency(login_limiter))],
+        responses=examples.LOGIN,
+        summary="Exchange the API key for an HttpOnly session cookie + CSRF token",
+    )
+    def login(request: LoginRequest, response: Response) -> LoginResponse:
+        if signer is None:
+            raise HTTPException(status_code=503, detail="auth is disabled (HOLDEM_API_KEY unset); no login needed")
+        if not security.key_matches(request.key, api_key or ""):
+            raise HTTPException(status_code=401, detail="invalid API key")
+        token, expires_at = signer.issue()
+        csrf_value = security.csrf_token()
+        response.set_cookie(
+            security.SESSION_COOKIE, token, max_age=signer.ttl_seconds,
+            httponly=True, samesite="strict", path="/",
+        )
+        response.set_cookie(
+            security.CSRF_COOKIE, csrf_value, max_age=signer.ttl_seconds,
+            httponly=False, samesite="strict", path="/",
+        )
+        return LoginResponse(expires_at=expires_at, csrf=csrf_value)
+
+    @app.post("/v1/auth/logout", dependencies=[Depends(auth)], responses=examples.LOGOUT)
+    def logout(response: Response) -> dict[str, str]:
+        response.delete_cookie(security.SESSION_COOKIE, path="/")
+        response.delete_cookie(security.CSRF_COOKIE, path="/")
+        return {"status": "logged_out"}
+
+    # -- Phase 9: tree navigation + per-node values ------------------------------
+
+    def _strategy_index(job_id: str) -> tuple[Any, int, dict[str, Any]]:
+        """Load the exported strategy as a TreeIndex, with the same guards as /strategy."""
+        job = store.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job id")
+        if job["status"] in ACTIVE_STATES:
+            raise HTTPException(status_code=409, detail=f"job is still {job['status']}")
+        if job.get("strategy_expired_at"):
+            raise HTTPException(status_code=410, detail="the strategy was deleted by the retention policy")
+        path = job["strategy_path"]
+        if not path or not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="no strategy was exported for this job")
+        index, iteration = api_nodes.load_index(path)
+        return index, iteration, job
+
+    @app.get(
+        "/v1/solves/{job_id}/tree", response_model=TreeNodeResponse,
+        dependencies=[Depends(auth)], responses=examples.GET_TREE,
+        summary="One tree node: player/street/pot/stacks/board/actions/children; no history parsing needed",
+    )
+    def get_tree(
+        job_id: str,
+        history: str | None = Query(
+            None, max_length=500,
+            description="comma- or pipe-separated history; '' = root",
+        ),
+    ) -> TreeNodeResponse:
+        index, iteration, job = _strategy_index(job_id)
+        try:
+            hist = parse_history(history)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if index.edge_kind(hist) == "terminal":
+            raise HTTPException(status_code=404, detail="no node at this history (terminal or unknown)")
+        node = api_nodes.tree_node(index, job["spot"], hist)
+        return TreeNodeResponse(id=job_id, iteration=iteration, **node)
+
+    @app.get(
+        "/v1/solves/{job_id}/node", response_model=NodeValuesResponse,
+        dependencies=[Depends(auth)], responses=examples.GET_NODE,
+        summary="Per-node values: reach-weighted frequencies, per-action EVs, hand EV, equity, ranges",
+    )
+    def get_node(
+        job_id: str,
+        history: str | None = Query(
+            None, max_length=500,
+            description="comma- or pipe-separated history; '' = root",
+        ),
+        combos: bool = Query(False, description="per combo instead of per hand class"),
+    ) -> NodeValuesResponse:
+        index, iteration, job = _strategy_index(job_id)
+        try:
+            hist = parse_history(history)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        kind = index.edge_kind(hist)
+        if kind == "chance":
+            raise HTTPException(status_code=422, detail="this history is a chance node; use /tree for dealt cards")
+        if kind == "terminal":
+            raise HTTPException(status_code=404, detail="no player node at this history")
+        try:
+            values = api_nodes.node_values(
+                index, job["spot"], hist, combos=combos, max_work=node_eval_max_work
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return NodeValuesResponse(id=job_id, iteration=iteration, **values)
+
+    # -- Phase 9: live progress (SSE) --------------------------------------------
+
+    def _sse_snapshot(job: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "status": job["status"],
+            "iteration": job["iteration"],
+            "iterations_run": job["iterations_run"],
+            "exploitability": job["exploitability"],
+            "exploitability_iteration": job.get("exploitability_iteration"),
+        }
+
+    def _sse_record(job_id: str, payload: dict[str, Any]) -> int:
+        """Append ``payload`` to the job's replay buffer; return its event id."""
+        with app.state.sse_lock:
+            buf = app.state.sse_buffers.setdefault(job_id, deque(maxlen=SSE_BUFFER))
+            if buf and buf[-1][1] == payload:
+                return buf[-1][0]
+            seq = (buf[-1][0] if buf else 0) + 1
+            buf.append((seq, payload))
+            return seq
+
+    @app.get(
+        "/v1/solves/{job_id}/events", dependencies=[Depends(auth)],
+        responses=examples.GET_EVENTS,
+        summary="Server-sent progress events; Last-Event-ID resumes a disconnected stream",
+    )
+    def get_events(
+        job_id: str,
+        last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
+    ) -> StreamingResponse:
+        job = store.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job id")
+
+        def frame(seq: int, event: str, payload: dict[str, Any]) -> str:
+            return "id: %d\nevent: %s\ndata: %s\n\n" % (seq, event, json.dumps(payload))
+
+        def stream() -> Iterator[str]:
+            last_payload = None
+            if last_event_id is not None:
+                try:
+                    last_seq = int(last_event_id)
+                except ValueError:
+                    last_seq = -1
+                with app.state.sse_lock:
+                    buf = list(app.state.sse_buffers.get(job_id, ()))
+                for seq, payload in buf:
+                    if seq > last_seq:
+                        yield frame(seq, "progress", payload)
+                        last_payload = payload
+            job_now = store.get(job_id)
+            if job_now is None:
+                yield frame(0, "gone", {"status": "gone"})
+                return
+            payload = _sse_snapshot(job_now)
+            seq = _sse_record(job_id, payload)
+            if payload != last_payload:
+                yield frame(seq, "snapshot", payload)
+                last_payload = payload
+            ticks = 0
+            while True:
+                if job_now["status"] in TERMINAL_STATES:
+                    yield frame(seq, "done", payload)
+                    return
+                time.sleep(SSE_POLL_SECONDS)
+                ticks += 1
+                job_now = store.get(job_id)
+                if job_now is None:
+                    yield frame(0, "gone", {"status": "gone"})
+                    return
+                payload = _sse_snapshot(job_now)
+                seq = _sse_record(job_id, payload)
+                if payload != last_payload:
+                    yield frame(seq, "progress", payload)
+                    last_payload = payload
+                elif ticks % 40 == 0:
+                    yield ": keep-alive\n\n"
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
+
+    # -- Phase 9: pin/unpin ------------------------------------------------------
+
+    @app.post(
+        "/v1/solves/{job_id}/pin", response_model=PinResponse,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.PIN,
+        summary="Pin a solve's strategy so retention never deletes it",
+    )
+    def pin_solve(job_id: str) -> PinResponse:
+        job = store.set_pinned(job_id, True)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job id")
+        return PinResponse(id=job_id, pinned=True)
+
+    @app.post(
+        "/v1/solves/{job_id}/unpin", response_model=PinResponse,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.PIN,
+        summary="Unpin a solve; retention applies again",
+    )
+    def unpin_solve(job_id: str) -> PinResponse:
+        job = store.set_pinned(job_id, False)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job id")
+        return PinResponse(id=job_id, pinned=False)
+
+    # -- Phase 9: saved spots -----------------------------------------------------
+
+    def _validate_spot_dict(spot: dict[str, Any]) -> None:
+        try:
+            SpotConfig.from_dict(spot)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"bad spot: {exc}") from exc
+
+    @app.post(
+        "/v1/spots", status_code=201, response_model=SpotRecord,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.SPOT,
+    )
+    def create_spot(request: SpotCreate) -> SpotRecord:
+        _validate_spot_dict(request.spot)
+        try:
+            spot = store.create_spot(request.name, request.spot, request.tags, request.notes, max_spots=max_spots)
+        except QueueFullError as exc:
+            raise HTTPException(
+                status_code=429, detail=str(exc), headers={"Retry-After": "30"}
+            ) from exc
+        return SpotRecord(**spot)
+
+    @app.get("/v1/spots", response_model=list[SpotRecord], dependencies=[Depends(auth)], responses=examples.SPOT_LIST)
+    def list_spots(tag: str | None = Query(None, max_length=64)) -> list[SpotRecord]:
+        return [SpotRecord(**spot) for spot in store.list_spots(tag=tag)]
+
+    @app.get("/v1/spots/{spot_id}", response_model=SpotRecord, dependencies=[Depends(auth)], responses=examples.SPOT_LIST)
+    def get_spot(spot_id: str) -> SpotRecord:
+        spot = store.get_spot(spot_id)
+        if spot is None:
+            raise HTTPException(status_code=404, detail="unknown spot id")
+        return SpotRecord(**spot)
+
+    @app.patch(
+        "/v1/spots/{spot_id}", response_model=SpotRecord,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.SPOT_LIST,
+    )
+    def update_spot(spot_id: str, request: SpotUpdate) -> SpotRecord:
+        if request.spot is not None:
+            _validate_spot_dict(request.spot)
+        spot = store.update_spot(
+            spot_id,
+            name=request.name,
+            spot=request.spot,
+            tags=request.tags,
+            notes=request.notes,
+        )
+        if spot is None:
+            raise HTTPException(status_code=404, detail="unknown spot id")
+        return SpotRecord(**spot)
+
+    @app.delete("/v1/spots/{spot_id}", dependencies=[Depends(auth), Depends(csrf)], responses=examples.DELETE_SPOT)
+    def delete_spot(spot_id: str) -> dict[str, str]:
+        if not store.delete_spot(spot_id):
+            raise HTTPException(status_code=404, detail="unknown spot id")
+        return {"status": "deleted"}
+
+    @app.post(
+        "/v1/spots/{spot_id}/duplicate", status_code=201, response_model=SpotRecord,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.SPOT,
+    )
+    def duplicate_spot(
+        spot_id: str,
+        name: str | None = Query(None, max_length=200, description="default '<name> (copy)'"),
+    ) -> SpotRecord:
+        spot = store.get_spot(spot_id)
+        if spot is None:
+            raise HTTPException(status_code=404, detail="unknown spot id")
+        try:
+            copy = store.create_spot(
+                name or (spot["name"] + " (copy)"),
+                spot["spot"], spot["tags"], spot["notes"], max_spots=max_spots,
+            )
+        except QueueFullError as exc:
+            raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "30"}) from exc
+        return SpotRecord(**copy)
+
+    @app.post(
+        "/v1/spots/{spot_id}/solve", status_code=202, response_model=SolveAccepted,
+        dependencies=[Depends(auth), Depends(csrf), Depends(rate_limit)],
+        responses=examples.POST_SOLVE,
+        summary="Queue a solve of the saved spot (same admission as POST /v1/solves)",
+    )
+    def solve_spot(
+        spot_id: str,
+        request: SolveParams,
+        response: Response,
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=200),
+    ) -> SolveAccepted:
+        spot = store.get_spot(spot_id)
+        if spot is None:
+            raise HTTPException(status_code=404, detail="unknown spot id")
+        body_hash = request_hash({"spot_id": spot_id, "params": request.model_dump(mode="json")})
+        return _admit(spot["spot"], request, response, idempotency_key, body_hash)
 
     return app
 

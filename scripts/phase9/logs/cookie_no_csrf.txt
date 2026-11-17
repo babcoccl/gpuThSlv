@@ -1,0 +1,2 @@
+$ curl -sS -b scripts/phase9/logs/cookies.txt -X POST http://127.0.0.1:8009/v1/spots -H content-type: application/json -d {"name":"x","spot":{"board":"KsJsTh7d2c","range0":"AA","range1":"KK","pot":20.0,"stack":100.0,"bet_sizes":"standard"}}
+{"detail":"missing or mismatched CSRF token"}

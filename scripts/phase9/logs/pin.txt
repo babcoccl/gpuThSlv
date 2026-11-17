@@ -1,0 +1,2 @@
+$ curl -sS -X POST http://127.0.0.1:8009/v1/solves/b905de9c0501/pin -H Authorization: Bearer demo
+{"id":"b905de9c0501","pinned":true}

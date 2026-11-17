@@ -1,0 +1,2 @@
+$ curl -sS -X DELETE http://127.0.0.1:8009/v1/spots/d8e703f7e22c -H Authorization: Bearer demo
+{"status":"deleted"}

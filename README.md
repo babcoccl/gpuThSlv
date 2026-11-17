@@ -123,6 +123,61 @@ frequencies; add `player=0|1` and `history=check,b10` (`history=` for the
 root) to pick one node. The default `view=infosets` is unchanged. Every
 endpoint has a request/response example in `/docs`.
 
+### Tree navigation and per-node values (Phase 9)
+
+Read endpoints for building a UI — no client-side history parsing:
+
+```bash
+curl -H "Authorization: Bearer $HOLDEM_API_KEY" \
+  "http://127.0.0.1:8000/v1/solves/<id>/tree?history=check,b10"
+# node: player, street, pot, stacks, board (dealt cards folded in),
+# canonical actions + labels, children summary; is_chance + dealt_cards
+# on turn river-deal nodes.
+
+curl -H "Authorization: Bearer $HOLDEM_API_KEY" \
+  "http://127.0.0.1:8000/v1/solves/<id>/node?history=check,b10&combos=true"
+# per hand class (per combo with combos=true): reach-weighted action
+# frequencies, per-action EVs, hand EV, equity vs the opponent's reaching
+# range, and both players' reaches at the node. Formulas in
+# docs/PHASE9.md; EVs validated to exactly match the Phase 7 dump_ev walk
+# on 6 cap-0 spots (1,657 values, max |Δ| = 0) — docs/VALIDATION.md.
+
+curl -N -H "Authorization: Bearer $HOLDEM_API_KEY" \
+  http://127.0.0.1:8000/v1/solves/<id>/events
+# server-sent events: snapshot/progress/done with status, iteration,
+# exploitability; send `Last-Event-ID: <n>` to resume after a disconnect.
+```
+
+### Saved spots
+
+```bash
+curl -X POST -H "Authorization: Bearer $HOLDEM_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"dry-river","spot":{...},"tags":["river"],"notes":"..."}' \
+  http://127.0.0.1:8000/v1/spots
+# 201 -> {"id": "..."}. GET /v1/spots[?tag=...], GET/PATCH/DELETE
+# /v1/spots/<id>, POST /v1/spots/<id>/duplicate,
+# POST /v1/spots/<id>/solve (queues a solve with the usual params).
+
+curl -X POST -H "Authorization: Bearer $HOLDEM_API_KEY" \
+  http://127.0.0.1:8000/v1/solves/<id>/pin
+# pinned solves are never removed by strategy retention.
+```
+
+Limits: 512 spots, name ≤ 200 chars, notes ≤ 2000 chars, ≤ 32 tags × ≤ 64
+chars.
+
+### Browser auth
+
+`POST /v1/auth/login` with `{"key": "<api key>"}` sets an HttpOnly
+`SameSite=strict` session cookie (12 h) plus a readable `holdem_csrf`
+cookie (also in the body). Cookie-authenticated GETs work as-is; mutating
+requests must echo the CSRF token in `x-csrf-token` (403 otherwise).
+`POST /v1/auth/logout` clears both. CORS is off by default — set
+`HOLDEM_CORS_ORIGINS` to allow browser origins. Login attempts are
+rate-limited (10/min, burst 5). The Bearer API key still works for
+scripts; a request that supplies both is a script call (no CSRF needed).
+
 ### API usage
 
 Every request below is a complete `POST /v1/solves` body (headers as above).

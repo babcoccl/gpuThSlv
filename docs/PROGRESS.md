@@ -248,3 +248,31 @@
   bet_sizes, verifies num_nodes = 1 + 108×15 and every node's action set
   against SpotConfig semantics via /strategy.
 - Evidence: `docs/PHASE8_6.md`, `scripts/phase8_6/runs/suite8_6.json`.
+
+## Phase 9 — UI backend (2026-11-17)
+
+- New endpoints: `GET /v1/solves/{id}/tree` (node navigation with
+  children summary + chance-node dealt cards, no client history
+  parsing), `GET /v1/solves/{id}/node` (per hand class / per combo
+  frequencies, per-action EVs, hand EV, equity, ranges),
+  `GET /v1/solves/{id}/events` (SSE, `Last-Event-ID` replay),
+  `POST /v1/solves/{id}/pin|unpin`, `/v1/spots` CRUD + `duplicate` +
+  `{id}/solve` with limits (512 spots / 200-char names / 2000-char
+  notes / 32×64-char tags), `POST /v1/auth/login|logout` (HttpOnly
+  SameSite=strict session cookie + CSRF; CORS off unless
+  `HOLDEM_CORS_ORIGINS`; login rate-limited 10/min burst 5).
+- `holdem_solver/protocol/evwalk.py`: pure-Python evaluation walk
+  mirroring the Phase 7 `dump_ev` reference — shared by both venvs
+  (3.9-safe). EV gate: 6/6 cap-0 river spots, 1,657 (node, combo,
+  action) EV values vs `xeval.node_action_evs`, **max |Δ| = 0.000000**;
+  root EV = `dump_ev` = `profile_value_p0` exactly
+  (`scripts/phase9/runs/ev_validation.json`).
+- Subtree cache (step 6): mechanism shipped since Phase 6; re-verified
+  — `compare_trees` green and node counts identical on all 10 rerun
+  spots; spec-build on `river-full-pot` cap 2 = **68.01 s /
+  10,374,211 nodes** (Phase 6: 60.7 s — +12% machine variance, no code
+  change).
+- Curl evidence on both GPUs in `scripts/phase9/logs/` (job
+  `b905de9c0501` on gpu 0, `e82d19066e0e` on gpu 1); every number in
+  docs copied from those logs. Gate `run_all_tests.sh` green.
+- Evidence: `docs/PHASE9.md`, `scripts/phase9/`.

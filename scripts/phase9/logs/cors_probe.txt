@@ -1,0 +1,8 @@
+$ curl -sS -i http://127.0.0.1:8009/healthz -H Origin: https://example.com
+HTTP/1.1 200 OK
+date: Tue, 17 Nov 2026 16:51:27 GMT
+server: uvicorn
+content-length: 15
+content-type: application/json
+
+{"status":"ok"}

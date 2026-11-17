@@ -1,0 +1,2 @@
+$ curl -sS -X POST http://127.0.0.1:8009/v1/spots/d8e703f7e22c/solve -H Authorization: Bearer demo -H content-type: application/json -d {"iterations":50}
+{"id":"9a134c3e0a67","status":"queued","replayed":false,"queue_depth":1,"predicted_vram_bytes":20444691}

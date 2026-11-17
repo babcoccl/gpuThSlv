@@ -45,6 +45,15 @@ CREATE TABLE IF NOT EXISTS jobs (
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     strategy_path TEXT,
     exploitability_history TEXT
+);
+CREATE TABLE IF NOT EXISTS spots (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    spot TEXT NOT NULL,
+    tags TEXT NOT NULL DEFAULT '[]',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
 )
 """
 
@@ -61,6 +70,8 @@ _COLUMNS = {
     "strategy_expired_at": "REAL",
     # Phase 5
     "exploitability_iteration": "INTEGER",
+    # Phase 9
+    "pinned": "INTEGER NOT NULL DEFAULT 0",
 }
 
 ACTIVE = ("queued", "building", "solving")
@@ -95,7 +106,7 @@ class JobStore:
         self._lock = threading.Lock()
         with self._db:
             self._db.execute("PRAGMA journal_mode=WAL")
-            self._db.execute(_SCHEMA)
+            self._db.executescript(_SCHEMA)
             self._migrate()
 
     def _migrate(self) -> None:
@@ -252,6 +263,88 @@ class JobStore:
             )
         return {"status": by_status, "error_code": by_code}
 
+    # -- saved spots (Phase 9) ----------------------------------------------
+
+    def create_spot(
+        self,
+        name: str,
+        spot: dict[str, Any],
+        tags: list[str],
+        notes: str,
+        *,
+        max_spots: int | None = None,
+    ) -> dict[str, Any]:
+        spot_id = uuid.uuid4().hex[:12]
+        now = time.time()
+        with self._lock, self._db:
+            if max_spots is not None:
+                count = self._db.execute("SELECT COUNT(*) FROM spots").fetchone()[0]
+                if count >= max_spots:
+                    raise QueueFullError(count, max_spots)
+            self._db.execute(
+                "INSERT INTO spots (id, name, spot, tags, notes, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (spot_id, name, json.dumps(spot), json.dumps(list(tags)), notes, now, now),
+            )
+        return self.get_spot(spot_id)  # type: ignore[return-value]
+
+    def get_spot(self, spot_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._db.execute("SELECT * FROM spots WHERE id=?", (spot_id,)).fetchone()
+        return self._decode_spot(row) if row is not None else None
+
+    def list_spots(self, tag: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._db.execute("SELECT * FROM spots ORDER BY created_at").fetchall()
+        spots = [self._decode_spot(row) for row in rows]
+        if tag is not None:
+            spots = [s for s in spots if tag in s["tags"]]
+        return spots
+
+    def update_spot(self, spot_id: str, **fields: Any) -> dict[str, Any] | None:
+        allowed = {"name", "spot", "tags", "notes"}
+        cols = {k: v for k, v in fields.items() if k in allowed and v is not None}
+        if not cols:
+            return self.get_spot(spot_id)
+        cols["updated_at"] = time.time()
+        values = [
+            json.dumps(v) if k in ("spot", "tags") else v for k, v in cols.items()
+        ]
+        with self._lock, self._db:
+            cur = self._db.execute(
+                f"UPDATE spots SET {', '.join(f'{k}=?' for k in cols)} WHERE id=?",
+                [*values, spot_id],
+            )
+            if cur.rowcount != 1:
+                return None
+        return self.get_spot(spot_id)
+
+    def delete_spot(self, spot_id: str) -> bool:
+        with self._lock, self._db:
+            cur = self._db.execute("DELETE FROM spots WHERE id=?", (spot_id,))
+            return cur.rowcount == 1
+
+    def count_spots(self) -> int:
+        with self._lock:
+            return self._db.execute("SELECT COUNT(*) FROM spots").fetchone()[0]
+
+    @staticmethod
+    def _decode_spot(row: sqlite3.Row) -> dict[str, Any]:
+        spot = dict(row)
+        spot["spot"] = json.loads(spot["spot"])
+        spot["tags"] = json.loads(spot["tags"]) if spot["tags"] else []
+        return spot
+
+    # -- pin (Phase 9) --------------------------------------------------------
+
+    def set_pinned(self, job_id: str, pinned: bool) -> dict[str, Any] | None:
+        """Pin/unpin a job's strategy so retention skips it; None if unknown."""
+        with self._lock, self._db:
+            cur = self._db.execute("UPDATE jobs SET pinned=? WHERE id=?", (int(pinned), job_id))
+            if cur.rowcount != 1:
+                return None
+        return self.get(job_id)
+
     # -- writes ------------------------------------------------------------
 
     def update(self, job_id: str, **fields: Any) -> bool:
@@ -320,7 +413,7 @@ class JobStore:
         with self._lock:
             rows = self._db.execute(
                 f"SELECT * FROM jobs WHERE status IN {_in(TERMINAL)} AND strategy_path IS NOT NULL "
-                "AND finished_at < ?",
+                "AND pinned=0 AND finished_at < ?",
                 (cutoff,),
             ).fetchall()
         return [self._decode(row) for row in rows]

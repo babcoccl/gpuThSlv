@@ -1,0 +1,2 @@
+$ curl -sS -X POST http://127.0.0.1:8009/v1/spots/d8e703f7e22c/duplicate -H Authorization: Bearer demo
+{"id":"378be6c45e49","name":"dry-river (copy)","spot":{"board":"KsJsTh7d2c","range0":"QQ+, AKs","range1":"TT, AQ","pot":20.0,"stack":100.0,"bet_sizes":"standard"},"tags":["river","dry"],"notes":"updated note","created_at":1794934288.1107516,"updated_at":1794934288.1107516}

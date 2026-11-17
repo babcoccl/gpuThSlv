@@ -1,0 +1,18 @@
+$ timeout 5 curl -sS -N http://127.0.0.1:8009/v1/solves/b905de9c0501/events -H Authorization: Bearer demo
+id: 1
+event: snapshot
+data: {"status": "building", "iteration": null, "iterations_run": null, "exploitability": null, "exploitability_iteration": null}
+
+id: 2
+event: progress
+data: {"status": "solving", "iteration": null, "iterations_run": null, "exploitability": null, "exploitability_iteration": null}
+
+id: 3
+event: progress
+data: {"status": "done", "iteration": 400, "iterations_run": 400, "exploitability": 0.0002827644348144531, "exploitability_iteration": 400}
+
+id: 3
+event: done
+data: {"status": "done", "iteration": 400, "iterations_run": 400, "exploitability": 0.0002827644348144531, "exploitability_iteration": 400}
+
+

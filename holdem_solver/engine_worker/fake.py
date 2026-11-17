@@ -74,6 +74,7 @@ class FakeEngine:
             # A spot is validated and resolved like the real worker does; the
             # tree itself is not built (that needs gpu_cfr).
             config = SpotConfig.from_dict(game_spec)
+            self._spot_config = config
             self._spot = config.resolve().summary()
             self._name = config.game_name
         elif game_spec in ("kuhn", "kuhn_poker", "fake"):
@@ -82,6 +83,8 @@ class FakeEngine:
             raise ValueError("FakeEngine only builds 'kuhn', 'kuhn_poker', 'fake', or a spot, got %r" % (game_spec,))
         self._peak_vram = int(options.get("fake_peak_vram_bytes", 0))
         self._dtype = str(options.get("dtype", "float32"))
+        self._real_keys = bool(options.get("fake_real_keys", False))
+        self._key_nodes: List[tuple] = []  # (player, history, actions) when real keys
         if options.get("fake_build_seconds"):
             time.sleep(float(options["fake_build_seconds"]))
         if options.get("fake_oom_on_build"):
@@ -94,6 +97,8 @@ class FakeEngine:
         self._iter_seconds = float(options.get("fake_iter_seconds", 0.0))
         self._num_infosets = int(options.get("fake_infosets", _KUHN_INFOSETS))
         self._num_actions = int(options.get("fake_actions", 2))
+        if self._real_keys:
+            self._enumerate_real_keys()
         self._fail_solve = bool(options.get("fake_fail_solve", False))
         self._default_iterations = int(options.get("iterations", 1000))
         if self._num_infosets <= 0 or self._num_actions <= 0:
@@ -114,6 +119,40 @@ class FakeEngine:
             "estimated_vram_bytes": int(estimate_vram_bytes(num_nodes, dtype=dtype)),
             "spot": resolved.summary(),
         }
+
+    def _enumerate_real_keys(self) -> None:
+        """Emit real HUNL infoset keys for the built spot (``fake_real_keys``).
+
+        Covers the raise_cap=0 river grammar: each player checks or bets a
+        ``b<amt>`` per bet size facing no bet, and folds/calls facing one.
+        Used by API tests so ``/tree``, ``/node`` and ``hand_grid`` see a
+        parseable tree without a GPU.
+        """
+        from holdem_solver.protocol.cards import combo_str
+
+        config = self._spot_config
+        resolved = config.resolve()
+        if len(config.board) != 5 or config.raise_cap != 0:
+            raise ValueError("fake_real_keys supports raise_cap=0 river spots only")
+        fractions = resolved.bet_fractions
+        pot = float(config.pot)
+        stack = float(config.stack)
+        bets = sorted({min(stack, float(f) * pot) for f in fractions})
+        bets = [b for b in bets if b > 0]
+        bet_names = ["b%g" % b for b in bets]
+        nodes = []  # (player, history tuple, actions)
+        nodes.append((0, (), ["check"] + bet_names))
+        nodes.append((1, ("check",), ["check"] + bet_names))
+        for name in bet_names:
+            nodes.append((1, (name,), ["fold", "call"]))
+            nodes.append((0, ("check", name), ["fold", "call"]))
+        hands = (resolved.hands0, resolved.hands1)
+        self._key_nodes = [
+            (player, hist, actions, combo_str(combo))
+            for player, hist, actions in nodes
+            for combo, _w in hands[player]
+        ]
+        self._num_infosets = len(self._key_nodes)
 
     def _require_built(self) -> None:
         if not self._built:
@@ -235,6 +274,15 @@ class FakeEngine:
 
     def get_strategy(self) -> Dict[str, Any]:
         self._require_built()
+        if self._real_keys:
+            strategy = {}
+            for index, (player, hist, actions, hand) in enumerate(self._key_nodes):
+                key = "p%d|%s|%s" % (player, hand, ",".join(hist))
+                n = len(actions)
+                # deterministic non-uniform row that sums to 1
+                row = (1.0 + np.arange(n) + (index % n)).astype(np.float32)
+                strategy[key] = row / row.sum()
+            return strategy
         weight = 1.0 / (1.0 + self._iterations)
         base = np.arange(1, self._num_actions + 1, dtype=np.float32)
         strategy = {}
@@ -246,6 +294,11 @@ class FakeEngine:
 
     def strategy_action_names(self) -> Dict[str, Any]:
         self._require_built()
+        if self._real_keys:
+            return {
+                "p%d|%s|%s" % (player, hand, ",".join(hist)): list(actions)
+                for player, hist, actions, hand in self._key_nodes
+            }
         names = ["a%d" % index for index in range(self._num_actions)]
         return {"fake/%05d" % index: list(names) for index in range(self._num_infosets)}
 

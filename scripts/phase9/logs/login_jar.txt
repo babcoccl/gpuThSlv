@@ -1,0 +1,2 @@
+$ curl -sS -c scripts/phase9/logs/cookies.txt -X POST http://127.0.0.1:8009/v1/auth/login -H content-type: application/json -d {"key":"demo"}
+{"expires_at":1794977488.0,"csrf":"2pdCR_OwZYWQ9eScjvrWQJFgDA7aLSxX"}

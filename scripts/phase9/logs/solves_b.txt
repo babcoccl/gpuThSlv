@@ -1,0 +1,2 @@
+$ curl -sS -X POST http://127.0.0.1:8009/v1/solves -H Authorization: Bearer demo -H content-type: application/json -d {"board":"Ks7h2d5c9s","range0":"AKo:0.5,QQ:0.75,22","range1":"AKo:0.25,JJ:0.5,TT","pot":20.0,"stack":100.0,"bet_sizes":[0.5],"raise_cap":0,"iterations":400,"progress_every":50}
+{"id":"e82d19066e0e","status":"queued","replayed":false,"queue_depth":1,"predicted_vram_bytes":20184566}

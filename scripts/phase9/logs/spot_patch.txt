@@ -1,0 +1,2 @@
+$ curl -sS -X PATCH http://127.0.0.1:8009/v1/spots/d8e703f7e22c -H Authorization: Bearer demo -H content-type: application/json -d {"notes":"updated note"}
+{"id":"d8e703f7e22c","name":"dry-river","spot":{"board":"KsJsTh7d2c","range0":"QQ+, AKs","range1":"TT, AQ","pot":20.0,"stack":100.0,"bet_sizes":"standard"},"tags":["river","dry"],"notes":"updated note","created_at":1794934288.054873,"updated_at":1794934288.0955734}

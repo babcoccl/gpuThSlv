@@ -15,7 +15,14 @@ River (and turn) heads-up NLHE solves on the GPU-CFR engine.
   frequencies of the submitted spot); it does not expose other jobs, files or
   server state.
 * Auth: `Authorization: Bearer <key>` or `X-API-Key` on every endpoint except
-  `/healthz` when `HOLDEM_API_KEY` is set.
+  `/healthz` when `HOLDEM_API_KEY` is set. `POST /v1/auth/login` exchanges
+  the key for an HttpOnly session cookie plus a CSRF token (send it back as
+  `X-CSRF-Token` on mutating requests). CORS is disabled unless
+  `HOLDEM_CORS_ORIGINS` is set.
+* `GET /v1/solves/{id}/tree` and `/node` navigate the solved tree and return
+  reach-weighted frequencies, per-action EVs, hand EV, equity, and ranges;
+  `/events` streams live progress over server-sent events; `/v1/spots`
+  stores named reusable spots.
 """
 
 
@@ -105,3 +112,90 @@ GET_STRATEGY = _json(
         },
     }
 )
+
+LOGIN = _json({"expires_at": 1789000000.0 + 43200, "csrf": "lV9eHk3Zx2QwT0yR8nM6pA1sD4fG7hJk"})
+
+LOGOUT = _json({"status": "logged_out"})
+
+PIN = _json({"id": "3f9c2a7b1d04", "pinned": True})
+
+GET_TREE = _json(
+    {
+        "id": "3f9c2a7b1d04", "iteration": 4000, "history": [], "street": "river",
+        "pot": 20.0, "stacks": {"p0": 100.0, "p1": 100.0},
+        "board": ["Ks", "Js", "Th", "7d", "2c"], "is_chance": False, "player": 0,
+        "actions": [{"name": "check", "label": "check"}, {"name": "b10", "label": "bet 10"}],
+        "dealt_cards": None,
+        "children": [
+            {"edge": "check", "kind": "player", "player": 1, "history": ["check"],
+             "actions": [{"name": "check", "label": "check"}, {"name": "b10", "label": "bet 10"}]},
+            {"edge": "b10", "kind": "player", "player": 1, "history": ["b10"],
+             "actions": [{"name": "fold", "label": "fold"}, {"name": "call", "label": "call"}]},
+        ],
+    }
+)
+
+GET_NODE = _json(
+    {
+        "id": "3f9c2a7b1d04", "iteration": 4000, "history": [], "street": "river",
+        "player": 0, "pot": 20.0, "stacks": {"p0": 100.0, "p1": 100.0},
+        "board": ["Ks", "Js", "Th", "7d", "2c"],
+        "actions": [{"name": "check", "label": "check"}, {"name": "b10", "label": "bet 10"}],
+        "ranges": {
+            "p0": [{"hand_class": "AA", "reach": 0.55, "share": 0.31, "combos": 6}],
+            "p1": [{"hand_class": "TT", "reach": 0.5, "share": 0.4, "combos": 6}],
+        },
+        "hands": [
+            {"hand_class": "AA", "combos": 6, "reach": 0.55, "weight": 0.9,
+             "frequencies": {"check": 0.41, "b10": 0.59},
+             "action_evs": {"check": 5.1, "b10": 6.7}, "ev": 6.04, "equity": 0.72},
+        ],
+    }
+)
+
+GET_EVENTS = {
+    200: {
+        "description": "text/event-stream of progress events (snapshot, progress, done)",
+        "content": {
+            "text/event-stream": {
+                "example": (
+                    'id: 1\nevent: snapshot\n'
+                    'data: {"status": "solving", "iteration": 2400, "iterations_run": 2400, '
+                    '"exploitability": 0.00231, "exploitability_iteration": 2400}\n\n'
+                    'id: 2\nevent: progress\n'
+                    'data: {"status": "solving", "iteration": 2500, "iterations_run": 2500, '
+                    '"exploitability": 0.00231, "exploitability_iteration": 2400}\n\n'
+                    'id: 3\nevent: done\n'
+                    'data: {"status": "done", "iteration": 4000, "iterations_run": 4000, '
+                    '"exploitability": 0.00198, "exploitability_iteration": 4000}\n\n'
+                )
+            }
+        },
+    }
+}
+
+SPOT = _json(
+    {
+        "id": "7a1c4e9b2d10", "name": "dry-river-polar",
+        "spot": {"board": "KsJsTh7d2c", "range0": "QQ+, AKs", "range1": "TT, AQ",
+                 "pot": 20.0, "stack": 100.0, "bet_sizes": "standard"},
+        "tags": ["river", "dry"], "notes": "baseline test spot",
+        "created_at": 1789000000.0, "updated_at": 1789000000.0,
+    },
+    status=201, description="Created",
+)
+
+SPOT_LIST = _json(
+    [
+        {
+            "id": "7a1c4e9b2d10", "name": "dry-river-polar",
+            "spot": {"board": "KsJsTh7d2c", "range0": "QQ+, AKs",
+                     "range1": "TT, AQ", "pot": 20.0, "stack": 100.0,
+                     "bet_sizes": "standard"},
+            "tags": ["river", "dry"], "notes": "baseline test spot",
+            "created_at": 1789000000.0, "updated_at": 1789000000.0,
+        },
+    ],
+)
+
+DELETE_SPOT = _json({"status": "deleted"})
