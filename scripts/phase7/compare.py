@@ -174,11 +174,18 @@ def compare_strategies(
     ts_nodes: List[Dict[str, Any]],
     pot: float,
     board: Optional[List[str]] = None,
+    ranges: Optional[Dict[int, Dict[str, float]]] = None,
 ) -> Dict[str, Any]:
-    """Per-node hand-class frequency diffs, weighted by combos count."""
+    """Per-node hand-class frequency diffs, weighted by class reach mass.
+
+    With ``ranges`` (``{player: {combo: weight}}``) both grids aggregate with
+    the reach-weighted formula from docs/PHASE8.md; blocked/dealt cards come
+    from ``board``.
+    """
     ts_nodes = _drop_dead_rivers(ts_nodes, board)
-    ours_grid = {(n["player"], tuple(n["history"])): n for n in to_grid(ours_nodes)}
-    ts_grid_list = to_grid(ts_nodes)
+    blocked = set(board or [])
+    ours_grid = {(n["player"], tuple(n["history"])): n for n in to_grid(ours_nodes, ranges=ranges, blocked=blocked)}
+    ts_grid_list = to_grid(ts_nodes, ranges=ranges, blocked=blocked)
     ts_grid = {(n["player"], tuple(n["history"])): n for n in ts_grid_list}
     ts_idx = _fuzzy_index(ts_grid_list)
     per_node = []
@@ -218,7 +225,7 @@ def compare_strategies(
             tcell = t_cells.get(cls)
             if tcell is None or ocell["combos"] == 0:
                 continue
-            w = ocell["combos"]
+            w = ocell.get("reach") or float(ocell["combos"])
             for oa, ta in pairs:
                 d = abs(ocell["frequencies"].get(oa, 0.0) - tcell["frequencies"].get(ta, 0.0))
                 err += w * d
@@ -227,6 +234,7 @@ def compare_strategies(
         node_mean = err / wsum if wsum else 0.0
         per_node.append(
             {"node": list(key), "mean_abs_diff": node_mean, "max_abs_diff": mx,
+             "reach": wsum / max(len(pairs), 1),
              "combos": int(wsum / max(len(pairs), 1))}
         )
         total_w += wsum

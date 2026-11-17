@@ -201,7 +201,8 @@ class StrategyResponse(BaseModel):
 
 class HandGridCell(BaseModel):
     hand_class: str
-    combos: int
+    combos: int = Field(description="combos of this class with positive reach weight at the node")
+    reach: float = Field(description="total reach weight of the class at the node")
     frequencies: dict[str, float]
 
 
