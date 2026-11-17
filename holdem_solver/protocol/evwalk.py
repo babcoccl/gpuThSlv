@@ -88,7 +88,9 @@ def combos_conflict(a: Combo, b: Combo) -> bool:
     return a[0] in b or a[1] in b
 
 
-_ACTION_RE = re.compile(r"^(check|fold|call|b(\d+(?:\.\d+)?)|r(\d+(?:\.\d+)?))$")
+_ACTION_RE = re.compile(
+    r"^(check|fold|call|b(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|r(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?))$"
+)
 
 
 def apply_action(chips: Tuple[float, float], player: int, action: str) -> Tuple[float, float]:
@@ -170,6 +172,7 @@ def replay_chips(index: TreeIndex, hist: Tuple[str, ...]) -> Tuple[float, float]
     prefix = ()  # type: Tuple[str, ...]
     for elem in hist:
         if elem.startswith("river:"):
+            prefix = prefix + (elem,)
             continue
         node = index.node_at.get(prefix)
         if node is None:
@@ -323,6 +326,7 @@ def reach_at(index: TreeIndex, hist: Tuple[str, ...],
             dealt = card_id(elem[6:])
             reach0 = _drop_card(reach0, dealt)
             reach1 = _drop_card(reach1, dealt)
+            prefix = prefix + (elem,)
             continue
         node = index.node_at.get(prefix)
         if node is None:
