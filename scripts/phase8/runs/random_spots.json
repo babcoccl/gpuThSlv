@@ -1,0 +1,232 @@
+[
+ {
+  "board": [
+   "5c",
+   "6d",
+   "Ac",
+   "Kc",
+   "3d"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-0",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "9h",
+   "8c",
+   "3h",
+   "Ac",
+   "Th"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-1",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "9d",
+   "7s",
+   "3h",
+   "Qc",
+   "6h"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-2",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "3c",
+   "9h",
+   "8c",
+   "Td",
+   "4s"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-3",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "3d",
+   "4d",
+   "Jd",
+   "4s",
+   "4h"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-4",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "Ac",
+   "8s",
+   "2d",
+   "Qs",
+   "Jh"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-5",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "Th",
+   "5c",
+   "2s",
+   "2d",
+   "9c"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-6",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "Qh",
+   "4s",
+   "2s",
+   "6d",
+   "4d"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-7",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "7c",
+   "4s",
+   "4c",
+   "9s",
+   "8s"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-8",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ },
+ {
+  "board": [
+   "7h",
+   "2c",
+   "8h",
+   "Ts",
+   "As"
+  ],
+  "range0": "AA,KK,QQ,JJ,AKs,AKo,AQs",
+  "range1": "AA,KK,QQ,JJ,TT,AKs,AKo,AQs,AJs",
+  "pot": 20.0,
+  "stack": 100.0,
+  "bet_sizes": [
+   0.5,
+   1.0
+  ],
+  "all_in": false,
+  "dead_cards": [],
+  "name": "rand-9",
+  "max_nodes": 2000000,
+  "raise_cap": 0,
+  "raise_sizes": []
+ }
+]

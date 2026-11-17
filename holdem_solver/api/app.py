@@ -58,7 +58,7 @@ from .models import (
 )
 from .scheduler import Scheduler, SchedulerConfig
 from .store import IdempotencyConflictError, JobStore, QueueFullError, request_hash
-from .strategy import hand_grid, map_strategy
+from .strategy import hand_grid, map_strategy, spot_blocked, spot_ranges
 
 LOG = logging.getLogger("holdem_solver.api")
 
@@ -381,7 +381,7 @@ def create_app(
         job_id: str,
         view: Literal["infosets", "hand_grid"] = Query(
             "infosets", description="`infosets`: one row per infoset (default). `hand_grid`: per decision point, "
-            "the 169 hand classes with combo-averaged action frequencies."
+            "the 169 hand classes with reach-weighted action frequencies."
         ),
         player: int | None = Query(None, ge=0, le=1, description="hand_grid only: keep one player's decisions"),
         history: str | None = Query(
@@ -406,7 +406,16 @@ def create_app(
         mapped = map_strategy(keys, actions, data["offsets"], data["values"], int(data["iteration"]))
         if view == "hand_grid":
             wanted = None if history is None else [part for part in history.split(",") if part.strip()]
-            return HandGridResponse(id=job_id, **hand_grid(mapped, player=player, history=wanted))
+            return HandGridResponse(
+                id=job_id,
+                **hand_grid(
+                    mapped,
+                    player=player,
+                    history=wanted,
+                    ranges=spot_ranges(job["spot"]),
+                    blocked=spot_blocked(job["spot"]),
+                ),
+            )
         return StrategyResponse(id=job_id, **mapped)
 
     @app.delete(

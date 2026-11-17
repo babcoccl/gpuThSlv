@@ -165,3 +165,31 @@
   streets, dealcard stubs for all 52 cards, dump=average vs expl=current.
 - Evidence: docs/PHASE7.md, scripts/phase7/runs/suite.json, treecheck.json,
   runs/plots/*.png. Tests: tests/test_phase7_mapping.py.
+
+## Phase 8 — correctness solidification (2026-11-17)
+
+- `hand_grid` aggregation now reach-weighted: `w(c)·own_reach(c)·opp_mass(c)`
+  (blocked/dead-board combos -> 0); `to_grid` in the compare layer mirrors it
+  exactly. Regression tests: `tests/test_phase8_aggregation.py` (7 api-venv /
+  5 engine-venv pass).
+- TS weight syntax verified: `CLASS:fraction`, identical to `parse_range`'s
+  `TOKEN:weight`; `texas_input.py` passes weighted ranges verbatim.
+- Weighted suite `scripts/phase8/` (8 spots, cap 0/1): 6 match / 2 explained
+  / 0 unresolved; |ΔEV| <= 0.26% pot everywhere. w-dry-cap1 explained by D2
+  (TS counts raises per player); w-wet-cap0 by demonstrated non-unique
+  equilibrium (EV gap 0.0).
+- Cross-evaluation: TS dumped strategy evaluated in our evaluator reproduces
+  TS's own reported exploitability to ~0.001pp on all identical-tree spots
+  (8 weighted + 6 Phase-7 cap-0 rivers). w-turn-cap0 = 16.5% — explained by
+  D4 (our tree has the river donk line; TS never defends it; mapped profile
+  value matches dump_ev exactly). Reverse direction skipped: console has no
+  strategy-load/node-lock command.
+- EV-erased frequency gap = 0.0% of pot on every measured spot: all observed
+  mixing differences are between equal-EV actions.
+- float32 == float64 on 4 Phase-7 spots (identical EV/exploitability).
+  Random batch: 10 boards cap 0 — |ΔEV| <= 0.14% pot, xeval exact on all.
+- Bug fixed: engine flat-strategy order is compiled-game order
+  (`solver.average_strategy()` keys), NOT `spec.infosets` order.
+- Evidence: docs/PHASE8.md, scripts/phase8/runs/{suite8.json,
+  xeval_phase7.json, float32.json, random_batch.json}. Single command:
+  scripts/phase8/run_suite.sh.

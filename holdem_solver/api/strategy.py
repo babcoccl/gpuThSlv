@@ -113,29 +113,155 @@ def hand_classes() -> list[str]:
     return out
 
 
-def hand_grid(mapped: dict, player: int | None = None, history: list[str] | None = None) -> dict:
+def _canon_combo(card_a: str, card_b: str) -> str:
+    """Two card strings -> engine combo naming (low card id first)."""
+    id_a = 4 * RANKS.index(card_a[0]) + "sdch".index(card_a[1])
+    id_b = 4 * RANKS.index(card_b[0]) + "sdch".index(card_b[1])
+    return card_a + card_b if id_a <= id_b else card_b + card_a
+
+
+def _class_combo_names() -> dict[str, list[str]]:
+    """``{class: [combo_str, ...]}`` — the 169 classes expanded to combos."""
+    out = {}
+    for i, hi in enumerate(RANKS):
+        for j, lo in enumerate(RANKS):
+            if i == j:
+                out[hi + lo] = [
+                    _canon_combo(hi + "sdch"[a], hi + "sdch"[b])
+                    for a in range(4)
+                    for b in range(a + 1, 4)
+                ]
+            elif i < j:
+                out[hi + lo + "s"] = [
+                    _canon_combo(hi + suit, lo + suit) for suit in "sdch"
+                ]
+            else:
+                out[lo + hi + "o"] = [
+                    _canon_combo(lo + "sdch"[a], hi + "sdch"[b])
+                    for a in range(4)
+                    for b in range(4)
+                    if a != b
+                ]
+    return out
+
+
+_CLASS_COMBOS = _class_combo_names()
+
+
+def _combo_blocked(hand: str, blocked: set[str]) -> bool:
+    """``hand`` shares a card with ``blocked`` (board / dealt / dead cards)."""
+    return hand[:2] in blocked or hand[2:] in blocked
+
+
+def _own_reach(
+    by_node: dict[tuple[int, tuple[str, ...]], dict[str, dict[str, float]]],
+    who: int,
+    hand: str,
+    hist: tuple[str, ...],
+) -> float:
+    """Product of the solved-strategy frequencies with which ``who``'s own
+    actions along ``hist`` were taken holding ``hand`` (0 when the combo
+    cannot reach the node)."""
+    reach = 1.0
+    for i, step in enumerate(hist):
+        row = by_node.get((who, hist[:i]))
+        if row is None:
+            continue  # ``who`` did not act at this prefix (opponent or chance)
+        freqs = row.get(hand)
+        if freqs is None:
+            return 0.0
+        reach *= freqs.get(step, 0.0)
+        if reach == 0.0:
+            return 0.0
+    return reach
+
+
+def _node_weights(
+    by_node: dict[tuple[int, tuple[str, ...]], dict[str, dict[str, float]]],
+    who: int,
+    hist: tuple[str, ...],
+    range_w: dict[str, float],
+    opp_w: dict[str, float],
+    blocked: set[str],
+) -> dict[str, float]:
+    """Per-combo weight = ``w(c) · own_reach(c) · opp_mass(c)``.
+
+    ``opp_mass(c)`` is the opponent range's reach mass over combos that do
+    not conflict with ``c`` (blocker-aware); a node-level constant cancels in
+    the normalized frequencies but card removal does not.
+    """
+    own = {}
+    for combo, w in range_w.items():
+        if w <= 0.0 or _combo_blocked(combo, blocked):
+            continue
+        reach = _own_reach(by_node, who, combo, hist)
+        if reach > 0.0:
+            own[combo] = w * reach
+    if not own:
+        return {}
+    opp_reach = {}  # type: dict[str, float]
+    for combo, w in opp_w.items():
+        if w <= 0.0 or _combo_blocked(combo, blocked):
+            continue
+        reach = _own_reach(by_node, 1 - who, combo, hist)
+        if reach > 0.0:
+            opp_reach[combo] = w * reach
+    by_card: dict[str, set[str]] = {}
+    for combo in opp_reach:
+        by_card.setdefault(combo[:2], set()).add(combo)
+        by_card.setdefault(combo[2:], set()).add(combo)
+    total_opp = sum(opp_reach.values())
+    weights = {}
+    for combo, reach in own.items():
+        conflicts = by_card.get(combo[:2], set()) | by_card.get(combo[2:], set())
+        opp_mass = total_opp - sum(opp_reach[d] for d in conflicts)
+        if opp_mass > 0.0:
+            weights[combo] = reach * opp_mass
+    return weights
+
+
+def hand_grid(
+    mapped: dict,
+    player: int | None = None,
+    history: list[str] | None = None,
+    ranges: dict[int, dict[str, float]] | None = None,
+    blocked: set[str] | None = None,
+) -> dict:
     """Aggregate a ``map_strategy`` result into 169-class grids, one per
     decision point (player + action history).
 
-    Each class's frequency is the unweighted mean over the class's combos
-    that reach the decision point (every combo in the range counts equally;
-    the solver's reach probabilities are not applied). Classes with no combo
-    at that point have ``combos=0`` and empty frequencies.
+    When ``ranges`` (``{player: {combo: range weight}}``) is supplied, each
+    class's frequency per action is the reach-weighted mean over its combos:
+
+        weight(c) = w(c) · own_reach(c, node) · opp_mass(c, node)
+
+    where ``own_reach`` is the product of the acting player's own action
+    frequencies along the history and ``opp_mass`` sums the opponent's reach
+    over combos not sharing a card with ``c``. Combos containing a board,
+    dealt, or ``blocked`` card contribute zero. Classes with no weighted
+    combo at that point have ``combos=0`` and empty frequencies; ``reach`` is
+    the class's total weight. Without ``ranges`` the aggregation falls back
+    to the unweighted per-combo mean.
     """
     groups: dict[tuple[int, tuple[str, ...]], dict[str, Any]] = {}
+    by_node: dict[tuple[int, tuple[str, ...]], dict[str, dict[str, float]]] = {}
     for info in mapped["infosets"]:
         if info["player"] is None or info["hand"] is None:
             continue
+        hist = tuple(info["history"] or ())
+        freqs = {
+            a["name"]: a["frequency"] for a in info["actions"] if a["name"] is not None
+        }
+        by_node.setdefault((info["player"], hist), {})[info["hand"]] = freqs
         if player is not None and info["player"] != player:
             continue
-        hist = tuple(info["history"] or ())
         if history is not None and list(hist) != history:
             continue
         cls = hand_class(info["hand"])
         if cls is None:
             continue
         group = groups.setdefault((info["player"], hist), {"actions": {}, "cells": {}})
-        cell = group["cells"].setdefault(cls, {"combos": 0, "sums": {}})
+        cell = group["cells"].setdefault(cls, {"combos": 0, "sums": {}, "reach": 0.0})
         cell["combos"] += 1
         for action in info["actions"]:
             name = action["name"]
@@ -147,12 +273,38 @@ def hand_grid(mapped: dict, player: int | None = None, history: list[str] | None
     nodes = []
     for (who, hist), group in sorted(groups.items(), key=lambda item: (len(item[0][1]), item[0])):
         names = list(group["actions"])
+        weights = None
+        if ranges is not None:
+            # river cards dealt inside the history block combos holding them
+            blocked_now = set(blocked or ()) | {h[6:] for h in hist if h.startswith("river:")}
+            weights = _node_weights(by_node, who, hist, ranges.get(who, {}), ranges.get(1 - who, {}), blocked_now)
         grid = []
         for cls in order:
             cell = group["cells"].get(cls)
-            combos = 0 if cell is None else cell["combos"]
-            freqs = {} if not combos else {n: cell["sums"].get(n, 0.0) / combos for n in names}
-            grid.append({"hand_class": cls, "combos": combos, "frequencies": freqs})
+            if weights is not None:
+                cls_weight = 0.0
+                sums = {n: 0.0 for n in names}
+                ncombos = 0
+                if cell is not None:
+                    for combo in _CLASS_COMBOS[cls]:
+                        w = weights.get(combo, 0.0)
+                        if w <= 0.0:
+                            continue
+                        freqs = by_node[(who, hist)].get(combo)
+                        if not freqs:
+                            continue
+                        ncombos += 1
+                        cls_weight += w
+                        for n in names:
+                            sums[n] += w * freqs.get(n, 0.0)
+                freqs = {} if not cls_weight else {n: sums[n] / cls_weight for n in names}
+                grid.append(
+                    {"hand_class": cls, "combos": ncombos, "reach": cls_weight, "frequencies": freqs}
+                )
+            else:
+                combos = 0 if cell is None else cell["combos"]
+                freqs = {} if not combos else {n: cell["sums"].get(n, 0.0) / combos for n in names}
+                grid.append({"hand_class": cls, "combos": combos, "reach": float(combos), "frequencies": freqs})
         nodes.append(
             {
                 "player": who,
@@ -163,3 +315,32 @@ def hand_grid(mapped: dict, player: int | None = None, history: list[str] | None
             }
         )
     return {"iteration": mapped["iteration"], "num_infosets": mapped["num_infosets"], "nodes": nodes}
+
+
+def spot_ranges(spot: dict) -> dict[int, dict[str, float]] | None:
+    """``{player: {combo_str: weight}}`` from a stored spot dict, or None when
+    the spot carries no parseable ranges (non-HUNL games)."""
+    from holdem_solver.protocol.cards import combo_str, parse_range
+
+    try:
+        range0 = parse_range(spot.get("range0", ""))
+        range1 = parse_range(spot.get("range1", ""))
+    except Exception:
+        return None
+    return {
+        0: {combo_str(combo): w for combo, w in range0.items()},
+        1: {combo_str(combo): w for combo, w in range1.items()},
+    }
+
+
+def spot_blocked(spot: dict) -> set[str]:
+    """Board + dead cards as card strings, for reach weighting."""
+    from holdem_solver.protocol.cards import parse_cards, card_str
+
+    blocked = set()
+    for field in ("board", "dead_cards"):
+        try:
+            blocked.update(card_str(c) for c in parse_cards(spot.get(field) or ()))
+        except Exception:
+            pass
+    return blocked

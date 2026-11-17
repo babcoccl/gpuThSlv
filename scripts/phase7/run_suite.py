@@ -17,6 +17,16 @@ from scripts.phase7.ours import solve_ours
 from scripts.phase7.theirs import solve_ts
 from scripts.phase7.compare import compare_trees, compare_strategies
 
+
+def _range_weights(spot):
+    """{player: {combo_str: weight}} for reach-weighted aggregation."""
+    from holdem_solver.protocol.cards import combo_str, parse_range
+
+    return {
+        p: {combo_str(c): w for c, w in parse_range(r).items()}
+        for p, r in ((0, spot.range0), (1, spot.range1))
+    }
+
 RUNS = os.path.join(os.path.dirname(__file__), "runs")
 OUT = os.path.join(RUNS, "suite.json")
 
@@ -86,7 +96,10 @@ def main(names=None):
         print("  ts: ev=%.4f expl=%s%% wall=%.1fs iters=%s"
               % (ts["ev_p0"], ts["exploitability_pct"], ts["solve_s"], ts["iterations"]), flush=True)
         tree = compare_trees(ours["nodes"], ts["nodes"], max_depth=3, board=list(spot.board))
-        freq = compare_strategies(ours["nodes"], ts["nodes"], spot.pot, board=list(spot.board))
+        freq = compare_strategies(
+            ours["nodes"], ts["nodes"], spot.pot, board=list(spot.board),
+            ranges=_range_weights(spot),
+        )
         ev_diff = ours["ev_p0"] - ts["ev_p0"]
         rec = {
             "pot": spot.pot,

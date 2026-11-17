@@ -1,0 +1,134 @@
+{
+ "toy-check": {
+  "ts_in_ours": {
+   "exploitability_chips": 0.03405893056552767,
+   "exploitability_pct": 0.17029465282763834,
+   "profile_value_p0": 10.063392589819976,
+   "mapping": {
+    "infosets": 42,
+    "mapped": 42,
+    "uniform_fallback": 0,
+    "combos_filled": 42,
+    "combos_total": 42
+   }
+  },
+  "ours": {
+   "exploitability_chips": 0.006026402640250339,
+   "exploitability_pct": 0.030132013201251695,
+   "profile_value_p0": 10.012043746335037,
+   "iterations": 100
+  },
+  "ts_reported_expl": 0.17030478,
+  "ts_ev_p0": 10.063392743670663
+ },
+ "toy-bet": {
+  "ts_in_ours": {
+   "exploitability_chips": 0.017450531035747563,
+   "exploitability_pct": 0.17450531035747563,
+   "profile_value_p0": 5.0348096510686124,
+   "mapping": {
+    "infosets": 84,
+    "mapped": 84,
+    "uniform_fallback": 0,
+    "combos_filled": 84,
+    "combos_total": 84
+   }
+  },
+  "ours": {
+   "exploitability_chips": 0.004233656124226215,
+   "exploitability_pct": 0.04233656124226215,
+   "profile_value_p0": 5.006207686495506,
+   "iterations": 100
+  },
+  "ts_reported_expl": 0.1745081,
+  "ts_ev_p0": 5.034810277662932
+ },
+ "river-dry-cap0": {
+  "ts_in_ours": {
+   "exploitability_chips": 0.06363654807631391,
+   "exploitability_pct": 0.3181827403815696,
+   "profile_value_p0": 10.119358598400764,
+   "mapping": {
+    "infosets": 63,
+    "mapped": 63,
+    "uniform_fallback": 0,
+    "combos_filled": 63,
+    "combos_total": 63
+   }
+  },
+  "ours": {
+   "exploitability_chips": 0.006541910735563761,
+   "exploitability_pct": 0.0327095536778188,
+   "profile_value_p0": 10.013074083018862,
+   "iterations": 100
+  },
+  "ts_reported_expl": 0.31817913,
+  "ts_ev_p0": 10.119359834576521
+ },
+ "river-wet-cap0": {
+  "ts_in_ours": {
+   "exploitability_chips": 0.010912334132481938,
+   "exploitability_pct": 0.05456167066240969,
+   "profile_value_p0": -10.019080207251045,
+   "mapping": {
+    "infosets": 63,
+    "mapped": 63,
+    "uniform_fallback": 0,
+    "combos_filled": 63,
+    "combos_total": 63
+   }
+  },
+  "ours": {
+   "exploitability_chips": 0.004290429042896449,
+   "exploitability_pct": 0.021452145214482243,
+   "profile_value_p0": -10.008578570728362,
+   "iterations": 100
+  },
+  "ts_reported_expl": 0.05456448,
+  "ts_ev_p0": -10.019078717325067
+ },
+ "river-pair-cap0": {
+  "ts_in_ours": {
+   "exploitability_chips": 0.06363654807633345,
+   "exploitability_pct": 0.3181827403816673,
+   "profile_value_p0": 10.119358608182987,
+   "mapping": {
+    "infosets": 57,
+    "mapped": 57,
+    "uniform_fallback": 0,
+    "combos_filled": 57,
+    "combos_total": 57
+   }
+  },
+  "ours": {
+   "exploitability_chips": 0.006541910735595735,
+   "exploitability_pct": 0.032709553677978676,
+   "profile_value_p0": 10.013074083018886,
+   "iterations": 100
+  },
+  "ts_reported_expl": 0.31818628,
+  "ts_ev_p0": 10.119359015012654
+ },
+ "river-full": {
+  "ts_in_ours": {
+   "exploitability_chips": 0.023995215467452757,
+   "exploitability_pct": 0.11997607733726379,
+   "profile_value_p0": -0.5393046795119469,
+   "mapping": {
+    "infosets": 4324,
+    "mapped": 4324,
+    "uniform_fallback": 0,
+    "combos_filled": 4324,
+    "combos_total": 4324
+   }
+  },
+  "ours": {
+   "exploitability_chips": 0.06685218862126371,
+   "exploitability_pct": 0.3342609431063186,
+   "profile_value_p0": -0.52893091173613,
+   "iterations": 100
+  },
+  "ts_reported_expl": 0.119971044,
+  "ts_ev_p0": -0.5393046043923233
+ }
+}
