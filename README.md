@@ -34,15 +34,28 @@ systemd units (`external`: the API attaches, and on a hang SIGKILLs the
 worker and waits for systemd to restart it). Only
 `holdem_solver/engine_worker/` imports `gpu_cfr`.
 
-## Limits
+## Game rules and limits
 
-- **No raises.** Trees have bet / check / call / fold only; a bet can be
-  called or folded, never raised.
-- **No flop or preflop.** River spots (5-card board) and turn spots (4 cards,
-  river dealt) only.
-- **One bet-size list** (`bet_sizes`), used at every decision node.
+- **Streets:** river spots (5-card `board`) and turn spots (4 cards; the
+  river is dealt out). No flop or preflop builder.
+- **Players:** heads-up only. `range0` is OOP (acts first each street),
+  `range1` is IP. Ranges use `CLASS` tokens — `QQ+`, `AKs`, `AKo`, or
+  `CLASS:weight` for weighted ranges; `*` selects all 1326 combos.
+- **Actions:** fold, check/call, bet, and raise. `raise_cap` bounds raises
+  per street (0 = bet/check/call/fold only); `raise_sizes` lists the raise
+  options as `["x", m]` (raise to m× the bet faced) or `["p", f]` (bet
+  level + f× the pot after calling). OOP river leads after a call-ended
+  turn are allowed (donk bets).
+- **Bet sizes:** `bet_sizes` is a preset name (`"standard"`, …), one list
+  of pot fractions for every node, a per-player dict `{"0": [...],
+  "1": [...]}`, or — on turn spots — a per-street dict
+  `{"turn": [...], "river": [...]}`. `all_in` adds the remaining stack as
+  a size; `dead_cards` removes cards from river deals.
+- **Sizing semantics:** all sizes are fractions of the pot at the decision
+  node. The tree keeps fractions exact (no chip rounding).
 - Heads-up only; `max_nodes` (2M default) and the VRAM admission check bound
-  the spot size (a full-range 9.6M-node river fits; see `docs/BENCHMARKS.md`).
+  the spot size (a full-range 9.6M-node river fits; see
+  `docs/BENCHMARKS.md`).
 
 ## Licensing caveat (GPU-CFR)
 
@@ -109,6 +122,82 @@ the 169 hand classes (AA, AKs, … AKo, … 22) with combo-averaged action
 frequencies; add `player=0|1` and `history=check,b10` (`history=` for the
 root) to pick one node. The default `view=infosets` is unchanged. Every
 endpoint has a request/response example in `/docs`.
+
+### API usage
+
+Every request below is a complete `POST /v1/solves` body (headers as above).
+Stop conditions are the same for all; only `iterations` is shown.
+
+**Standard river spot** — 5-card board, preset bet sizes:
+
+```json
+{
+  "board": "KsJsTh7d2c",
+  "range0": "QQ+, AKs",
+  "range1": "TT+, AQs+, AKo",
+  "pot": 20, "stack": 100,
+  "bet_sizes": "standard",
+  "variant": "cfr_plus",
+  "iterations": 500
+}
+```
+
+**Weighted-range spot** — `CLASS:weight` tokens on both players:
+
+```json
+{
+  "board": "Ks7h2d5c9s",
+  "range0": "AKo:0.5, QQ:0.75, 22",
+  "range1": "AKo:0.25, JJ:0.5, TT",
+  "pot": 20, "stack": 100,
+  "bet_sizes": [0.5, 1.0],
+  "iterations": 500
+}
+```
+
+**Raises spot** — `raise_cap` + `raise_sizes` (`["x", m]` = raise to m× the
+bet faced; `["p", f]` = bet level + f× the pot after calling):
+
+```json
+{
+  "board": "Ks7h2d5c9s",
+  "range0": "AA, KK",
+  "range1": "QQ, JJ",
+  "pot": 20, "stack": 100,
+  "bet_sizes": [0.5],
+  "raise_cap": 1,
+  "raise_sizes": [["x", 3.0], ["p", 1.0]],
+  "iterations": 500
+}
+```
+
+**Per-player bet sizes** — `bet_sizes` as a `{"0": ..., "1": ...}` dict
+(`"0"` = OOP):
+
+```json
+{
+  "board": "Ts9s8sJh2c",
+  "range0": "AA:0.75, KK:0.5",
+  "range1": "QQ:0.5, JJ:0.75",
+  "pot": 20, "stack": 100,
+  "bet_sizes": {"0": [0.33, 0.5, 1.0], "1": [0.5, 0.75, 1.5]},
+  "iterations": 500
+}
+```
+
+**Turn spot** — 4-card board; per-street `bet_sizes`
+(`{"turn": ..., "river": ...}`):
+
+```json
+{
+  "board": "Ks7h2d5c",
+  "range0": "AA, KK",
+  "range1": "QQ, JJ",
+  "pot": 10, "stack": 30,
+  "bet_sizes": {"turn": [0.5], "river": [0.5, 1.0]},
+  "iterations": 500
+}
+```
 
 Spots over `max_nodes` (default 2M), or whose predicted VRAM peak exceeds
 14 GiB or every GPU, get 422. The prediction is estimate × factor: the factor

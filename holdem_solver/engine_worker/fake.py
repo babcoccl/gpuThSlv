@@ -66,6 +66,7 @@ class FakeEngine:
         self._default_iterations = 1000
         self._oom_at_iteration: Optional[int] = None
         self._peak_vram = 0
+        self._dtype = "float32"
 
     def build(self, game_spec: Any, **options: Any) -> "FakeEngine":
         self._spot = None
@@ -80,6 +81,7 @@ class FakeEngine:
         else:
             raise ValueError("FakeEngine only builds 'kuhn', 'kuhn_poker', 'fake', or a spot, got %r" % (game_spec,))
         self._peak_vram = int(options.get("fake_peak_vram_bytes", 0))
+        self._dtype = str(options.get("dtype", "float32"))
         if options.get("fake_build_seconds"):
             time.sleep(float(options["fake_build_seconds"]))
         if options.get("fake_oom_on_build"):
@@ -130,6 +132,10 @@ class FakeEngine:
         return "fake" if self._built else None
 
     @property
+    def dtype(self) -> Optional[str]:
+        return self._dtype if self._built else None
+
+    @property
     def estimated_vram_bytes(self) -> int:
         return 0
 
@@ -142,6 +148,7 @@ class FakeEngine:
             "num_infoset_actions": self._num_infosets * self._num_actions,
             "estimated_vram_bytes": 0,
             "device": "fake",
+            "dtype": self._dtype,
             "spot": self._spot,
         }
 

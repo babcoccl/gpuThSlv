@@ -9,7 +9,9 @@ Mapping conventions (verified against TexasSolver v0.2.0 source):
 * ``all_in`` -> ``bet_size_map`` already appends ``stack/pot`` (the all-in
   amount), so no extra ``allin`` line is emitted; ``raise_cap=0`` -> an
   empty ``raise`` line
-* donk sizes are never emitted (disabled)
+* ``emit_donk=True`` emits ``oop,<street>,donk,<sizes>`` equal to OOP's
+  bet fractions (verified configurable in Phase 8.5; default False keeps
+  Phase 7/8 inputs unchanged)
 * isomorphism always off; allin_threshold fixed at 0.67
 """
 from __future__ import annotations
@@ -59,6 +61,8 @@ def spot_to_texas_input(
     max_iteration: int = 2000,
     print_interval: int = 100,
     allin_threshold: float = 2.0,
+    emit_donk: bool = False,
+    x_raise_pcts: Optional[Sequence[float]] = None,
 ) -> str:
     """Return the TexasSolver input-file text for ``spot``."""
     lines = []
@@ -90,14 +94,28 @@ def spot_to_texas_input(
                 fractions = tuple(float(s) for s in sizes)
             if fractions:
                 add("set_bet_sizes %s,%s,bet,%s" % (ts_player, ts_street, ",".join(_pct(f) for f in fractions)))
+                if emit_donk and player == 0:
+                    # OOP lead after a call-ended street: size it the same as
+                    # the check-check bet so the TS tree matches ours.
+                    add("set_bet_sizes oop,%s,donk,%s" % (ts_street, ",".join(_pct(f) for f in fractions)))
             raise_pcts = []
+            x_iter = iter(x_raise_pcts or [])
             for kind, value in spot.raise_sizes:
                 if kind == "p":
                     raise_pcts.append(_pct(value))
                 elif kind == "x":
-                    raise ValueError(
-                        "TexasSolver cannot express ('x', %r) raises; use ('p', f) sizes" % (value,)
-                    )
+                    # TS raises are pct-of-pot increments over the bet level,
+                    # so ('x', m) IS expressible per bet size: pct =
+                    # 100*(m-1)*bet/(pot+2*bet). The caller must compute it.
+                    try:
+                        # already a percent (TS's raise,<pct> units)
+                        raise_pcts.append("%g" % next(x_iter))
+                    except StopIteration:
+                        raise ValueError(
+                            "TexasSolver cannot express ('x', %r) raises directly; "
+                            "pass x_raise_pcts with the equivalent pot-fraction per "
+                            "'x' entry" % (value,)
+                        )
             if spot.raise_cap == 0:
                 add("set_bet_sizes %s,%s,raise" % (ts_player, ts_street))
             elif raise_pcts:

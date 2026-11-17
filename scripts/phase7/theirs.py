@@ -29,6 +29,8 @@ def solve_ts(
     max_iteration: int = 4000,
     print_interval: int = 50,
     timeout_s: int = 3600,
+    emit_donk: bool = False,
+    x_raise_pcts: Any = None,
 ) -> Dict[str, Any]:
     """Returns {nodes, ev_p0, exploitability_pct, build_s, solve_s, iterations, raw_log}."""
     import os
@@ -37,6 +39,7 @@ def solve_ts(
     text = spot_to_texas_input(
         spot, dump_path, threads=threads, accuracy_pct=accuracy_pct,
         max_iteration=max_iteration, print_interval=print_interval,
+        emit_donk=emit_donk, x_raise_pcts=x_raise_pcts,
     )
     with open(input_path, "w") as fh:
         fh.write(text)

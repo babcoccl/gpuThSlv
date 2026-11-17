@@ -12,3 +12,9 @@ scripts/phase7/runs/probe_*
 scripts/phase7/runs/*_ts_*.json
 scripts/phase8/runs/*_ts.json
 scripts/phase8/runs/*_ts.json.in.txt
+scripts/phase8_5/runs/*_ts.json
+scripts/phase8_5/runs/*_ts.json.in.txt
+scripts/phase8_5/runs/donk_*_out.json
+scripts/phase8_5/runs/float32_rerun.json
+scripts/phase8_5/runs/suite8_5.json
+scripts/phase8/runs/*_in.txt

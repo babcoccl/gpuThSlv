@@ -66,6 +66,16 @@ def test_build_solve_strategy_reset(service):
     assert service.dispatch("progress", {})["state"] == "idle"
 
 
+def test_build_and_ping_report_requested_dtype(service):
+    """Phase 8.5: dtype is echoed in the build response and ping status."""
+    info = service.dispatch("build", {"game": "kuhn_poker", "options": {"dtype": "float64"}})
+    assert info["dtype"] == "float64"
+    assert service.dispatch("ping", {})["dtype"] == "float64"
+    info = service.dispatch("build", {"game": "kuhn_poker", "options": {"dtype": "float32"}})
+    assert info["dtype"] == "float32"
+    assert service.dispatch("ping", {})["dtype"] == "float32"
+
+
 def test_busy_while_solving_then_cancel(service):
     service.dispatch("build", {"game": "kuhn_poker", "options": {"fake_iter_seconds": 0.002}})
     service.dispatch("solve", {"iterations": 100000, "chunk_iterations": 5})

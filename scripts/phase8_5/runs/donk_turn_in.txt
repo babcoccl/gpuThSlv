@@ -1,0 +1,24 @@
+set_pot 20
+set_effective_stack 60
+set_board Ts,9s,8s,Jh
+set_range_oop AA:0.5,KK
+set_range_ip QQ:0.25,JJ
+set_bet_sizes oop,turn,bet,75
+set_bet_sizes oop,turn,donk,33
+set_bet_sizes ip,turn,bet,75
+set_bet_sizes oop,river,bet,50
+set_bet_sizes ip,river,bet,50
+set_bet_sizes oop,turn,raise
+set_bet_sizes ip,turn,raise
+set_bet_sizes oop,river,raise
+set_bet_sizes ip,river,raise
+set_allin_threshold 2.0
+build_tree
+set_thread_num 8
+set_accuracy 0.5
+set_max_iteration 50
+set_print_interval 50
+set_use_isomorphism 0
+start_solve
+set_dump_rounds 2
+dump_result /home/aihub/repos/gpuThSlv/scripts/phase8_5/runs/donk_turn_out.json

@@ -1,8 +1,8 @@
 # Phase 8 — solidify correctness (validation only)
 
-Date: 2026-11-17. Status: in progress. Everything below the tolerance table was
-written **before** any suite run; tolerances are fixed and not revised after
-seeing results.
+Date: 2026-11-17. Status: **complete** (2026-11-17). Everything below the
+tolerance table was written **before** any suite run; tolerances are fixed and
+not revised after seeing results.
 
 ## Aggregation formula (step 1)
 
@@ -168,9 +168,10 @@ predate the harness fixes and are stale):
 | river-pair-cap0 | 0.318% | 0.318% | 0.033% |
 | river-full | 0.120% | 0.120% | 0.334% |
 
-On every identical-tree spot, our evaluator reproduces TexasSolver's own
-reported exploitability to ~0.001 pp of pot — the evaluator, payoff
-conventions, and card/deal semantics are equivalent.
+On **13 of the 14** cross-evaluated spots — every identical-tree spot — our
+evaluator reproduces TexasSolver's own reported exploitability to ~0.001 pp
+of pot — the evaluator, payoff conventions, and card/deal semantics are
+equivalent. `w-turn-cap0` is the one non-identical tree (D4 donk, below).
 
 `w-turn-cap0` is the one failure: 16.55% vs tolerance 1.0%. Investigation:
 the mapped profile's value reproduces the dump EV exactly (−10.0056260 vs
@@ -180,8 +181,10 @@ called turn bet; TS's tree has no such action (its OOP node offers only
 `check`), so its strategy was never forced to defend that line, and our best
 response exploits it for 16.5% of pot. All 414 unmapped infosets are exactly
 the post-`b25` response nodes that are unreachable under the TS profile.
-Verdict: explained — D4, not a solver bug. (A TS tree with donk leads
-cannot be configured on the console solver.) The spot's overall verdict is
+Verdict: explained — D4, not a solver bug. (Correction, Phase 8.5: donk
+leads *can* be configured — `set_bet_sizes oop,river,donk,<sizes>` makes OOP's
+river lead after a called turn bet offer bets; they were simply never emitted
+by `texas_input.py`. Verified directly; see docs/PHASE8_5.md.) The spot's overall verdict is
 `explained` — a failed cross-eval now downgrades `match` verdicts unless a
 verified cause is recorded in `XEVAL_EXPLANATIONS`.
 
@@ -199,7 +202,7 @@ reach-weighted:
 | w-blocker-cap0 | 96 | 2.38 | 0.15 |
 | w-full-cap0 | 256 | 4.99 | 0.10 |
 
-Every measured frequency gap erases to **≤0.15% of pot** once both
+Every measured frequency gap erases to **0.04–0.15% of pot** once both
 strategies are compared by EV — at 0.5% exploitability, divergent mixing is
 almost entirely between equal-EV actions; the residual EV gap is consistent
 with convergence noise, not structural disagreement. (w-turn-cap0 skipped:
@@ -212,10 +215,12 @@ Skipped per spec — not simulated loosely.
 
 ### Step 4 — optional extensions
 
-- **float32 vs float64** (4 Phase-7 spots): identical EVs and
-  exploitabilities to all printed digits (e.g. river-wet-cap0 −10.0086 /
-  0.021% both dtypes). The API's float32 default is fine at this solve
-  tolerance. (`scripts/phase8/runs/float32.json`)
+- **float32 vs float64** (4 Phase-7 spots): EVs agree to printed digits
+  (e.g. river-wet-cap0 −10.0086 both dtypes; unrounded diffs of
+  1e-7–3e-6 chips — Correction, Phase 8.5: this line originally said
+  "identical"; the values differ in float64's extra digits, see
+  `scripts/phase8_5/runs/float32_rerun.json`). The API's float32 default is
+  fine at this solve tolerance. (`scripts/phase8/runs/float32.json`)
 - **Random batch** — 10 random boards, cap 0, standard sizes (0.5/1.0 pot),
   uniform 3-bet-style ranges: all |ΔEV| ≤ 0.14% of pot, every ts-in-ours
   cross-eval equals TS's reported exploitability to <0.001 pp, both solvers
@@ -251,8 +256,10 @@ Skipped per spec — not simulated loosely.
 - **D2-extension**: TS's raise limit counts per **player**, not per line —
   cap 1 on each side yields two raises total in TS vs one in ours.
 - **D4 on multi-street trees**: OOP river leads after a called bet are
-  absent from TS turn trees, not just river-only trees; makes a TS strategy
-  exploitable through the donk line (16.5% of pot on w-turn-cap0).
+  absent from TS turn trees **unless `donk` sizes are configured** (the
+  `set_bet_sizes oop,river,donk,<sizes>` line, verified by direct probe in
+  Phase 8.5); without them a TS strategy is exploitable through the donk
+  line (16.5% of pot on w-turn-cap0).
 - TS console has no strategy-import/node-lock support (reverse cross-eval
   impossible).
 
