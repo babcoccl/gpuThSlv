@@ -659,15 +659,29 @@ def create_app(
             "exploitability_iteration": job.get("exploitability_iteration"),
         }
 
-    def _sse_record(job_id: str, payload: dict[str, Any]) -> int:
-        """Append ``payload`` to the job's replay buffer; return its event id."""
+    def _sse_record(
+        job_id: str, payload: dict[str, Any], last_seq: int | None = None
+    ) -> tuple[int, list[tuple[int, dict[str, Any]]]]:
+        """Append ``payload`` to the job's replay buffer; return
+        ``(event_seq, replay)`` where ``replay`` is the buffered events after
+        ``last_seq``.
+
+        Replay eligibility is judged BEFORE the append: a ``Last-Event-ID``
+        that is still inside the buffer window at connect time stays valid
+        even when the append itself evicts it from a full buffer."""
         with app.state.sse_lock:
             buf = app.state.sse_buffers.setdefault(job_id, deque(maxlen=sse_buffer_size))
+            # Replay only when the id is still inside the buffer window;
+            # evicted (buf[0] > id), future (id > buf[-1]), empty buffer,
+            # malformed, or pre-restart ids all fall through to live.
+            replay = []
+            if last_seq is not None and buf and buf[0][0] <= last_seq <= buf[-1][0]:
+                replay = [entry for entry in buf if entry[0] > last_seq]
             if buf and buf[-1][1] == payload:
-                return buf[-1][0]
+                return buf[-1][0], replay
             seq = (buf[-1][0] if buf else 0) + 1
             buf.append((seq, payload))
-            return seq
+            return seq, replay
 
     @app.get(
         "/v1/solves/{job_id}/events", dependencies=[Depends(auth)],
@@ -709,7 +723,9 @@ def create_app(
                 yield frame(0, "gone", {"status": "gone"})
                 return
             payload = _sse_snapshot(job_now)
-            seq = _sse_record(job_id, payload)
+            # Replay is captured in the same lock as the snapshot append so
+            # the append cannot evict a still-valid Last-Event-ID.
+            seq, replay = _sse_record(job_id, payload, parse_last_event_id())
             # Every connection — new or reconnecting — starts with a snapshot
             # of the current job state; the snapshot replaces client state.
             yield frame(seq, "snapshot", payload)
@@ -719,18 +735,8 @@ def create_app(
                 yield frame(seq, "done", payload)
                 return
 
-            last_seq = parse_last_event_id()
-            if last_seq is not None:
-                with app.state.sse_lock:
-                    buf = list(app.state.sse_buffers.get(job_id, ()))
-                # Replay only when the id is still inside the buffer window;
-                # evicted (buf[0] > id), future (id > buf[-1]), empty buffer,
-                # malformed, or pre-restart ids all fall through to live.
-                # ``bseq < seq`` excludes the snapshot we just appended.
-                if buf and buf[0][0] <= last_seq <= buf[-1][0]:
-                    for bseq, bpayload in buf:
-                        if last_seq < bseq < seq:
-                            yield frame(bseq, "progress", bpayload)
+            for bseq, bpayload in replay:
+                yield frame(bseq, "progress", bpayload)
 
             last_payload = payload
             ticks = 0
@@ -742,7 +748,7 @@ def create_app(
                     yield frame(0, "gone", {"status": "gone"})
                     return
                 payload = _sse_snapshot(job_now)
-                seq = _sse_record(job_id, payload)
+                seq, _replay = _sse_record(job_id, payload)
                 if payload != last_payload:
                     yield frame(seq, "progress", payload)
                     last_payload = payload

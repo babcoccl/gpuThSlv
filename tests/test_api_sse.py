@@ -211,6 +211,38 @@ def test_sse_stale_and_malformed_and_future_ids(tmp_path):
             assert frames[-1][1] == "done"
 
 
+def test_sse_reconnect_at_buffer_edge_still_replays(tmp_path):
+    """A Last-Event-ID equal to the OLDEST retained event is still valid:
+    the connect-time snapshot append must not evict it before the replay
+    window is judged."""
+    app, client = make_client(
+        tmp_path, gpus=[0], engine="fake", sse_buffer_size=4
+    )
+    with client:
+        job_id = start_job(client)
+        # events are only recorded while a stream is open; read until the
+        # 4-slot buffer is full, then disconnect so the buffer freezes
+        buf = None
+        for _r, f in stream_frames(client, job_id, max_frames=40):
+            buf = app.state.sse_buffers.get(job_id)
+            if buf is not None and len(buf) == 4:
+                break
+        assert buf is not None and len(buf) == 4
+        edge_seq, expected = buf[0][0], [s for s, _p in list(buf)[1:]]
+
+        _, frames = collect_frames(client, job_id, headers={
+            "Last-Event-ID": "%s-%d" % (app.state.sse_boot, edge_seq),
+        })
+        events = [f for f in frames if f[1]]
+        assert events[0][1] == "snapshot"
+        # the frames right after the snapshot are the replayed buffered
+        # events (a deduped snapshot may share the last buffered seq, so
+        # compare by position, not by seq < snap_seq)
+        replayed = events[1:1 + len(expected)]
+        assert [seq_of(f[0]) for f in replayed] == expected
+        assert all(f[1] == "progress" for f in replayed)
+
+
 def test_sse_evicted_id_gets_snapshot_no_replay(tmp_path):
     _app, client = make_client(
         tmp_path, gpus=[0], engine="fake", sse_buffer_size=4
