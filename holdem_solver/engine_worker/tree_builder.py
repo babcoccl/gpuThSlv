@@ -86,7 +86,9 @@ def _raise_amounts(raise_sizes: Sequence[RaiseSize], bet_level: float,
             level = bet_level + value * (pot_total + to_call)
         else:
             raise ValueError("raise size kind must be 'x' or 'p', got %r" % (kind,))
-        level = min(level, raise_target_max)
+        # No-limit min-raise: the raise increment must at least equal the
+        # increment faced (to_call); a shorter all-in is still legal.
+        level = min(max(level, bet_level + to_call), raise_target_max)
         if level > bet_level:
             levels.add(level)
     return tuple(sorted(levels))
@@ -151,9 +153,15 @@ class _StreetBuilder:
                  bet_fractions: SizeSets, raise_cap: int,
                  raise_sizes: Tuple[RaiseSize, ...],
                  on_street_end: Callable[[Tuple[str, ...], float, float], int],
-                 key_prefix: Tuple[str, str], card_index: int = -1) -> None:
+                 key_prefix: Tuple[str, str], card_index: int = -1,
+                 base_pot: Optional[float] = None) -> None:
         self._t = template
         self._pot = street_pot
+        # ``street_pot`` sizes bets; ``base_pot`` is the pot at this street's
+        # start so ``pot_total`` (for "p" raises) is base + both cumulative
+        # contributions — for a river street contributions carry over from
+        # the turn, so base_pot is the pre-turn pot, not street_pot.
+        self._base_pot = street_pot if base_pot is None else base_pot
         self._stack = stack
         self._fractions = bet_fractions
         self._raise_cap = raise_cap
@@ -182,10 +190,12 @@ class _StreetBuilder:
             else:
                 actions.append(("check", self.build(history + ("check",), c0, c1,
                                                     1 - to_act, True, raises_used)))
+            emitted = set()
             for amount in self._bets[to_act]:
                 amount = min(amount, remaining)
-                if amount <= 0.0:
+                if amount <= 0.0 or amount in emitted:
                     continue
+                emitted.add(amount)
                 nc = (c0 + amount, c1) if to_act == 0 else (c0, c1 + amount)
                 name = "b%s" % _fmt_amount(amount)
                 child = self.build(history + (name,), nc[0], nc[1],
@@ -202,7 +212,7 @@ class _StreetBuilder:
             if raises_used < self._raise_cap and remaining > faced:
                 bet_level = mine + faced  # opponent's total contribution
                 for level in _raise_amounts(self._raise_sizes, bet_level,
-                                            self._pot + c0 + c1, faced,
+                                            self._base_pot + c0 + c1, faced,
                                             mine + remaining):
                     nc = (level, c1) if to_act == 0 else (c0, level)
                     name = "r%s" % _fmt_amount(level)
@@ -421,11 +431,14 @@ def build_turn_spec(board: Sequence[str], pot: float, stack: float,
 
     raise_sizes_t = tuple(raise_sizes)
 
+    turn_end_levels = set()  # contribution level at each called turn line
+
     def street_end(history: Tuple[str, ...], c0: float, c1: float) -> int:
         """Emit the river-deal chance node plus one river street per card."""
         chance_rel = template.reserve()
         river_pot = pot + c0 + c1
         turn_hist = ",".join(history)
+        turn_end_levels.add((c0, c1))
         child_ids = []
         for idx in range(_NUM_RIVER_CARDS):
             river = _StreetBuilder(
@@ -433,7 +446,7 @@ def build_turn_spec(board: Sequence[str], pot: float, stack: float,
                 raise_sizes_t, river_showdown_impl(idx),
                 ("p0|%HAND%|" + turn_hist + "|%CARD%|",
                  "p1|%HAND%|" + turn_hist + "|%CARD%|"),
-                card_index=idx)
+                card_index=idx, base_pot=pot)
             child_ids.append(river.build((), c0, c1, 0, False, 0))
         template.place(chance_rel, NodeType.CHANCE, -1, None,
                        tuple(("%CARD" + str(i) + "%", ch)
@@ -466,8 +479,11 @@ def build_turn_spec(board: Sequence[str], pot: float, stack: float,
     if bets[0] != bets[1]:
         metadata["turn_bet_amounts"] = bets
         metadata["bet_amounts_by_player"] = True
-    for c in (0.0,) + bets[0]:
-        river_pot_c = pot + 2.0 * c
+    # Every level at which the turn ended in a check-check or a call —
+    # includes p1's opening bets and called raise levels, not just p0's.
+    for c0, c1 in sorted(turn_end_levels):
+        c = max(c0, c1)
+        river_pot_c = pot + c0 + c1
         amounts = (_street_bet_amounts(_size_list(river_fractions, 0), river_pot_c, stack - c),
                    _street_bet_amounts(_size_list(river_fractions, 1), river_pot_c, stack - c))
         river_amounts[c] = amounts[0] if amounts[0] == amounts[1] else amounts

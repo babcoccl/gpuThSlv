@@ -167,7 +167,12 @@ class SpotConfig:
             raise ValueError("name must be a string")
         if self.max_nodes is not None and (isinstance(self.max_nodes, bool) or int(self.max_nodes) <= 0):
             raise ValueError("max_nodes must be a positive integer or None")
-        if isinstance(self.raise_cap, bool) or int(self.raise_cap) < 0:
+        if (
+            isinstance(self.raise_cap, bool)
+            or not isinstance(self.raise_cap, (int, float))
+            or not float(self.raise_cap).is_integer()
+            or int(self.raise_cap) < 0
+        ):
             raise ValueError("raise_cap must be a non-negative integer")
         object.__setattr__(self, "raise_cap", int(self.raise_cap))
         sizes = []
