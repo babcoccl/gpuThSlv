@@ -513,7 +513,8 @@ def create_app(
 
     @app.post(
         "/v1/estimate", response_model=EstimateResponse,
-        dependencies=[Depends(auth), Depends(csrf)], responses=examples.ESTIMATE,
+        dependencies=[Depends(auth), Depends(csrf), Depends(rate_limit)],
+        responses=examples.ESTIMATE,
         summary="Dry-run admission: node count and VRAM prediction for a spot",
     )
     def estimate(request: EstimateRequest) -> EstimateResponse:
