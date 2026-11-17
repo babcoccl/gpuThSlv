@@ -94,11 +94,16 @@ def _ev_values(manifest):
     order = manifest["spots"]
     per_spot = [manifest["comparisons"][s]["node_evs_compared"] for s in order]
     ints = {manifest["spot_count"], manifest["total_node_evs_compared"], *per_spot}
+    # an unqualified "max |D|" claim is the full run's maximum; a per-spot
+    # maximum is only allowed when the claim names that spot
     diffs = {manifest["max_abs_diff"]}
-    diffs.update(
-        manifest["comparisons"][s]["node_evs_max_abs_diff"] for s in order
-    )
-    return {"order": order, "per_spot": per_spot, "ints": ints, "diffs": diffs}
+    spot_diffs = {
+        s: manifest["comparisons"][s]["node_evs_max_abs_diff"] for s in order
+    }
+    return {
+        "order": order, "per_spot": per_spot, "ints": ints,
+        "diffs": diffs, "spot_diffs": spot_diffs,
+    }
 
 
 def _brute_values(data):
@@ -117,11 +122,24 @@ def _brute_values(data):
 
 
 def _cited_windows(cited, i):
-    """Artifacts cited within CITE_WINDOW of line index i."""
+    """Artifact kinds cited within CITE_WINDOW of line index i.
+
+    Only the two artifacts this guard can read provide claim values:
+    ``brute_ev`` -> "brute"; ``ev_validation`` / ``validate_node_evs`` ->
+    "ev". Any other ``runs/*.json`` citation is "other": it satisfies
+    the citation requirement but contributes no values, so a claim it
+    cannot carry fails the value check.
+    """
     arts = set()
     for c in cited:
         if abs(c - i) <= CITE_WINDOW:
-            arts.add("brute" if "brute_ev" in cited[c] else "ev")
+            text = cited[c]
+            if "brute_ev" in text:
+                arts.add("brute")
+            elif "ev_validation" in text or "validate_node_evs" in text:
+                arts.add("ev")
+            else:
+                arts.add("other")
     return arts
 
 
@@ -183,28 +201,33 @@ def main():
         def flag(lineno, why, line):
             failures.append("%s:%d %s: %s" % (doc, lineno, why, line.strip()[:100]))
 
+        ev_empty = {"ints": set(), "diffs": set(), "spot_diffs": {}}
         for i, line in enumerate(lines):
             # claims may wrap: also scan this line joined with the next
-            candidates = [(i, line)]
+            candidates = [line]
             if i + 1 < len(lines):
-                candidates.append((i, line + " " + lines[i + 1]))
-            for lineno, text in candidates:
-                near = _cited_windows(cited, i)
-                ints, diffs = _allowed(near, ev or {"ints": set(), "diffs": set()},
-                                       brute)
+                candidates.append(line + " " + lines[i + 1])
+            for text in candidates:
+                # a match's claim line: matches starting inside lines[i]
+                # belong to i; anything past the join boundary to i + 1
+                def claim_line(m, split=len(line)):
+                    return i if m.start() < split else i + 1
 
                 # -- totals / values -------------------------------------
                 for m in _COMPARISONS.finditer(text):
+                    mi = claim_line(m)
                     got = next(g for g in m.groups() if g)
-                    key = (i, "comparisons", got)
+                    key = (mi, "comparisons", got)
                     if key in seen:
                         continue
                     seen.add(key)
+                    near = _cited_windows(cited, mi)
+                    ints, _diffs = _allowed(near, ev or ev_empty, brute)
                     if not near:
-                        flag(lineno, "comparison claim not near an artifact citation", line)
+                        flag(mi + 1, "comparison claim not near an artifact citation", line)
                     elif int(got.replace(",", "")) not in ints:
                         flag(
-                            lineno,
+                            mi + 1,
                             "comparison count %s not in cited artifact(s)"
                             " (ev total %s, per-spot %s; brute compared %s)"
                             % (got,
@@ -216,19 +239,30 @@ def main():
 
                 # -- max |Δ| ----------------------------------------------
                 for m in _MAX_DIFF.finditer(text):
-                    key = (i, "maxdiff", m.group(1))
+                    mi = claim_line(m)
+                    key = (mi, "maxdiff", m.group(1))
                     if key in seen:
                         continue
                     seen.add(key)
+                    near = _cited_windows(cited, mi)
+                    _ints, diffs = _allowed(near, ev or ev_empty, brute)
+                    # an unqualified max |Δ| is the run's overall maximum;
+                    # a per-spot diff counts only when that spot is named
+                    # beside the claim (artifact filenames stripped first)
+                    if ev and "ev" in near and spot_name_re:
+                        named = spot_name_re.findall(
+                            _RUN_REF.sub("", " ".join(lines[mi:mi + 3]))
+                        )
+                        diffs |= {ev["spot_diffs"][s] for s in named}
                     ok = any(
                         m.group(1) in {repr(d), "%.6f" % d, "%g" % d, "%.2e" % d}
                         for d in diffs
                     )
                     if not near:
-                        flag(lineno, "max |Δ| claim not near an artifact citation", line)
+                        flag(mi + 1, "max |Δ| claim not near an artifact citation", line)
                     elif not ok:
                         flag(
-                            lineno,
+                            mi + 1,
                             "max |Δ| %s not in cited artifact(s) (%s)"
                             % (m.group(1), sorted(diffs)),
                             line,
@@ -236,33 +270,37 @@ def main():
 
                 # -- spot counts ------------------------------------------
                 for m in _SPOT_PAIR.finditer(text):
-                    key = (i, "pair", m.group(0))
+                    mi = claim_line(m)
+                    key = (mi, "pair", m.group(0))
                     if key in seen:
                         continue
                     seen.add(key)
+                    near = _cited_windows(cited, mi)
                     if not near:
-                        flag(lineno, "spot count not near an artifact citation", line)
-                    elif not ev or (
+                        flag(mi + 1, "spot count not near an artifact citation", line)
+                    elif not ev or "ev" not in near or (
                         m.group(1) != str(manifest["spot_count"])
                         or m.group(2) != str(manifest["spot_count"])
                     ):
                         flag(
-                            lineno,
+                            mi + 1,
                             "pass count %s/%s != artifact spot count %s"
                             % (m.group(1), m.group(2),
                                manifest["spot_count"] if manifest else "?"),
                             line,
                         )
                 for m in _SPOT_COUNT.finditer(text):
-                    key = (i, "spotcount", m.group(0))
+                    mi = claim_line(m)
+                    key = (mi, "spotcount", m.group(0))
                     if key in seen:
                         continue
                     seen.add(key)
+                    near = _cited_windows(cited, mi)
                     if not near:
-                        flag(lineno, "spot count not near an artifact citation", line)
-                    elif not ev or m.group(1) != str(manifest["spot_count"]):
+                        flag(mi + 1, "spot count not near an artifact citation", line)
+                    elif not ev or "ev" not in near or m.group(1) != str(manifest["spot_count"]):
                         flag(
-                            lineno,
+                            mi + 1,
                             "spot count %s != artifact %s"
                             % (m.group(1),
                                manifest["spot_count"] if manifest else "?"),
@@ -271,6 +309,8 @@ def main():
 
                 # -- slash-separated per-spot lists -------------------------
                 for m in _SLASH_LIST.finditer(text):
+                    mi = claim_line(m)
+                    near = _cited_windows(cited, mi)
                     parts = [p.strip() for p in m.group(1).split("/")]
                     numbers = [int(p.replace(",", "")) for p in parts]
                     # spot names may wrap onto the next line(s); the
@@ -278,7 +318,7 @@ def main():
                     # runs/*.json references before extracting names
                     names = (
                         spot_name_re.findall(
-                            _RUN_REF.sub("", " ".join(lines[i:i + 3]))
+                            _RUN_REF.sub("", " ".join(lines[mi:mi + 3]))
                         )
                         if spot_name_re
                         else []
@@ -290,23 +330,26 @@ def main():
                     )
                     if not is_claim:
                         continue
-                    key = (i, "slashlist", m.group(1))
+                    key = (mi, "slashlist", m.group(1))
                     if key in seen:
                         continue
                     seen.add(key)
                     if not near:
-                        flag(lineno, "per-spot count list not near an artifact citation", line)
+                        flag(mi + 1, "per-spot count list not near an artifact citation", line)
+                        continue
+                    if "ev" not in near:
+                        flag(mi + 1, "per-spot count list not beside the ev_validation citation", line)
                         continue
                     if numbers != ev["per_spot"]:
                         flag(
-                            lineno,
+                            mi + 1,
                             "per-spot counts %s != artifact manifest order %s"
                             % (numbers, ev["per_spot"]),
                             line,
                         )
                     if sum(numbers) != manifest["total_node_evs_compared"]:
                         flag(
-                            lineno,
+                            mi + 1,
                             "per-spot counts sum %d != artifact total %d"
                             % (sum(numbers), manifest["total_node_evs_compared"]),
                             line,
@@ -315,7 +358,7 @@ def main():
                         s for s in ev["order"] if s in names
                     ]:
                         flag(
-                            lineno,
+                            mi + 1,
                             "spot order %s differs from manifest %s"
                             % (names, ev["order"]),
                             line,
@@ -323,10 +366,17 @@ def main():
 
                 # -- bare N/M fractions -------------------------------------
                 for m in _BARE_FRACTION.finditer(text):
-                    key = (i, "fraction", m.group(0))
+                    mi = claim_line(m)
+                    # a fraction inside a longer slash list is the list's
+                    # claim, not a standalone N/M
+                    if re.search(r"/\s*$", text[:m.start()]) or \
+                            re.match(r"\s*/", text[m.end():]):
+                        continue
+                    key = (mi, "fraction", m.group(0))
                     if key in seen:
                         continue
                     seen.add(key)
+                    near = _cited_windows(cited, mi)
                     if not near:
                         continue  # generic fractions need no citation
                     # only compared/rows-style fractions are checkable —
@@ -334,11 +384,11 @@ def main():
                     if "brute" not in near:
                         continue
                     a, b = int(m.group(1)), int(m.group(2))
-                    if a not in ints or b not in ints:
+                    if a not in brute["ints"] or b not in brute["ints"]:
                         flag(
-                            lineno,
+                            mi + 1,
                             "fraction %s has no counterpart in cited "
-                            "artifact(s) values %s" % (m.group(0), sorted(ints)),
+                            "artifact(s) values %s" % (m.group(0), sorted(brute["ints"])),
                             line,
                         )
 

@@ -79,8 +79,11 @@ Recorded below as each numbered spec step lands.
    `runs/brute_ev.json`. Slash lists must equal the manifest's per-spot
    counts **in manifest spot order**, must sum to the manifest total, and
    any spot names beside them must appear in manifest order. Claims more
-   than 6 lines from a citation fail. Wrapped claims are matched across
-   joined line pairs.
+   than 6 lines from a citation fail; a citation of an unrelated
+   `runs/*.json` does not satisfy an ev claim, an unqualified `max |Δ|`
+   is the run's overall maximum (a per-spot maximum must name its spot),
+   and wrapped claims are distance-measured from the line they start on.
+   Wrapped claims are matched across joined line pairs.
 2. **Negative + positive tests — done.** `tests/test_doc_evidence.py`
    parametrizes five mutations of a temp `PHASE9.md` copy — one per-spot
    count, the total, the spot count, a `max |Δ|` digit, and the spot
