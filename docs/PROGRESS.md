@@ -146,3 +146,22 @@
   gates, check-raise KAT, raise grammar semantics, SpotConfig API).
 - `docs/BENCHMARKS.md`: Phase 6 section with node scaling, build times,
   it/s, and VRAM per cap.
+
+## Phase 7 — cross-validation vs TexasSolver (2026-11-17)
+
+- TexasSolver v0.2.0 console build driven via `scripts/phase7/` mapping layer:
+  `texas_input.py` (SpotConfig -> input file), `texas_dump.py` (dump JSON ->
+  per-node strategy + pure-python EV walk), `grid.py`, `compare.py`,
+  `run_treecheck.py`, `run_suite.py`, `plot_freq.py`. Suite: 15 spots, both
+  solvers to <=0.5% of pot, ours float64.
+- Results: 4 match / 11 explained / 0 unresolved; root EV within the 1%-of-pot
+  tolerance on all 15 spots. Review caught 5 harness bugs (halved
+  exploitability units + doubled stop target, unapplied range weights,
+  blocked-combo weight restoration in dump_ev, many-to-one action matching,
+  stale dump reuse); all fixed, suite re-run. No solver bugs; regression
+  tests 18/18 pass in both venvs.
+- Semantics decoded + documented: raise_limit=4 hard-coded, all-in snap
+  threshold, auto-all-in raise at cap boundary, donk flag on call-ended
+  streets, dealcard stubs for all 52 cards, dump=average vs expl=current.
+- Evidence: docs/PHASE7.md, scripts/phase7/runs/suite.json, treecheck.json,
+  runs/plots/*.png. Tests: tests/test_phase7_mapping.py.

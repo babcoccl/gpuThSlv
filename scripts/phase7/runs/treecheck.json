@@ -1,0 +1,1023 @@
+{
+ "toy-check": {
+  "ours_nodes": 973,
+  "ts_nodes": 4,
+  "checked": 4,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "toy-bet": {
+  "ours_nodes": 2269,
+  "ts_nodes": 8,
+  "checked": 8,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "river-dry-cap0": {
+  "ours_nodes": 1621,
+  "ts_nodes": 6,
+  "checked": 6,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "river-dry-cap1": {
+  "ours_nodes": 4213,
+  "ts_nodes": 26,
+  "checked": 14,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b10",
+      "r34"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r87",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r87",
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b10",
+      "r50"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b20",
+      "r56"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b20",
+      "r80"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b10",
+      "r34"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r87",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r87",
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b10",
+      "r50"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b20",
+      "r56"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b20",
+      "r80"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r87"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r50",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b20",
+      "r56",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b20",
+      "r80",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "river-dry-cap2": {
+  "ours_nodes": 7453,
+  "ts_nodes": 26,
+  "checked": 19,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r86.8"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "river-wet-cap0": {
+  "ours_nodes": 1621,
+  "ts_nodes": 6,
+  "checked": 6,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "river-wet-cap1": {
+  "ours_nodes": 4213,
+  "ts_nodes": 26,
+  "checked": 14,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b10",
+      "r34"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r87",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r87",
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b10",
+      "r50"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b20",
+      "r56"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b20",
+      "r80"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b10",
+      "r34"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r87",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r87",
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b10",
+      "r50"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b20",
+      "r56"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b20",
+      "r80"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r87"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r50",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b20",
+      "r56",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b20",
+      "r80",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "river-wet-cap2": {
+  "ours_nodes": 7453,
+  "ts_nodes": 26,
+  "checked": 19,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r86.8"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "river-pair-cap0": {
+  "ours_nodes": 1261,
+  "ts_nodes": 6,
+  "checked": 6,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "river-pair-cap1": {
+  "ours_nodes": 3277,
+  "ts_nodes": 26,
+  "checked": 14,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b10",
+      "r34"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r87",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r87",
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b10",
+      "r50"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b20",
+      "r56"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b20",
+      "r80"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b10",
+      "r34"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r87",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r87",
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b10",
+      "r50"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b20",
+      "r56"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b20",
+      "r80"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r87"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r50",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b20",
+      "r56",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b20",
+      "r80",
+      "r100"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "river-pair-cap2": {
+  "ours_nodes": 5797,
+  "ts_nodes": 26,
+  "checked": 19,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r86.8"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "turn-narrow-a": {
+  "ours_nodes": 472069,
+  "ts_nodes": 1932,
+  "checked": 102,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "check",
+      "b5",
+      "r17"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r30",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r30"
+    ]
+   },
+   {
+    "node": [
+     0,
+     [
+      "b5",
+      "r17"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r30",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r30"
+    ]
+   },
+   {
+    "node": [
+     1,
+     [
+      "b5",
+      "r17",
+      "r30"
+     ]
+    ],
+    "issue": "missing-in-ours",
+    "ts": [
+     "call",
+     "fold"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ },
+ "turn-narrow-b": {
+  "ours_nodes": 129277,
+  "ts_nodes": 576,
+  "checked": 100,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "short-stack": {
+  "ours_nodes": 2674,
+  "ts_nodes": 12,
+  "checked": 12,
+  "mismatches": [],
+  "ts_exit": 0
+ },
+ "river-full": {
+  "ours_nodes": 9631711,
+  "ts_nodes": 4,
+  "checked": 4,
+  "mismatches": [],
+  "ts_exit": 0
+ }
+}
