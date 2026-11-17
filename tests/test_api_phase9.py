@@ -148,22 +148,26 @@ def test_events_sse(tmp_path):
         resp = client.get(f"/v1/solves/{job_id}/events")
         assert resp.headers["content-type"].startswith("text/event-stream")
         frames = resp.text.strip().split("\n\n")
-        assert frames[0].startswith("id: 1\nevent: snapshot\n")
+        assert frames[0].startswith("retry:")  # retry directive first
+        snap = next(f for f in frames if f.startswith("id:"))
+        assert "event: snapshot" in snap and snap.startswith("id: ")
         last = frames[-1]
         assert "event: done" in last and '"status": "cancelled"' not in last
-        ids = [int(f.split("\n")[0].split(": ")[1]) for f in frames if f.startswith("id:")]
-        assert ids == sorted(ids)
+        ids = [f.split("\n")[0].split(": ")[1] for f in frames if f.startswith("id:")]
+        seqs = [int(i.rpartition("-")[2]) for i in ids]
+        assert seqs == sorted(seqs)
 
         # Reconnect with Last-Event-ID replays buffered events, no duplicates.
         last_id = ids[len(ids) // 2]
+        last_seq = int(last_id.rpartition("-")[2])
         resp2 = client.get(
-            f"/v1/solves/{job_id}/events", headers={"Last-Event-ID": str(last_id)}
+            f"/v1/solves/{job_id}/events", headers={"Last-Event-ID": last_id}
         )
         replayed = [
-            int(f.split("\n")[0].split(": ")[1])
+            int(f.split("\n")[0].split(": ")[1].rpartition("-")[2])
             for f in resp2.text.strip().split("\n\n") if f.startswith("id:")
         ]
-        assert all(seq > last_id for seq in replayed[:-1] if replayed)
+        assert all(seq > last_seq for seq in replayed[:-1] if replayed)
 
         client.delete(f"/v1/solves/{job_id}")  # may already be done
         assert client.get("/v1/solves/nope/events").status_code == 404
