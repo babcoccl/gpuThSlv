@@ -266,6 +266,12 @@ class SolverEngine:
         return None if solver is None else str(solver.device)
 
     @property
+    def dtype(self) -> Optional[str]:
+        """The precision the solver was built with (``float32``/``float64``)."""
+        config = self._config
+        return None if config is None else str(config.device.dtype)
+
+    @property
     def estimated_vram_bytes(self) -> int:
         return self._estimated_vram_bytes
 

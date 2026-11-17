@@ -52,6 +52,7 @@ class RealEngine(SolverEngine):
             "num_infoset_actions": sum(len(infoset.actions) for infoset in spec.infosets.values()),
             "estimated_vram_bytes": int(self.estimated_vram_bytes),
             "device": self.device,
+            "dtype": self.dtype,
             "spot": self._spot_info,
         }
 

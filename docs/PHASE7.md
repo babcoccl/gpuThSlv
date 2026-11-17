@@ -62,7 +62,7 @@ unweighted per-combo means, matching `holdem_solver.api.strategy.hand_grid`.
 | D1 | TS rounds `pct×pot` to whole chips before adding the call (`bb=1`); ours keeps fractions exact | raise levels can differ by ≤0.5 chip |
 | D2 | TS caps raises at 3 per street (`raise_limit=4` incl. the bet); ours honours `raise_cap` 0–3 | cap 1/2 spots: TS tree is deeper than ours below the cap level |
 | D3 | TS snaps any bet/raise committing > threshold×stack to all-in | disabled via `set_allin_threshold 2.0`; at 0.67 it collapsed raises (verified) |
-| D4 | TS disables OOP's lead after an OOP-called street unless `donk` sizes are set | turn spots: the river subtree under `call`-ended turn lines exists only on our side |
+| D4 | TS disables OOP's lead after an OOP-called street unless `donk` sizes are set (`set_bet_sizes oop,<street>,donk,<sizes>`; verified on the console in Phase 8.5) | turn spots: the river subtree under `call`-ended turn lines exists only on our side unless donk sizes are emitted |
 | D5 | TS dumps action order CALL→RAISE→FOLD; ours fold→call→raises | compare actions as sets |
 | D6 | `set_dump_rounds` counts streets from the tree root | turn spots need `dump_rounds=2` |
 | D7 | TS auto-adds an all-in raise where every configured raise exceeds the remaining stack | at our `raise_cap` boundary TS nodes carry an extra `r<stack>` action |

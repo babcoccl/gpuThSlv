@@ -179,13 +179,13 @@
   (TS counts raises per player); w-wet-cap0 by demonstrated non-unique
   equilibrium (EV gap 0.0).
 - Cross-evaluation: TS dumped strategy evaluated in our evaluator reproduces
-  TS's own reported exploitability to ~0.001pp on all identical-tree spots
-  (8 weighted + 6 Phase-7 cap-0 rivers). w-turn-cap0 = 16.5% — explained by
-  D4 (our tree has the river donk line; TS never defends it; mapped profile
-  value matches dump_ev exactly). Reverse direction skipped: console has no
-  strategy-load/node-lock command.
-- EV-erased frequency gap = 0.0% of pot on every measured spot: all observed
-  mixing differences are between equal-EV actions.
+  TS's own reported exploitability to ~0.001pp on the 13 identical-tree spots
+  of 14 evaluated (8 weighted + 6 Phase-7 cap-0 rivers). w-turn-cap0 = 16.5%
+  — explained by D4 (our tree has the river donk line; TS never defends it;
+  mapped profile value matches dump_ev exactly). Reverse direction skipped:
+  console has no strategy-load/node-lock command.
+- EV-erased frequency gap = 0.04–0.15% of pot on every measured spot: all
+  observed mixing differences are between equal-EV actions.
 - float32 == float64 on 4 Phase-7 spots (identical EV/exploitability).
   Random batch: 10 boards cap 0 — |ΔEV| <= 0.14% pot, xeval exact on all.
 - Bug fixed: engine flat-strategy order is compiled-game order
@@ -193,3 +193,32 @@
 - Evidence: docs/PHASE8.md, scripts/phase8/runs/{suite8.json,
   xeval_phase7.json, float32.json, random_batch.json}. Single command:
   scripts/phase8/run_suite.sh.
+
+## Phase 8.5 — cleanup, small validations, documentation (2026-11-17)
+
+- Tolerances written in `docs/PHASE8_5.md` before any run; unchanged since.
+- Doc corrections: PHASE8 status → complete, cross-eval count 13/14,
+  EV-erased gap 0.04–0.15% of pot, "identical" float32 claim corrected
+  (measured diffs 1e-7–3e-6 chips, `scripts/phase8_5/runs/float32_rerun.json`).
+- Donk verified configurable on the TexasSolver console:
+  `set_bet_sizes oop,river,donk,50` produced `BET 25.0` on the OOP river
+  node after a called turn bet (`scripts/phase8_5/runs/donk_probe_*`).
+  PHASE7 D4 updated; PHASE8's "cannot be configured" claim removed.
+- `texas_input.py`: `emit_donk` emits `oop,<street>,donk,<sizes>`; the
+  re-run turn suite is 2 match / 1 explained — w-turn-cap0's Phase-8 16.5%
+  cross-eval gap closed to 0.069% on an identical tree. turn-narrow-a stays
+  explained via D2-ext (TS per-player raise counting).
+- dtype plumbing verified end-to-end: `describe()` and `rpc_ping` now echo
+  the requested dtype; `regret_sum` + flat strategy honor it;
+  `strategy_sum` accumulates in float64 (measured, asserted). Two identical
+  float32 solves are bitwise-identical (deterministic).
+- 5 per-player/per-street size spots + 4 raise-combination spots: all match
+  or explained; `("x",m)` raises are expressible in TS per bet size via
+  `pct = 100·(m−1)·bet/(pot+2·bet)` (`x_raise_pcts` mapping option).
+- API parity fix: `SolveRequest` accepts `bet_sizes` dicts and
+  `raise_cap`/`raise_sizes` (raises were unreachable over REST).
+- Tests: `scripts/run_all_tests.sh` runs both suites + collection coverage;
+  new `tests/test_texas_input.py` and dtype regression tests.
+- Evidence: `docs/PHASE8_5.md`, `scripts/phase8_5/runs/suite8_5.json`,
+  `float32_rerun.json`. Docs added: VALIDATION.md, ARCHITECTURE.md,
+  INDEX.md, CHANGELOG.md; README game-rules/API sections rewritten.

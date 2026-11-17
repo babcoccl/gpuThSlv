@@ -139,6 +139,7 @@ class EngineService:
                 "pid": os.getpid(),
                 "built": bool(self._engine.is_built),
                 "state": self._state(),
+                "dtype": getattr(self._engine, "dtype", None),
                 "vram": self._vram_stats(),
             }
         )

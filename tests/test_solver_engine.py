@@ -176,3 +176,17 @@ def test_should_stop_cancels_target_solve_cpu():
         assert result.cancelled is True
         assert result.target_reached is False
         assert result.total_iterations == 40
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_dtype_reaches_solver_buffers_cpu(dtype):
+    """Phase 8.5: the requested dtype is reported and actually used."""
+    expected = torch.float32 if dtype == "float32" else torch.float64
+    with _kuhn_engine("cpu", dtype=dtype, iterations=5) as engine:
+        assert engine.dtype == dtype
+        solver = engine._require_solver()
+        assert engine.get_strategy_flat().dtype == expected
+        assert solver.regret_sum.dtype == expected
+        # The average-strategy accumulator is kept in float64 by the engine
+        # regardless of the requested dtype (measured; not a config bug).
+        assert solver.strategy_sum.dtype == torch.float64

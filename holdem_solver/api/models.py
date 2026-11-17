@@ -41,11 +41,22 @@ class SolveRequest(BaseModel):
     range1: str = Field(max_length=4096)
     pot: float = 20.0
     stack: float = 100.0
-    bet_sizes: str | list[float] = Field(
+    bet_sizes: str | list[float] | dict[str, list[float]] = Field(
         default="standard", max_length=64,
-        description="one bet-size list for every street and node: a preset name or pot fractions",
+        description="a preset name or pot fractions; a dict gives per-player "
+        '({"0": [...], "1": [...]}) or per-street ({"turn": [...], "river": [...]}, '
+        "turn spots only) lists",
     )
     all_in: bool = False
+    raise_cap: int = Field(
+        default=0, ge=0, le=8,
+        description="max raises per street; 0 disables raises",
+    )
+    raise_sizes: list[list[Any]] = Field(
+        default_factory=list,
+        description='raise options as [kind, value]: ["x", m] raises to m times the bet '
+        'faced, ["p", f] to the bet plus f times the pot after calling',
+    )
     dead_cards: list[str] = Field(default_factory=list, max_length=8)
     name: str | None = Field(default=None, max_length=200)
     max_nodes: int | None = DEFAULT_MAX_NODES
@@ -77,6 +88,23 @@ class SolveRequest(BaseModel):
             raise ValueError(f"solver_options.dtype must be one of {DTYPES}")
         if inner is not None and self.dtype is not None and inner != self.dtype:
             raise ValueError("dtype and solver_options.dtype disagree")
+        return self
+
+    @model_validator(mode="after")
+    def check_raise_sizes(self) -> "SolveRequest":
+        for entry in self.raise_sizes:
+            if (
+                not isinstance(entry, (list, tuple))
+                or len(entry) != 2
+                or entry[0] not in ("x", "p")
+                or not isinstance(entry[1], (int, float))
+                or entry[1] <= 0
+            ):
+                raise ValueError(
+                    'raise_sizes entries must be ["x", m] or ["p", f] with a positive number'
+                )
+        if self.raise_sizes and self.raise_cap == 0:
+            raise ValueError("raise_sizes requires raise_cap > 0")
         return self
 
     def effective_dtype(self) -> str:
@@ -118,6 +146,8 @@ class SolveRequest(BaseModel):
             "stack": self.stack,
             "bet_sizes": self.bet_sizes,
             "all_in": self.all_in,
+            "raise_cap": self.raise_cap,
+            "raise_sizes": [list(size) for size in self.raise_sizes],
             "dead_cards": list(self.dead_cards),
             "name": self.name,
             "max_nodes": self.max_nodes,
