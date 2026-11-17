@@ -113,3 +113,36 @@
   - The API attached to both external workers.
   - 4 jobs (2 spots × float32/float64) finished `done`, 2 on each GPU, with all 169 classes present in the `hand_grid` view.
   - `/metrics` shows no stuck jobs (0 queued/building/solving), 0 restarts, and both workers healthy.
+
+## Phase 6 — raises (2026-11-16)
+
+- `docs/PHASE6.md` spikes the GameSpec format and documents
+  `gpu_cfr.efg.spec`/`compiler`/`efg_file`.
+- `engine_worker/tree_builder.py`: pure-Python GameSpec builders for river
+  and turn with per-player/per-street `bet_sizes`, `raise_cap` (max raises
+  per street), `raise_sizes` (`("x", m)` multiples of the bet faced,
+  `("p", f)` fractions of the post-call pot), all-in capping, and the
+  shipped builders' deal/blocker logic.
+- Consistency gate passed: `raise_cap=0` reproduces
+  `build_hunl_river_game` / `build_hunl_turn_game` exactly — identical node
+  and infoset counts, equal solved value/exploitability — on 3 river + 2
+  turn spots.
+- Step 2 measurements (`scripts/phase6/logs/raise_measurements.json`):
+  reserved VRAM ≈ 266–311 B/node; biggest tree 10.37M nodes / 2.64 GiB
+  (14 GiB admits ≈ 53M nodes); spec build ~6.4 s/M nodes and dominates
+  solver allocation past ~1M nodes (61 s of 98 s at cap 2 on the full
+  river spot) — caching/vectorization proposal recorded in PHASE6.md.
+- Step 3 KAT: `test_river_check_raise_known_answer` — solver reproduces a
+  fictitious-play check-raise equilibrium exactly (value 0.3269, JJ raises
+  1.000, KQo calls raises 0.859, exploitability 2e-4). KK-vs-KQo blocker
+  subtlety documented in PHASE6.md.
+- `SpotConfig`/API: `raise_cap`, `raise_sizes`, and mapping `bet_sizes`
+  (`{"0":..,"1":..}` per player, `{"turn":..,"river":..}` per street on
+  turn spots) carried through `to_dict`/`from_dict`; `needs_custom_builder`
+  routes to `tree_builder`. `max_nodes` gate and the API VRAM admission
+  gate cover raise trees unchanged (322 B/node estimate stays above the
+  measured ~266–311).
+- Tests: `tests/test_phase6_raises.py` — 8 tests (3 river gates, 2 turn
+  gates, check-raise KAT, raise grammar semantics, SpotConfig API).
+- `docs/BENCHMARKS.md`: Phase 6 section with node scaling, build times,
+  it/s, and VRAM per cap.

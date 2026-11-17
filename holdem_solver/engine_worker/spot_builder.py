@@ -46,8 +46,52 @@ def _engine_builder(street: str) -> Any:
 def _build(config: SpotConfig, resolved: ResolvedSpot, hands0: Any, hands1: Any, name: str) -> Any:
     from holdem_solver.protocol.cards import card_str
 
+    board = tuple(card_str(card) for card in resolved.board)
+    if config.needs_custom_builder:
+        from holdem_solver.engine_worker.solver import _load_gpu_cfr
+
+        _load_gpu_cfr()  # puts the vendored GPU-CFR on sys.path
+        from holdem_solver.engine_worker.tree_builder import build_river_spec, build_turn_spec
+
+        bet_sizes = config.bet_size_map()
+        if resolved.street == "turn":
+            if isinstance(bet_sizes, dict) and "turn" in bet_sizes:
+                return build_turn_spec(
+                    board,
+                    pot=config.pot,
+                    stack=config.stack,
+                    bet_sizes=bet_sizes["turn"],
+                    river_bet_sizes=bet_sizes["river"],
+                    raise_cap=config.raise_cap,
+                    raise_sizes=config.raise_sizes,
+                    hands0=hands0,
+                    hands1=hands1,
+                    name=name,
+                )
+            return build_turn_spec(
+                board,
+                pot=config.pot,
+                stack=config.stack,
+                bet_sizes=bet_sizes,
+                raise_cap=config.raise_cap,
+                raise_sizes=config.raise_sizes,
+                hands0=hands0,
+                hands1=hands1,
+                name=name,
+            )
+        return build_river_spec(
+            board,
+            pot=config.pot,
+            stack=config.stack,
+            bet_sizes=bet_sizes,
+            raise_cap=config.raise_cap,
+            raise_sizes=config.raise_sizes,
+            hands0=hands0,
+            hands1=hands1,
+            name=name,
+        )
     return _engine_builder(resolved.street)(
-        tuple(card_str(card) for card in resolved.board),
+        board,
         pot=config.pot,
         stack=config.stack,
         bet_fractions=resolved.bet_fractions,
@@ -92,7 +136,14 @@ def build_spot(config: Union[SpotConfig, Mapping[str, Any]]) -> BuiltSpot:
         config.game_name,
     )
     info = resolved.summary()
-    info.update({"pot": config.pot, "stack": config.stack, "all_in": config.all_in})
+    info.update({
+        "pot": config.pot,
+        "stack": config.stack,
+        "all_in": config.all_in,
+        "raise_cap": config.raise_cap,
+        "raise_sizes": [list(size) for size in config.raise_sizes],
+        "custom_builder": config.needs_custom_builder,
+    })
     for key in ("bet_amounts", "turn_bet_amounts", "river_bet_amounts", "num_rivers"):
         if key in spec.metadata:
             info[key] = spec.metadata[key]
