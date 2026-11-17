@@ -108,4 +108,8 @@
   - Queued jobs waited and resumed on their own.
   - But one running job's progress write failed, and recording its failure also failed, so it stayed `solving` until the next API restart.
   - Fix: `_run` now classifies SQLite "disk is full" as `disk_full` and retries the terminal write until it succeeds. The failure path also releases the worker, which had kept the dead job's solve running and answered the next build with `engine is busy`. Regression test: `test_store_disk_full_mid_solve_does_not_leave_job_stuck`.
-- Reboot test: pending. It needs the box rebooted and the Devin worker restarted by hand.
+- Reboot test passed (`reboot.txt`). The box booted at 19:30:06 and nothing was started by hand.
+  - Linger is on. `holdem-api`, `holdem-worker@0` and `holdem-worker@1` were all active at 19:30:14 with NRestarts=0.
+  - The API attached to both external workers.
+  - 4 jobs (2 spots × float32/float64) finished `done`, 2 on each GPU, with all 169 classes present in the `hand_grid` view.
+  - `/metrics` shows no stuck jobs (0 queued/building/solving), 0 restarts, and both workers healthy.
