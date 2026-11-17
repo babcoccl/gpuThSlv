@@ -1,0 +1,46 @@
+# Phase 5 clean-boot test (box rebooted by user; no manual start of any holdem unit)
+$ uptime -s
+2026-11-16 19:30:06
+$ loginctl show-user aihub -p Linger
+Linger=yes
+$ systemctl --user show holdem-api -p ActiveState -p ActiveEnterTimestamp -p NRestarts -p MainPID
+MainPID=2278
+NRestarts=0
+ActiveState=active
+ActiveEnterTimestamp=Mon 2026-11-16 19:30:14 EST
+$ systemctl --user show holdem-worker@0 -p ActiveState -p ActiveEnterTimestamp -p NRestarts -p MainPID
+MainPID=2276
+NRestarts=0
+ActiveState=active
+ActiveEnterTimestamp=Mon 2026-11-16 19:30:14 EST
+$ systemctl --user show holdem-worker@1 -p ActiveState -p ActiveEnterTimestamp -p NRestarts -p MainPID
+MainPID=2277
+NRestarts=0
+ActiveState=active
+ActiveEnterTimestamp=Mon 2026-11-16 19:30:14 EST
+$ grep attached ~/.local/state/holdem-solver/logs/api.log | tail -2
+{"ts": 1794875417.759, "level": "INFO", "logger": "holdem_solver.api", "msg": "gpu 0: attached to external worker pid 2276"}
+{"ts": 1794875417.959, "level": "INFO", "logger": "holdem_solver.api", "msg": "gpu 1: attached to external worker pid 2277"}
+$ python reboot_check.py  # 4 jobs (2 spots x float32/float64), hand_grid view, /metrics
+healthz (200, {'status': 'ok'})
+submit 202 7147fcf3138e
+submit 202 42fc2f54202d
+submit 202 73b910a88ae3
+submit 202 7617d6d90573
+job 7147fcf3138e done gpu 0 float32 it 3000 expl 0.005645468831062317 err None
+job 42fc2f54202d done gpu 1 float64 it 3000 expl 0.005647171674564744 err None
+job 73b910a88ae3 done gpu 1 float32 it 3000 expl 0.010016784071922302 err None
+job 7617d6d90573 done gpu 0 float64 it 3000 expl 0.01003955095913528 err None
+metrics 200
+  holdem_jobs{status="queued"} 0.0
+  holdem_jobs{status="building"} 0.0
+  holdem_jobs{status="solving"} 0.0
+  holdem_jobs{status="done"} 950.0
+  holdem_jobs{status="cancelled"} 189.0
+  holdem_jobs{status="failed"} 190.0
+  holdem_queue_depth 0.0
+  holdem_worker_restarts_total{gpu="0"} 0.0
+  holdem_worker_restarts_total{gpu="1"} 0.0
+  holdem_worker_healthy{gpu="0"} 1.0
+  holdem_worker_healthy{gpu="1"} 1.0
+hand_grid 200 nodes 6 classes per node [169]

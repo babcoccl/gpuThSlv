@@ -59,6 +59,8 @@ _COLUMNS = {
     "peak_vram_bytes": "INTEGER",
     "dtype": "TEXT",
     "strategy_expired_at": "REAL",
+    # Phase 5
+    "exploitability_iteration": "INTEGER",
 }
 
 ACTIVE = ("queued", "building", "solving")
@@ -238,6 +240,17 @@ class JobStore:
                 (dtype, max(1, int(min_estimate)), limit),
             ).fetchall()
         return [(int(r[0]), int(r[1])) for r in rows]
+
+    def counts(self) -> dict[str, Any]:
+        """Job counts by status and failed jobs by error_code (for /metrics)."""
+        with self._lock:
+            by_status = dict(self._db.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status").fetchall())
+            by_code = dict(
+                self._db.execute(
+                    "SELECT COALESCE(error_code, 'none'), COUNT(*) FROM jobs WHERE status='failed' GROUP BY 1"
+                ).fetchall()
+            )
+        return {"status": by_status, "error_code": by_code}
 
     # -- writes ------------------------------------------------------------
 

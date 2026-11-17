@@ -312,22 +312,23 @@ def test_vram_aware_dispatch_uses_measured_peaks(tmp_path):
         accepted = probe.post("/v1/solves", json=body()).json()
         predicted = accepted["predicted_vram_bytes"]
         estimate = probe.app.state.store.get(accepted["id"])["estimated_vram_bytes"]
-    assert predicted == int(estimate * 1.15)
+    assert predicted == int(estimate * 1.6)  # seed factor: no samples yet
     config = SchedulerConfig(
         heartbeat_seconds=0.5, vram_reserve_bytes=reserve,
         gpu_vram_bytes={0: reserve + predicted // 2, 1: reserve + 2 * estimate},
     )
     with make_client(tmp_path, gpus=(0, 1), config=config) as client:
         client.app.state.scheduler.vram.min_sample_bytes = 0
-        jobs = [poll_until(client, submit(client, body())) for _ in range(2)]
+        jobs = [poll_until(client, submit(client, body(fake_peak_vram_bytes=estimate))) for _ in range(2)]
+        assert client.app.state.scheduler.vram.factor("float32")[1:] == ("seed", 2)
         assert [j["gpu"] for j in jobs] == [1, 1], "gpu 0 is too small and is skipped even when idle"
-        # A job measures a peak of 3x its estimate ...
+        # A third job (the 3rd sample) measures a peak of 3x its estimate ...
         peaky = poll_until(client, submit(client, body(fake_peak_vram_bytes=3 * estimate)))
         assert peaky["peak_vram_bytes"] == 3 * estimate
         # ... so the model now predicts 3 x 1.05 x estimate, which fits no GPU.
         rejected = client.post("/v1/solves", json=body(iterations=123))
         assert rejected.status_code == 422
-        assert "x3.150 from 1 measured peak(s)" in rejected.json()["detail"], rejected.json()
+        assert "x3.150 from 3 measured peak(s)" in rejected.json()["detail"], rejected.json()
 
 
 def test_strategy_retention_cleanup(tmp_path):
@@ -367,9 +368,10 @@ def test_small_jobs_do_not_evict_large_vram_samples(tmp_path):
                 (estimate, peak, t, job["id"]),
             )
 
-    finished(big, int(big * 1.5), 1.0)
+    for t, ratio in enumerate((1.5, 1.2, 1.3)):
+        finished(big, int(big * ratio), float(t))
     for i in range(60):  # newer small solves, below the 64 MiB sample floor
-        finished(8 * 1024**2, 6 * 1024**2, 2.0 + i)
+        finished(8 * 1024**2, 6 * 1024**2, 10.0 + i)
     factor, source, samples = VramModel(store).factor("float32")
-    assert (source, samples) == ("measured", 1)
+    assert (source, samples) == ("measured", 3)
     assert factor == pytest.approx(1.5 * 1.05)

@@ -1,0 +1,11 @@
+# copytruncate: the services hold their log open (StandardOutput=append:).
+@LOGDIR@/*.log {
+    daily
+    maxsize 100M
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

@@ -259,9 +259,11 @@ class EngineService:
         job = self._job
         iteration = int(self._engine.iterations)
         if job is None:
-            return {"state": self._state(), "job_id": None, "iteration": iteration, "iterations_run": 0}
+            return {"state": self._state(), "job_id": None, "iteration": iteration, "iterations_run": 0,
+                    "pid": os.getpid()}
         end = job.finished if job.finished is not None else time.time()
         return {
+            "pid": os.getpid(),
             "state": job.state,
             "job_id": job.job_id,
             "iteration": iteration,

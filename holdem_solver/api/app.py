@@ -18,6 +18,12 @@ Configuration is by environment variable:
 * ``HOLDEM_STRATEGY_RETENTION_SECONDS``: strategy .npz lifetime after the job
   finishes (default 7 days; ``0`` or empty disables cleanup).
 * ``HOLDEM_VRAM_RESERVE_BYTES``: per-GPU headroom left free (512 MiB).
+* ``HOLDEM_WORKER_MODE``: ``spawn`` (default; the API starts its workers)
+  or ``external`` (attach to per-GPU workers run by systemd/compose).
+* ``HOLDEM_MAX_BODY_BYTES``: request bodies over this get 413 (64 KiB).
+* ``HOLDEM_POST_RATE_PER_MINUTE`` / ``HOLDEM_POST_BURST``: token bucket per
+  client for ``POST /v1/solves`` (120/min, burst 30); 429 + Retry-After.
+  ``0`` disables it.
 """
 
 from __future__ import annotations
@@ -25,11 +31,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sys
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -38,10 +43,22 @@ from holdem_solver.client import RemoteEngineError
 from holdem_solver.protocol import SpotConfig
 
 from . import gpus as gpu_stats
-from .models import GpuInfo, HealthResponse, SolveAccepted, SolveRequest, SolveStatus, StrategyResponse
+from . import examples
+from . import security
+from .metrics import CONTENT_TYPE as METRICS_CONTENT_TYPE
+from .metrics import Metrics
+from .models import (
+    GpuInfo,
+    HandGridResponse,
+    HealthResponse,
+    SolveAccepted,
+    SolveRequest,
+    SolveStatus,
+    StrategyResponse,
+)
 from .scheduler import Scheduler, SchedulerConfig
 from .store import IdempotencyConflictError, JobStore, QueueFullError, request_hash
-from .strategy import map_strategy
+from .strategy import hand_grid, map_strategy
 
 LOG = logging.getLogger("holdem_solver.api")
 
@@ -79,19 +96,6 @@ def _parse_gpus(text: str) -> list[int | None]:
     return [int(part) for part in text.split(",") if part.strip()]
 
 
-def _auth_dependency(api_key: str | None):
-    async def require(request: Request) -> None:
-        if api_key is None:
-            return
-        header = request.headers.get("authorization", "")
-        token = header.removeprefix("Bearer ") if header.startswith("Bearer ") else None
-        token = token or request.headers.get("x-api-key")
-        if token != api_key:
-            raise HTTPException(status_code=401, detail="invalid or missing API key")
-
-    return require
-
-
 def _status(job: dict[str, Any]) -> SolveStatus:
     params = job["params"]
     return SolveStatus(
@@ -106,6 +110,7 @@ def _status(job: dict[str, Any]) -> SolveStatus:
         iteration=job["iteration"],
         iterations_run=job["iterations_run"],
         exploitability=job["exploitability"],
+        exploitability_iteration=job.get("exploitability_iteration"),
         exploitability_history=job["exploitability_history"],
         num_nodes=job["num_nodes"],
         num_infosets=job["num_infosets"],
@@ -116,6 +121,7 @@ def _status(job: dict[str, Any]) -> SolveStatus:
         profile_value_p0=job["profile_value_p0"],
         error=job["error"],
         error_code=job.get("error_code"),
+        dtype=job.get("dtype") or "float32",
         priority=job.get("priority") or 0,
         timeout_seconds=job.get("timeout_seconds"),
         predicted_vram_bytes=job.get("predicted_vram_bytes"),
@@ -152,6 +158,7 @@ def _config_from_env() -> SchedulerConfig:
         cancel_grace_seconds=_env_float("HOLDEM_CANCEL_GRACE_SECONDS", base.cancel_grace_seconds),
         retention_seconds=_env_float("HOLDEM_STRATEGY_RETENTION_SECONDS", base.retention_seconds),
         vram_reserve_bytes=int(os.environ.get("HOLDEM_VRAM_RESERVE_BYTES", base.vram_reserve_bytes)),
+        worker_mode=os.environ.get("HOLDEM_WORKER_MODE", base.worker_mode).strip() or base.worker_mode,
     )
 
 
@@ -165,6 +172,9 @@ def create_app(
     client_kwargs: dict[int | None, dict[str, Any]] | None = None,
     max_queue_depth: int | None = None,
     scheduler_config: SchedulerConfig | None = None,
+    max_body_bytes: int | None = None,
+    post_rate_per_minute: float | None = None,
+    post_burst: int | None = None,
 ) -> FastAPI:
     """Build the app; keyword args override the environment (tests use them)."""
     configure_logging()
@@ -183,12 +193,26 @@ def create_app(
         max_queue_depth = int(os.environ.get("HOLDEM_MAX_QUEUE_DEPTH", DEFAULT_MAX_QUEUE_DEPTH))
     if scheduler_config is None:
         scheduler_config = _config_from_env()
+    if max_body_bytes is None:
+        max_body_bytes = int(os.environ.get("HOLDEM_MAX_BODY_BYTES", security.DEFAULT_MAX_BODY_BYTES))
+    if post_rate_per_minute is None:
+        post_rate_per_minute = float(
+            os.environ.get("HOLDEM_POST_RATE_PER_MINUTE", security.DEFAULT_POST_RATE_PER_MINUTE)
+        )
+    if post_burst is None:
+        post_burst = int(os.environ.get("HOLDEM_POST_BURST", security.DEFAULT_POST_BURST))
+    limiter = security.RateLimiter(post_rate_per_minute, post_burst) if post_rate_per_minute > 0 else None
+    if api_key is None:
+        LOG.warning("HOLDEM_API_KEY is unset: authentication is disabled (development only)")
 
     os.makedirs(data_dir, exist_ok=True)
     store = JobStore(os.path.join(data_dir, "solves.db"))
+    metrics = Metrics()
     scheduler = Scheduler(
-        gpus, store, data_dir, engine=engine, client_kwargs=client_kwargs, config=scheduler_config
+        gpus, store, data_dir, engine=engine, client_kwargs=client_kwargs, config=scheduler_config,
+        metrics=metrics,
     )
+    metrics.attach(store, scheduler)
 
     from contextlib import asynccontextmanager
 
@@ -205,20 +229,30 @@ def create_app(
         scheduler.stop()
         store.close()
 
-    app = FastAPI(title="holdem-solver", version="0.4.0", lifespan=lifespan)
+    app = FastAPI(title="holdem-solver", version="0.5.0", lifespan=lifespan, description=examples.DESCRIPTION)
+    app.add_middleware(security.BodySizeLimit, max_bytes=max_body_bytes)
     app.state.store = store
     app.state.scheduler = scheduler
-    auth = _auth_dependency(api_key)
+    app.state.metrics = metrics
+    auth = security.auth_dependency(api_key)
+    rate_limit = security.rate_limit_dependency(limiter)
 
     @app.exception_handler(RequestValidationError)
     async def validation_422(request: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
 
-    @app.get("/healthz", response_model=HealthResponse)
+    @app.get("/healthz", response_model=HealthResponse, responses=examples.HEALTHZ)
     def healthz() -> HealthResponse:
         return HealthResponse(status="ok")
 
-    @app.get("/v1/gpus", response_model=list[GpuInfo], dependencies=[Depends(auth)])
+    @app.get(
+        "/metrics", dependencies=[Depends(auth)], response_class=Response, responses=examples.METRICS,
+        summary="Prometheus metrics (same auth as /v1)",
+    )
+    def get_metrics() -> Response:
+        return Response(metrics.render(), media_type=METRICS_CONTENT_TYPE)
+
+    @app.get("/v1/gpus", response_model=list[GpuInfo], dependencies=[Depends(auth)], responses=examples.GPUS)
     def list_gpus() -> list[GpuInfo]:
         infos = []
         for gpu in scheduler.gpus:
@@ -227,13 +261,16 @@ def create_app(
             infos.append(GpuInfo(**info))
         return infos
 
-    @app.post("/v1/solves", status_code=202, response_model=SolveAccepted, dependencies=[Depends(auth)])
+    @app.post(
+        "/v1/solves", status_code=202, response_model=SolveAccepted, dependencies=[Depends(auth), Depends(rate_limit)],
+        responses=examples.POST_SOLVE,
+    )
     def post_solve(
         request: SolveRequest,
         response: Response,
         idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=200),
     ) -> SolveAccepted:
-        body_hash = request_hash(request.model_dump(mode="json"))
+        body_hash = request_hash(request.hash_body())
         if idempotency_key is not None:
             # Retries of an accepted request are answered before any engine
             # work or queue-depth check: the job already exists.
@@ -257,7 +294,7 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=f"bad spot: {exc}") from exc
 
-        dtype = (request.solver_options or {}).get("dtype", "float32")
+        dtype = request.effective_dtype()
         try:
             estimate = scheduler.estimate(spot, dtype=dtype)
         except RemoteEngineError as exc:
@@ -282,7 +319,7 @@ def create_app(
         if predicted > limit:
             gib = 1024**3
             basis = (
-                f"x{factor:.3f} from {samples} measured peak(s)" if source == "measured" else f"x{factor:.2f} static"
+                f"x{factor:.3f} from {samples} measured peak(s)" if source == "measured" else f"x{factor:.2f} seed ({samples} of {scheduler.vram.min_samples} samples)"
             )
             raise HTTPException(
                 status_code=422,
@@ -292,8 +329,11 @@ def create_app(
 
         params = request.solve_params()
         params["variant"] = request.variant
-        if request.solver_options:
-            params["solver_options"] = request.solver_options
+        solver_options = dict(request.solver_options or {})
+        if request.dtype is not None:
+            solver_options["dtype"] = request.dtype
+        if solver_options:
+            params["solver_options"] = solver_options
         if request.max_iterations is not None:
             params["max_iterations"] = request.max_iterations
         try:
@@ -326,15 +366,28 @@ def create_app(
             predicted_vram_bytes=predicted,
         )
 
-    @app.get("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)])
+    @app.get("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)], responses=examples.GET_SOLVE)
     def get_solve(job_id: str) -> SolveStatus:
         job = store.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="unknown job id")
         return _status(job)
 
-    @app.get("/v1/solves/{job_id}/strategy", response_model=StrategyResponse, dependencies=[Depends(auth)])
-    def get_strategy(job_id: str) -> StrategyResponse:
+    @app.get(
+        "/v1/solves/{job_id}/strategy", response_model=StrategyResponse | HandGridResponse,
+        dependencies=[Depends(auth)], responses=examples.GET_STRATEGY,
+    )
+    def get_strategy(
+        job_id: str,
+        view: Literal["infosets", "hand_grid"] = Query(
+            "infosets", description="`infosets`: one row per infoset (default). `hand_grid`: per decision point, "
+            "the 169 hand classes with combo-averaged action frequencies."
+        ),
+        player: int | None = Query(None, ge=0, le=1, description="hand_grid only: keep one player's decisions"),
+        history: str | None = Query(
+            None, max_length=500, description="hand_grid only: keep one decision point, e.g. `check,b10` ('' = root)"
+        ),
+    ) -> StrategyResponse | HandGridResponse:
         job = store.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="unknown job id")
@@ -351,9 +404,14 @@ def create_app(
             [name for name in row.decode("utf-8").split(",") if name] for row in data["actions"].tolist()
         ]
         mapped = map_strategy(keys, actions, data["offsets"], data["values"], int(data["iteration"]))
+        if view == "hand_grid":
+            wanted = None if history is None else [part for part in history.split(",") if part.strip()]
+            return HandGridResponse(id=job_id, **hand_grid(mapped, player=player, history=wanted))
         return StrategyResponse(id=job_id, **mapped)
 
-    @app.delete("/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)])
+    @app.delete(
+        "/v1/solves/{job_id}", response_model=SolveStatus, dependencies=[Depends(auth)], responses=examples.DELETE_SOLVE
+    )
     def delete_solve(job_id: str) -> SolveStatus:
         job = store.cancel(job_id)
         if job is None:

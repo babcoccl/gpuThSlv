@@ -1,0 +1,6 @@
+[Unit]
+Description=holdem-solver (API + one engine worker per GPU)
+Wants=holdem-api.service holdem-worker@0.service holdem-worker@1.service
+
+[Install]
+WantedBy=multi-user.target

@@ -5,3 +5,4 @@ __pycache__/
 scripts/phase0/scratch/
 benchmark-scratch/
 api-data/
+deploy/logrotate/*.rendered

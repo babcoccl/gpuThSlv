@@ -9,6 +9,23 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from holdem_solver.protocol import BET_SIZE_SETS, DEFAULT_MAX_NODES
 
 VARIANTS = ("cfr", "cfr_plus", "dcfr", "pcfr_plus")
+DTYPES = ("float32", "float64")
+
+SOLVE_REQUEST_EXAMPLE = {
+    "board": "KsJsTh7d2c",
+    "range0": "QQ+, AKs",
+    "range1": "TT+, AQs+, AKo",
+    "pot": 20.0,
+    "stack": 100.0,
+    "bet_sizes": "standard",
+    "variant": "cfr_plus",
+    "dtype": "float32",
+    "target_exploitability": 0.002,
+    "max_iterations": 20000,
+    "progress_every": 100,
+    "priority": 0,
+    "timeout_seconds": 600,
+}
 
 
 class SolveRequest(BaseModel):
@@ -16,20 +33,30 @@ class SolveRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [SOLVE_REQUEST_EXAMPLE]})
+
     # SpotConfig fields
-    board: list[str] | str
-    range0: str
-    range1: str
+    board: list[str] | str = Field(max_length=32, description="5 river cards (or 4 for a turn spot)")
+    range0: str = Field(max_length=4096)
+    range1: str = Field(max_length=4096)
     pot: float = 20.0
     stack: float = 100.0
-    bet_sizes: str | list[float] = "standard"
+    bet_sizes: str | list[float] = Field(
+        default="standard", max_length=64,
+        description="one bet-size list for every street and node: a preset name or pot fractions",
+    )
     all_in: bool = False
-    dead_cards: list[str] = Field(default_factory=list)
-    name: str | None = None
+    dead_cards: list[str] = Field(default_factory=list, max_length=8)
+    name: str | None = Field(default=None, max_length=200)
     max_nodes: int | None = DEFAULT_MAX_NODES
 
     # Solver parameters
     variant: Literal["cfr", "cfr_plus", "dcfr", "pcfr_plus"] = "cfr_plus"
+    dtype: Literal["float32", "float64"] | None = Field(
+        default=None,
+        description="solver precision; default float32. float64 doubles VRAM for the same tree. "
+        "Same as solver_options.dtype (give one, or the same value in both).",
+    )
     solver_options: dict[str, Any] | None = None
     iterations: int | None = Field(default=None, gt=0)
     time_budget: float | None = Field(default=None, ge=0)
@@ -42,6 +69,25 @@ class SolveRequest(BaseModel):
     timeout_seconds: float | None = Field(
         default=None, gt=0, description="wall-clock limit from start of build; the job fails with error_code=timeout"
     )
+
+    @model_validator(mode="after")
+    def check_dtype(self) -> "SolveRequest":
+        inner = (self.solver_options or {}).get("dtype")
+        if inner is not None and inner not in DTYPES:
+            raise ValueError(f"solver_options.dtype must be one of {DTYPES}")
+        if inner is not None and self.dtype is not None and inner != self.dtype:
+            raise ValueError("dtype and solver_options.dtype disagree")
+        return self
+
+    def effective_dtype(self) -> str:
+        return self.dtype or (self.solver_options or {}).get("dtype") or "float32"
+
+    def hash_body(self) -> dict[str, Any]:
+        """Body for the idempotency hash; an unset dtype hashes as before Phase 5."""
+        body = self.model_dump(mode="json")
+        if body.get("dtype") is None:
+            body.pop("dtype", None)
+        return body
 
     @model_validator(mode="after")
     def check_stop_conditions(self) -> "SolveRequest":
@@ -105,8 +151,14 @@ class SolveStatus(BaseModel):
     build_seconds: float | None = None
     iteration: int | None = None
     iterations_run: int | None = None
-    exploitability: float | None = None
+    exploitability: float | None = Field(
+        default=None, description="latest measured exploitability of the average strategy"
+    )
+    exploitability_iteration: int | None = Field(
+        default=None, description="solver iteration at which `exploitability` was measured"
+    )
     exploitability_history: list[dict[str, Any]] = Field(default_factory=list)
+    dtype: str = Field(default="float32", description="solver precision: float32 or float64")
     num_nodes: int | None = None
     num_infosets: int | None = None
     estimated_vram_bytes: int | None = None
@@ -140,10 +192,38 @@ class InfosetStrategy(BaseModel):
 
 class StrategyResponse(BaseModel):
     id: str
+    view: Literal["infosets"] = "infosets"
     iteration: int
     num_infosets: int
     infosets: list[InfosetStrategy]
     unmapped_keys: int
+
+
+class HandGridCell(BaseModel):
+    hand_class: str
+    combos: int
+    frequencies: dict[str, float]
+
+
+class HandGridAction(BaseModel):
+    name: str
+    label: str
+
+
+class HandGridNode(BaseModel):
+    player: int
+    history: list[str]
+    actions: list[HandGridAction]
+    combos: int
+    grid: list[HandGridCell] = Field(description="169 classes in 13x13 chart order (row-major, AA first)")
+
+
+class HandGridResponse(BaseModel):
+    id: str
+    view: Literal["hand_grid"] = "hand_grid"
+    iteration: int
+    num_infosets: int
+    nodes: list[HandGridNode]
 
 
 class GpuInfo(BaseModel):
