@@ -309,6 +309,29 @@ def test_session_survives_restart(tmp_path):
         assert client3.get("/v1/gpus").status_code == 401
 
 
+def test_session_ttl_seconds_env(monkeypatch, tmp_path):
+    """HOLDEM_SESSION_TTL_SECONDS sets the session cookie lifetime —
+    both the Set-Cookie max_age and the signed v1.<expiry> field.
+    HOLDEM_SESSION_SECONDS remains an accepted fallback."""
+    import time
+
+    for var, ttl in (("HOLDEM_SESSION_TTL_SECONDS", 60),
+                     ("HOLDEM_SESSION_SECONDS", 120)):
+        monkeypatch.setenv(var, str(ttl))
+        other = "HOLDEM_SESSION_SECONDS" if var == "HOLDEM_SESSION_TTL_SECONDS" \
+            else "HOLDEM_SESSION_TTL_SECONDS"
+        monkeypatch.delenv(other, raising=False)
+        app = create_app(gpus=[0], engine="fake", data_dir=str(tmp_path / "api"),
+                         api_key="secret")
+        with TestClient(app) as client:
+            resp = client.post("/v1/auth/login", json={"key": "secret"})
+            assert resp.status_code == 200
+            set_cookie = resp.headers["set-cookie"]
+            assert "Max-Age=%d" % ttl in set_cookie
+            exp = int(client.cookies.get("holdem_session").split(".")[1])
+            assert abs(exp - (time.time() + ttl)) < 5
+
+
 def test_login_rate_limit(tmp_path):
     _app, client = make_client(
         tmp_path, gpus=[0], engine="fake", api_key="secret",

@@ -1,21 +1,41 @@
-"""Phase 9.1: doc-numbers-must-match-artifact check.
+"""Phase 9.2: doc claims parsed from the documents must match the artifacts.
 
-Fails (exit 1) when:
+The hand-maintained claim table is gone: every claim-shaped number in
+``docs/*.md`` and ``README.md`` is parsed out of the prose itself and must
+(a) sit within a few lines of an artifact citation and (b) equal the value
+the cited artifact records. The guard knows two artifacts:
 
-* the committed full-run artifact (``ev_validation_<6 spots>.json``) is
-  missing, untracked by git, or not a complete 6-spot run;
-* docs/PHASE9.md, docs/VALIDATION.md or README.md never cite it;
-* a validation claim in those docs — spot count (``N cap-0 spots``,
-  ``N/N``), a comparison count (``N EVs`` / ``N values`` /
-  ``N (node, combo, action)``), or ``max |Δ| = <x>`` — disagrees with the
-  artifact;
-* a claim line sits more than a few lines away from the citation (claims
-  must name their evidence).
+* ``runs/ev_validation_<spots>.json`` — ``_manifest``: spot list + order,
+  ``spot_count``, per-spot ``node_evs_compared`` +
+  ``node_evs_max_abs_diff``, ``total_node_evs_compared``, ``max_abs_diff``;
+* ``runs/brute_ev.json`` — per-node ``compared`` / ``rows`` combo counts,
+  per-node ``max_abs_diff`` and ``root_ev.abs_diff``.
 
-Usage: python3 scripts/phase9/check_evidence.py
+Claim shapes checked against them:
+
+* totals — ``N (node, combo, action) EV values``, ``N node/combo/action
+  EVs``, ``N values compared``, ``N values``;
+* spot counts — ``N cap-0`` (river / spots / anything) and ``N/N cap-0``;
+* ``max |Δ| = <x>`` (also ``\\|Δ\\|`` in tables, ``vs ... =`` variants);
+* slash-separated per-spot lists — ``84 / 273 / ... / 512``: a list of
+  exactly ``spot_count`` numbers near a citation maps to the manifest's
+  spot order; each element must equal that spot's ``node_evs_compared``,
+  the sum must equal the total, and any spot names given beside the list
+  must appear in manifest order;
+* bare ``N/M`` fractions near a citation — both integers must appear in
+  the artifacts' claim values (spot count, totals, per-spot counts, and
+  brute_ev's per-node compared/rows counts).
+
+A claim-shaped match with no citation within CITE_WINDOW fails too (claims
+must name their evidence).
+
+Usage: python3 scripts/phase9/check_evidence.py [doc ...]
+       (docs default to docs/*.md + README.md; args may be repo-relative or
+       absolute paths, which lets tests point the guard at temp copies)
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
@@ -32,28 +52,29 @@ from scripts.phase8.spots import SPOTS  # noqa: E402
 CAP0_RIVER = [s.name for s in SPOTS if s.raise_cap == 0 and len(s.board) == 5]
 ARTIFACT_NAME = "ev_validation_%s.json" % "+".join(CAP0_RIVER)
 ARTIFACT = os.path.join(RUNS, ARTIFACT_NAME)
-DOCS = ["docs/PHASE9.md", "docs/PHASE9_1.md", "docs/VALIDATION.md", "README.md"]
-
-# claim patterns: (regex, which artifact values the captured number may equal)
-CLAIMS = [
-    # "1,756 (node, combo, action) EV values" / "1,756 node/combo/action EVs"
-    (re.compile(r"(\d[\d,]*)\s*\(?(?:node[,\s/]*combo[,\s/]*action)\)?\s*"
-                r"(?:EV\s+)?(?:values|EVs|comparisons?)", re.IGNORECASE),
-     "comparisons"),
-    # "N EV values compared" / "N values compared"
-    (re.compile(r"(\d[\d,]*)\s+(?:EV\s+)?values compared", re.IGNORECASE),
-     "comparisons"),
-    # "max |Δ| = 7.99e-15" (a measured value, '=' only — '≤' is a bound)
-    (re.compile(r"max\s*\|Δ\|\s*=\s*([0-9.eE+-]+)"), "max_abs_diff"),
-    # "6 cap-0 river spots" / "6/6 cap-0" (not "Phase 7 cap-0 ...")
-    (re.compile(r"(\d+)\s*/\s*(\d+)\s+cap-0", re.IGNORECASE), "spot_count_pair"),
-    (re.compile(r"(?<!Phase )(\d+)\s+cap-0\s+(?:river\s+)?spots",
-                re.IGNORECASE), "spot_count"),
-]
+BRUTE_ARTIFACT = os.path.join(RUNS, "brute_ev.json")
+REQUIRED_CITERS = ("README.md", "docs/VALIDATION.md", "docs/PHASE9.md")
 
 CITE_WINDOW = 6  # wrapped paragraphs put the citation a few lines away
+_CITED = re.compile(r"runs/[\w+._-]+\.json|ev_validation|brute_ev|validate_node_evs")
 
-_CITED = re.compile(r"ev_validation|brute_ev|validate_node_evs")
+_COMPARISONS = re.compile(
+    r"(\d[\d,]*)\s*\(?(?:node[,\s/]*combo[,\s/]*action)\)?\s*"
+    r"(?:EV\s+)?(?:values|EVs|comparisons?)"
+    r"|(\d[\d,]*)\s+(?:EV\s+)?values\s+compared"
+    r"|(\d[\d,]*)\s+values\b"
+    r"|(\d[\d,]*)\s+EVs\b",
+    re.IGNORECASE,
+)
+_MAX_DIFF = re.compile(
+    r"max\s*\\?\|Δ\\?\|\s*(?:vs\s+[^=\n]*?)?=\s*([0-9.eE+-]+)",
+    re.IGNORECASE,
+)
+_SPOT_PAIR = re.compile(r"(?<![\d.])(\d+)\s*/\s*(\d+)\s+cap-0", re.IGNORECASE)
+_SPOT_COUNT = re.compile(r"(?<!Phase )(?<![\w,-])(\d+)\s+cap-0\b", re.IGNORECASE)
+_SLASH_LIST = re.compile(r"(?<![\d.])(\d[\d,]*(?:\s*/\s*\d[\d,]*)+)(?![\d.])")
+_BARE_FRACTION = re.compile(r"(?<!Phase )(?<![\d.])(\d+)\s*/\s*(\d+)(?![\d.]|cap-0)")
+_RUN_REF = re.compile(r"(?:scripts/[\w./-]+/)?runs/[\w+._-]+\.json")
 
 
 def _tracked(relpath):
@@ -64,14 +85,65 @@ def _tracked(relpath):
     return rc == 0
 
 
-def _fmt(md):
-    return {repr(md), "%.6f" % md, "%g" % md, "%.2e" % md}
+def _fmt(x):
+    return {repr(x), "%.6f" % x, "%g" % x, "%.2e" % x}
+
+
+def _ev_values(manifest):
+    """Claim values the ev_validation artifact explains."""
+    order = manifest["spots"]
+    per_spot = [manifest["comparisons"][s]["node_evs_compared"] for s in order]
+    ints = {manifest["spot_count"], manifest["total_node_evs_compared"], *per_spot}
+    diffs = {manifest["max_abs_diff"]}
+    diffs.update(
+        manifest["comparisons"][s]["node_evs_max_abs_diff"] for s in order
+    )
+    return {"order": order, "per_spot": per_spot, "ints": ints, "diffs": diffs}
+
+
+def _brute_values(data):
+    """Claim values the brute_ev artifact explains."""
+    ints, diffs = set(), set()
+    for spot in data.values():
+        for node in (spot.get("nodes") or {}).values():
+            ints.add(node["compared"])
+            if node.get("rows") is not None:
+                ints.add(node["rows"])
+            diffs.add(node["max_abs_diff"])
+        root = spot.get("root_ev") or {}
+        if root.get("abs_diff") is not None:
+            diffs.add(root["abs_diff"])
+    return {"ints": ints, "diffs": diffs}
+
+
+def _cited_windows(cited, i):
+    """Artifacts cited within CITE_WINDOW of line index i."""
+    arts = set()
+    for c in cited:
+        if abs(c - i) <= CITE_WINDOW:
+            arts.add("brute" if "brute_ev" in cited[c] else "ev")
+    return arts
+
+
+def _allowed(cited_arts, ev, brute):
+    ints, diffs = set(), set()
+    if "ev" in cited_arts:
+        ints |= ev["ints"]
+        diffs |= ev["diffs"]
+    if "brute" in cited_arts:
+        ints |= brute["ints"]
+        diffs |= brute["diffs"]
+    return ints, diffs
 
 
 def main():
     failures = []
+    docs = sys.argv[1:] or sorted(
+        os.path.relpath(p, ROOT) for p in glob.glob(os.path.join(ROOT, "docs", "*.md"))
+    ) + ["README.md"]
+
     rel_artifact = os.path.relpath(ARTIFACT, ROOT)
-    manifest = None
+    manifest = ev = None
     if not os.path.exists(ARTIFACT):
         failures.append("missing artifact %s" % rel_artifact)
     elif not _tracked(rel_artifact):
@@ -85,64 +157,189 @@ def main():
                 "artifact covers %r, not the full %r"
                 % (manifest.get("spots"), CAP0_RIVER)
             )
+        ev = _ev_values(manifest)
 
-    counts = set()
-    spot_count = None
-    max_diff = set()
-    if manifest:
-        spot_count = str(manifest["spot_count"])
-        counts.add(str(manifest["total_node_evs_compared"]))
-        counts.update(str(p["node_evs_compared"])
-                      for p in manifest["comparisons"].values())
-        max_diff = _fmt(manifest["max_abs_diff"])
+    brute = {"ints": set(), "diffs": set()}
+    if os.path.exists(BRUTE_ARTIFACT):
+        brute = _brute_values(json.load(open(BRUTE_ARTIFACT)))
 
-    for doc in DOCS:
-        path = os.path.join(ROOT, doc)
+    spot_name_re = None
+    if ev:
+        spot_name_re = re.compile("|".join(re.escape(s) for s in ev["order"]))
+
+    for doc in docs:
+        path = doc if os.path.isabs(doc) else os.path.join(ROOT, doc)
         if not os.path.exists(path):
             continue
         lines = open(path).read().splitlines()
-        if doc in ("docs/VALIDATION.md", "README.md", "docs/PHASE9.md") and not any(
+        cited = {i: l for i, l in enumerate(lines) if _CITED.search(l)}
+        if doc in REQUIRED_CITERS and not any(
             "ev_validation" in l for l in lines
         ):
             failures.append("%s never cites the ev_validation artifact" % doc)
-        cited = {i for i, l in enumerate(lines) if _CITED.search(l)}
-        for lineno, line in enumerate(lines, 1):
-            for rx, kind in CLAIMS:
-                for m in rx.finditer(line):
-                    if not any(abs(lineno - 1 - c) <= CITE_WINDOW for c in cited):
-                        failures.append(
-                            "%s:%d validation claim not near an artifact "
-                            "citation: %s" % (doc, lineno, line.strip()[:100])
-                        )
+
+        seen = set()  # (lineno, kind, value) — joined-line matches repeat
+
+        def flag(lineno, why, line):
+            failures.append("%s:%d %s: %s" % (doc, lineno, why, line.strip()[:100]))
+
+        for i, line in enumerate(lines):
+            # claims may wrap: also scan this line joined with the next
+            candidates = [(i, line)]
+            if i + 1 < len(lines):
+                candidates.append((i, line + " " + lines[i + 1]))
+            for lineno, text in candidates:
+                near = _cited_windows(cited, i)
+                ints, diffs = _allowed(near, ev or {"ints": set(), "diffs": set()},
+                                       brute)
+
+                # -- totals / values -------------------------------------
+                for m in _COMPARISONS.finditer(text):
+                    got = next(g for g in m.groups() if g)
+                    key = (i, "comparisons", got)
+                    if key in seen:
                         continue
-                    if not manifest:
+                    seen.add(key)
+                    if not near:
+                        flag(lineno, "comparison claim not near an artifact citation", line)
+                    elif int(got.replace(",", "")) not in ints:
+                        flag(
+                            lineno,
+                            "comparison count %s not in cited artifact(s)"
+                            " (ev total %s, per-spot %s; brute compared %s)"
+                            % (got,
+                               manifest["total_node_evs_compared"] if manifest else "?",
+                               ev["per_spot"] if ev else "?",
+                               sorted(brute["ints"])),
+                            line,
+                        )
+
+                # -- max |Δ| ----------------------------------------------
+                for m in _MAX_DIFF.finditer(text):
+                    key = (i, "maxdiff", m.group(1))
+                    if key in seen:
                         continue
-                    got = m.group(1).replace(",", "")
-                    if kind == "comparisons" and got not in counts:
-                        failures.append(
-                            "%s:%d comparison count %s not in artifact "
-                            "(total %s; per-spot %s)"
-                            % (doc, lineno, m.group(1),
-                               manifest["total_node_evs_compared"],
-                               [p["node_evs_compared"]
-                                for p in manifest["comparisons"].values()])
+                    seen.add(key)
+                    ok = any(
+                        m.group(1) in {repr(d), "%.6f" % d, "%g" % d, "%.2e" % d}
+                        for d in diffs
+                    )
+                    if not near:
+                        flag(lineno, "max |Δ| claim not near an artifact citation", line)
+                    elif not ok:
+                        flag(
+                            lineno,
+                            "max |Δ| %s not in cited artifact(s) (%s)"
+                            % (m.group(1), sorted(diffs)),
+                            line,
                         )
-                    elif kind == "max_abs_diff" and got not in max_diff:
-                        failures.append(
-                            "%s:%d max |Δ| %s != artifact %r"
-                            % (doc, lineno, got, manifest["max_abs_diff"])
-                        )
-                    elif kind == "spot_count" and got != spot_count:
-                        failures.append(
-                            "%s:%d spot count %s != artifact %s"
-                            % (doc, lineno, got, spot_count)
-                        )
-                    elif kind == "spot_count_pair" and (
-                        m.group(1) != spot_count or m.group(2) != spot_count
+
+                # -- spot counts ------------------------------------------
+                for m in _SPOT_PAIR.finditer(text):
+                    key = (i, "pair", m.group(0))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    if not near:
+                        flag(lineno, "spot count not near an artifact citation", line)
+                    elif not ev or (
+                        m.group(1) != str(manifest["spot_count"])
+                        or m.group(2) != str(manifest["spot_count"])
                     ):
-                        failures.append(
-                            "%s:%d pass count %s/%s != artifact spot count %s"
-                            % (doc, lineno, m.group(1), m.group(2), spot_count)
+                        flag(
+                            lineno,
+                            "pass count %s/%s != artifact spot count %s"
+                            % (m.group(1), m.group(2),
+                               manifest["spot_count"] if manifest else "?"),
+                            line,
+                        )
+                for m in _SPOT_COUNT.finditer(text):
+                    key = (i, "spotcount", m.group(0))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    if not near:
+                        flag(lineno, "spot count not near an artifact citation", line)
+                    elif not ev or m.group(1) != str(manifest["spot_count"]):
+                        flag(
+                            lineno,
+                            "spot count %s != artifact %s"
+                            % (m.group(1),
+                               manifest["spot_count"] if manifest else "?"),
+                            line,
+                        )
+
+                # -- slash-separated per-spot lists -------------------------
+                for m in _SLASH_LIST.finditer(text):
+                    parts = [p.strip() for p in m.group(1).split("/")]
+                    numbers = [int(p.replace(",", "")) for p in parts]
+                    # spot names may wrap onto the next line(s); the
+                    # artifact filename itself names every spot — strip
+                    # runs/*.json references before extracting names
+                    names = (
+                        spot_name_re.findall(
+                            _RUN_REF.sub("", " ".join(lines[i:i + 3]))
+                        )
+                        if spot_name_re
+                        else []
+                    )
+                    is_claim = (
+                        ev
+                        and len(numbers) == manifest["spot_count"]
+                        and (near or len(names) >= 2)
+                    )
+                    if not is_claim:
+                        continue
+                    key = (i, "slashlist", m.group(1))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    if not near:
+                        flag(lineno, "per-spot count list not near an artifact citation", line)
+                        continue
+                    if numbers != ev["per_spot"]:
+                        flag(
+                            lineno,
+                            "per-spot counts %s != artifact manifest order %s"
+                            % (numbers, ev["per_spot"]),
+                            line,
+                        )
+                    if sum(numbers) != manifest["total_node_evs_compared"]:
+                        flag(
+                            lineno,
+                            "per-spot counts sum %d != artifact total %d"
+                            % (sum(numbers), manifest["total_node_evs_compared"]),
+                            line,
+                        )
+                    if len(names) >= 2 and names != [
+                        s for s in ev["order"] if s in names
+                    ]:
+                        flag(
+                            lineno,
+                            "spot order %s differs from manifest %s"
+                            % (names, ev["order"]),
+                            line,
+                        )
+
+                # -- bare N/M fractions -------------------------------------
+                for m in _BARE_FRACTION.finditer(text):
+                    key = (i, "fraction", m.group(0))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    if not near:
+                        continue  # generic fractions need no citation
+                    # only compared/rows-style fractions are checkable —
+                    # that's brute_ev's claim space
+                    if "brute" not in near:
+                        continue
+                    a, b = int(m.group(1)), int(m.group(2))
+                    if a not in ints or b not in ints:
+                        flag(
+                            lineno,
+                            "fraction %s has no counterpart in cited "
+                            "artifact(s) values %s" % (m.group(0), sorted(ints)),
+                            line,
                         )
 
     for f in failures:

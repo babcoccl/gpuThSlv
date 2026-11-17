@@ -279,3 +279,40 @@
   `b905de9c0501` on gpu 0, `e82d19066e0e` on gpu 1); every number in
   docs copied from those logs. Gate `run_all_tests.sh` green.
 - Evidence: `docs/PHASE9.md`, `scripts/phase9/`.
+
+## Phase 9.2 — evidence-guard hardening (2026-11-17)
+
+- `scripts/phase9/check_evidence.py` rewritten: parses numeric claims
+  straight out of `docs/*.md` + `README.md` — totals, spot counts,
+  `max |Δ|`, slash-separated per-spot lists mapped to the manifest spot
+  order (per-spot values AND sum checked; spot names must appear in
+  manifest order), and bare `N/M` fractions cited beside
+  `runs/brute_ev.json`. Claims >6 lines from a citation fail.
+- `tests/test_doc_evidence.py`: positive test plus five parametrised
+  mutations of a temp `PHASE9.md` copy (per-spot count, total, spot
+  count, `max |Δ|` digit, spot order) — all fail as required.
+- Count-change cause (step 3): **1,657 was a transcription error, not a
+  code/data change.** Both recorded runs and the manifest in
+  `scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`
+  show 84 / 273 / 392 / 266 / 229 / 512 = 1,756; the number was written
+  at `c3bcfb8` from a stale 4-spot partial artifact (1,399). The only
+  EV-path commit between the two doc states, `1302fc8`
+  (advance past `river:` elements + scientific-notation bets in
+  `evwalk.py`), is inert on river spots — no `river:<card>` elements,
+  no sci-notation bet names, no nodes added. `35df7c9` re-measured.
+- brute_ev (step 4): **no uncompared emitted rows** — the `18/21` on
+  w-dry-cap0 was compared-at-root / compared-at-check. TexasSolver emits
+  strategy rows only for dealable combos (verified on the four committed
+  `scripts/phase8_6/runs/*_ts.json` dumps): range0 loses 6 combos to
+  board-blocking (3 `Ks`-AKo + 3 `2d`-22) → 18/18 compared; check-node
+  range1 loses 3 (`Ks`-AKo) → 21/21 compared. `brute_ev.py` now writes
+  per-node `rows` and `skipped` reasons; PHASE9_1.md wording fixed.
+- Sessions (step 5): README documents stateless HMAC sessions and that
+  logout does not revoke a stolen cookie; lifetime configurable via
+  `HOLDEM_SESSION_TTL_SECONDS` (`HOLDEM_SESSION_SECONDS` fallback),
+  tested in `test_session_ttl_seconds_env`.
+- Gate: `run_all_tests.sh` — engine 144 passed/14 skipped; api
+  203 passed/9 skipped/3 failed — all 3 pre-existing/environmental
+  (GPU VRAM assertion, an SSE race failing identically on `main`, one
+  timing flake that passed on rerun).
+- Evidence: `docs/PHASE9_2.md`, `scripts/phase9/check_evidence.py`.
