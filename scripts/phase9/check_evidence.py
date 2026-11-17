@@ -284,19 +284,38 @@ def main():
                         if ev and "ev" in near:
                             diffs |= {ev["spot_diffs"][s] for s in named}
                         if "brute" in near:
+                            # a node diff is bound to the clause the claim
+                            # sits in: the spot occurrence whose segment
+                            # (up to the next spot mention) contains the
+                            # match governs which node label counts; when
+                            # a label is present, the per-spot maximum no
+                            # longer rescues a node-qualified claim
+                            pos = (
+                                m.start() if mi == i
+                                else m.start() - bounds[mi - i - 1]
+                            )
+                            ctx = _RUN_REF.sub("", lines[mi])
+                            occs = sorted(
+                                mm.start()
+                                for mm in spot_name_re.finditer(ctx)
+                            )
+                            node_qualified = set()
+                            for k, p in enumerate(occs):
+                                end = occs[k + 1] if k + 1 < len(occs) else len(ctx)
+                                if p <= pos < end:
+                                    s = spot_name_re.match(ctx, p).group(0)
+                                    for label in re.findall(
+                                        r"\b\w[\w-]*\b", ctx[p:end].lower()
+                                    ):
+                                        d = brute["node_diffs"].get((s, label))
+                                        if d is not None:
+                                            diffs.add(d)
+                                            node_qualified.add(s)
                             diffs |= {
                                 brute["spot_diffs"][s]
-                                for s in named if s in brute["spot_diffs"]
-                            }
-                            ctx = _RUN_REF.sub(
-                                "",
-                                " ".join(lines[max(0, mi - 1):mi + 3]),
-                            ).lower()
-                            diffs |= {
-                                d for (s, label), d in
-                                brute["node_diffs"].items()
-                                if s in named
-                                and re.search(r"\b%s\b" % re.escape(label), ctx)
+                                for s in named
+                                if s in brute["spot_diffs"]
+                                and s not in node_qualified
                             }
                     ok = any(
                         m.group(1) in {repr(d), "%.6f" % d, "%g" % d, "%.2e" % d}
@@ -357,16 +376,25 @@ def main():
                     near = _cited_windows(cited, mi)
                     parts = [p.strip() for p in m.group(1).split("/")]
                     numbers = [int(p.replace(",", "")) for p in parts]
-                    # the list's labels follow its numbers (earlier spot
-                    # mentions are preamble, not labels); they may wrap
-                    # onto the next lines, and the artifact filename names
-                    # every spot — strip runs/*.json refs first
+                    # the list's labels sit beside its numbers — after it
+                    # in prose like "… for w-toy-check, …", or before it
+                    # like "for w-…: 84 / 273 / …". Earlier spot mentions
+                    # are preamble, so post-list labels win when present;
+                    # names may wrap onto neighbouring lines and the
+                    # artifact filename names every spot — strip
+                    # runs/*.json refs first
                     after = text[m.end():] + " " + " ".join(
                         lines[mi + 1:mi + 3]
                     )
+                    before = " ".join(lines[max(0, mi - 1):mi]) + " " + \
+                        text[:m.start()]
                     names = list(dict.fromkeys(
                         spot_name_re.findall(_RUN_REF.sub("", after))
                     )) if spot_name_re else []
+                    if len(names) < 2:
+                        names = list(dict.fromkeys(
+                            spot_name_re.findall(_RUN_REF.sub("", before))
+                        )) if spot_name_re else []
                     is_claim = (
                         ev
                         and len(numbers) == manifest["spot_count"]
