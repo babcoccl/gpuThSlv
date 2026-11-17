@@ -1,0 +1,33 @@
+{
+ "river-dry-cap2": {
+  "ours_nodes": 7453,
+  "ts_nodes": 26,
+  "checked": 19,
+  "mismatches": [
+   {
+    "node": [
+     1,
+     [
+      "b10",
+      "r34",
+      "r86.8"
+     ]
+    ],
+    "issue": "action-set",
+    "ours": [
+     "call",
+     "fold"
+    ],
+    "ts": [
+     "call",
+     "r100",
+     "fold"
+    ],
+    "notes": [
+     "ts-only:r100"
+    ]
+   }
+  ],
+  "ts_exit": 0
+ }
+}

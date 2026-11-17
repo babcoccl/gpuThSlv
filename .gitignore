@@ -6,3 +6,7 @@ scripts/phase0/scratch/
 benchmark-scratch/
 api-data/
 deploy/logrotate/*.rendered
+scripts/phase7/runs/*_ts.json
+scripts/phase7/runs/*_ts.json.in.txt
+scripts/phase7/runs/probe_*
+scripts/phase7/runs/*_ts_*.json
