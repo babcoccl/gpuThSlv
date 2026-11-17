@@ -9,6 +9,8 @@ import pytest
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
+pytestmark = pytest.mark.gpu
+
 from holdem_solver.api import create_app  # noqa: E402
 
 from test_api import poll_until  # noqa: E402
