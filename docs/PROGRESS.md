@@ -353,3 +353,28 @@
   doc-status).
 - Evidence: `docs/PHASE10.md`, `scripts/phase10/logs/` (real-GPU SSE curl
   transcripts: running solve, valid/stale reconnect, finished job).
+
+## 2026-11-17 — Phase 10 Part 1: web UI at /ui
+
+- `ui/`: React 19 + TS + Vite 7 app, OpenAPI-generated client
+  (`openapi-typescript` + `openapi-fetch`) with TanStack Query; served
+  from `ui/dist` at `/ui` with SPA fallback and a `/` redirect.
+- API additions: `GET /v1/solves` (newest first), `POST /v1/estimate`,
+  `pinned` + `spot_name` on `SolveStatus`, `_SPAFiles` mount.
+- Screens: login, spot setup (board/dead pickers, dual 13x13 range
+  editor with weights + import/export, bet-size modes, raises, dtype,
+  stop conditions, inline 422 + estimate), jobs list with pin/cancel,
+  SSE exploitability chart, strategy viewer (tree nav + breadcrumbs +
+  action-mix grid + per-class/combo detail + reaches + dealt cards),
+  spot library, compare view.
+- Playwright (`ui/tests/e2e.spec.ts` vs fake engine): **6 passed**
+  (15.9 s) — login, river spot build + estimate + solve + root + child,
+  pin, save/rename/tag/duplicate/solve-from-library, SSE reconnect,
+  inline 422. Log: `scripts/phase10/logs/playwright_e2e.log`.
+- Real e2e on the outpost (`ui/scripts/real-e2e.mjs` vs systemd API):
+  two river solves, gpu0 `1da488305561` expl 0.0931 / gpu1
+  `08a0453b5a93` expl 0.2259 at 120 iterations; screenshots 01–07 in
+  `scripts/phase10/logs/`, job snapshot in `real_e2e.json`.
+- Guard: `check_phase10` verifies the doc table vs `real_e2e.json`,
+  the suite count vs `playwright_e2e.log`, and the committed
+  screenshots. `check_suites.py`: 19 docs OK.

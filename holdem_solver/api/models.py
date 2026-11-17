@@ -171,6 +171,32 @@ class SolveRequest(SolveParams):
             "max_nodes": self.max_nodes,
         }
 
+class EstimateRequest(BaseModel):
+    """``POST /v1/estimate`` body (Phase 10): dry-run admission for a spot.
+
+    Returns the node count and VRAM prediction a ``POST /v1/solves`` would
+    compute, without queueing a job."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    spot: dict[str, Any]
+    dtype: Literal["float32", "float64"] = "float32"
+
+
+class EstimateResponse(BaseModel):
+    num_nodes: int
+    estimated_vram_bytes: int
+    predicted_vram_bytes: int
+    vram_limit_bytes: int
+    over_vram_budget: bool
+    street: str
+    num_hands: list[int]
+    num_removed: list[int]
+    num_deals: int
+    weighted: bool
+    bet_fractions: list[float]
+
+
 class SpotCreate(BaseModel):
     """``POST /v1/spots`` body (Phase 9)."""
 
@@ -333,6 +359,8 @@ class SolveStatus(BaseModel):
     peak_vram_bytes: int | None = None
     strategy_available: bool = False
     strategy_expired_at: float | None = None
+    pinned: bool = Field(default=False, description="pinned strategies are never deleted by retention")
+    spot_name: str | None = Field(default=None, description="the spot's name field, when the request carried one")
 
 
 class StrategyAction(BaseModel):
