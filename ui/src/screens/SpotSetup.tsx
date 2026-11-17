@@ -103,12 +103,15 @@ export default function SpotSetup() {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadedName, setLoadedName] = useState<string | null>(null);
+  const [rawRanges, setRawRanges] = useState<[string, string] | null>(null);
+  const [rangeDirty, setRangeDirty] = useState<[boolean, boolean]>([false, false]);
 
   useEffect(() => {
     if (!id) return;
     api.getSpot(id).then((rec) => {
       const s = rec.spot as Record<string, unknown>;
       const next = { ...DEFAULTS };
+      setRawRanges([String(s.range0 ?? ""), String(s.range1 ?? "")]);
       next.name = rec.name;
       next.board = typeof s.board === "string"
         ? s.board.match(/../g) ?? []
@@ -158,8 +161,8 @@ export default function SpotSetup() {
   const buildSpot = (): Record<string, unknown> => {
     const spot: Record<string, unknown> = {
       board: f.board.join(""),
-      range0: serializeRange(f.range0),
-      range1: serializeRange(f.range1),
+      range0: rawRanges && !rangeDirty[0] ? rawRanges[0] : serializeRange(f.range0),
+      range1: rawRanges && !rangeDirty[1] ? rawRanges[1] : serializeRange(f.range1),
       pot: Number(f.pot),
       stack: Number(f.stack),
       all_in: f.allIn,
@@ -435,8 +438,10 @@ export default function SpotSetup() {
       </div>
 
       <div className="cols">
-        <RangeEditor label="Player 0 (OOP, first to act)" weights={f.range0} onChange={(w) => set("range0", w)} />
-        <RangeEditor label="Player 1 (IP)" weights={f.range1} onChange={(w) => set("range1", w)} />
+        <RangeEditor label="Player 0 (OOP, first to act)" weights={f.range0}
+          onChange={(w) => { set("range0", w); setRangeDirty((d) => [true, d[1]]); }} />
+        <RangeEditor label="Player 1 (IP)" weights={f.range1}
+          onChange={(w) => { set("range1", w); setRangeDirty((d) => [d[0], true]); }} />
       </div>
 
       <div className="panel">
