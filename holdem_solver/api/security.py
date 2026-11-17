@@ -152,11 +152,17 @@ def client_id(request: Request) -> str:
     return "ip:" + (request.client.host if request.client else "unknown")
 
 
-def rate_limit_dependency(limiter: RateLimiter | None) -> Callable[[Request], Awaitable[None]]:
+def rate_limit_dependency(
+    limiter: RateLimiter | None, *, ip_only: bool = False
+) -> Callable[[Request], Awaitable[None]]:
     async def limit(request: Request) -> None:
         if limiter is None:
             return
-        wait = limiter.take(client_id(request))
+        ident = (
+            "ip:" + (request.client.host if request.client else "unknown")
+            if ip_only else client_id(request)
+        )
+        wait = limiter.take(ident)
         if wait > 0:
             raise HTTPException(
                 status_code=429,
