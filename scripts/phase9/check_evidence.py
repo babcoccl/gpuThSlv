@@ -337,8 +337,21 @@ def main():
                                     if k + 1 < len(occs) else len(ctx)
                                 )
                                 s = spot_name_re.match(ctx, p).group(0)
+                                # the qualifier must sit beside the claim:
+                                # between the spot name and the claim when
+                                # the name precedes it, else inside the
+                                # clause that follows the name — unrelated
+                                # sentences inside the segment do not count
+                                if pos >= p:
+                                    labtext = ctx[p:pos]
+                                else:
+                                    cut = re.search(r"[,.;]", ctx[p:end])
+                                    labtext = (
+                                        ctx[p:p + cut.start()]
+                                        if cut else ctx[p:end]
+                                    )
                                 for label in re.findall(
-                                    r"\b\w[\w-]*\b", ctx[p:end].lower()
+                                    r"\b\w[\w-]*\b", labtext.lower()
                                 ):
                                     d = brute["node_diffs"].get((s, label))
                                     if d is not None:
