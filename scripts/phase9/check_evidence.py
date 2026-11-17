@@ -109,15 +109,16 @@ def _ev_values(manifest):
 def _brute_values(data):
     """Claim values the brute_ev artifact explains."""
     ints, diffs = set(), set()
-    spot_diffs = {}
+    spot_diffs, node_diffs = {}, {}
     for name, spot in data.items():
         per = []
-        for node in (spot.get("nodes") or {}).values():
+        for label, node in (spot.get("nodes") or {}).items():
             ints.add(node["compared"])
             if node.get("rows") is not None:
                 ints.add(node["rows"])
             diffs.add(node["max_abs_diff"])
             per.append(node["max_abs_diff"])
+            node_diffs[(name, label)] = node["max_abs_diff"]
         root = spot.get("root_ev") or {}
         if root.get("abs_diff") is not None:
             diffs.add(root["abs_diff"])
@@ -125,11 +126,12 @@ def _brute_values(data):
         if per:
             spot_diffs[name] = max(per)
     # an unqualified "max |D|" is the run's worst diff; per-spot values
-    # count only beside a named spot
+    # count only beside a named spot, per-node beside a named node too
     return {
         "ints": ints,
         "diffs": {max(diffs)} if diffs else set(),
         "spot_diffs": spot_diffs,
+        "node_diffs": node_diffs,
     }
 
 
@@ -218,16 +220,23 @@ def main():
         ev_empty = {"ints": set(), "diffs": set(), "spot_diffs": {}}
         if "spot_diffs" not in brute:
             brute["spot_diffs"] = {}
+        if "node_diffs" not in brute:
+            brute["node_diffs"] = {}
         for i, line in enumerate(lines):
-            # claims may wrap: also scan this line joined with the next
-            candidates = [line]
-            if i + 1 < len(lines):
-                candidates.append(line + " " + lines[i + 1])
-            for text in candidates:
-                # a match's claim line: matches starting inside lines[i]
-                # belong to i; anything past the join boundary to i + 1
-                def claim_line(m, split=len(line)):
-                    return i if m.start() < split else i + 1
+            # claims may wrap: also scan joined 2- and 3-line windows
+            # (a six-count slash list can span three lines)
+            candidates = [(line, [])]
+            bounds = []
+            text = line
+            for j in (i + 1, i + 2):
+                if j < len(lines):
+                    bounds.append(len(text) + 1)
+                    text = text + " " + lines[j]
+                    candidates.append((text, list(bounds)))
+            for text, bounds in candidates:
+                # a match's claim line: count boundaries before its start
+                def claim_line(m, bounds=bounds):
+                    return i + sum(1 for b in bounds if m.start() >= b)
 
                 # -- totals / values -------------------------------------
                 for m in _COMPARISONS.finditer(text):
@@ -278,6 +287,16 @@ def main():
                             diffs |= {
                                 brute["spot_diffs"][s]
                                 for s in named if s in brute["spot_diffs"]
+                            }
+                            ctx = _RUN_REF.sub(
+                                "",
+                                " ".join(lines[max(0, mi - 1):mi + 3]),
+                            ).lower()
+                            diffs |= {
+                                d for (s, label), d in
+                                brute["node_diffs"].items()
+                                if s in named
+                                and re.search(r"\b%s\b" % re.escape(label), ctx)
                             }
                     ok = any(
                         m.group(1) in {repr(d), "%.6f" % d, "%g" % d, "%.2e" % d}
@@ -338,19 +357,16 @@ def main():
                     near = _cited_windows(cited, mi)
                     parts = [p.strip() for p in m.group(1).split("/")]
                     numbers = [int(p.replace(",", "")) for p in parts]
-                    # spot names may wrap onto the next line(s); the
-                    # artifact filename itself names every spot — strip
-                    # runs/*.json references before extracting names
-                    names = (
-                        spot_name_re.findall(
-                            _RUN_REF.sub(
-                                "",
-                                " ".join(lines[max(0, mi - 1):mi + 3]),
-                            )
-                        )
-                        if spot_name_re
-                        else []
+                    # the list's labels follow its numbers (earlier spot
+                    # mentions are preamble, not labels); they may wrap
+                    # onto the next lines, and the artifact filename names
+                    # every spot — strip runs/*.json refs first
+                    after = text[m.end():] + " " + " ".join(
+                        lines[mi + 1:mi + 3]
                     )
+                    names = list(dict.fromkeys(
+                        spot_name_re.findall(_RUN_REF.sub("", after))
+                    )) if spot_name_re else []
                     is_claim = (
                         ev
                         and len(numbers) == manifest["spot_count"]
