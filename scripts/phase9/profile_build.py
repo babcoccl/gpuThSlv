@@ -38,11 +38,13 @@ RAISE_SPOT = SpotConfig(
 
 
 def main():
-    # gpu_cfr is importable only after the vendored submodule is on sys.path
+    # gpu_cfr is importable only after the vendored submodule is on sys.path,
+    # and only engine_worker modules may import it (AGENTS.md); NodeSpec is
+    # reached through tree_builder, which already imports it.
     from holdem_solver.engine_worker.solver import _load_gpu_cfr  # noqa: E402
     _load_gpu_cfr()
-    from gpu_cfr.efg.spec import ActionSpec, NodeSpec  # noqa: E402
     from holdem_solver.engine_worker import tree_builder as tb  # noqa: E402
+    NodeSpec = tb.NodeSpec
 
     os.makedirs(RUNS, exist_ok=True)
     resolved = RAISE_SPOT.resolve()
