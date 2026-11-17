@@ -18,3 +18,4 @@ scripts/phase8_5/runs/donk_*_out.json
 scripts/phase8_5/runs/float32_rerun.json
 scripts/phase8_5/runs/suite8_5.json
 scripts/phase8/runs/*_in.txt
+scripts/phase9/logs/cookies.txt
