@@ -35,6 +35,11 @@ Configuration is by environment variable:
 * ``HOLDEM_MAX_SPOTS``: saved-spot limit for ``/v1/spots`` (512).
 * ``HOLDEM_NODE_EVAL_MAX_WORK``: max combo-node visits a ``/node`` request
   may schedule in the pure-Python EV walk (5,000,000).
+* ``HOLDEM_SSE_BUFFER``: per-job SSE replay buffer size (256 events).
+* ``HOLDEM_SSE_POLL_SECONDS``: job-state poll interval inside an SSE stream
+  (0.5 s); ``HOLDEM_SSE_HEARTBEAT_SECONDS``: keep-alive comment interval
+  (15 s); ``HOLDEM_SSE_RETRY_MS``: the ``retry:`` field sent to clients
+  (2000 ms).
 """
 
 from __future__ import annotations
@@ -92,6 +97,8 @@ DEFAULT_MAX_QUEUE_DEPTH = 64
 DEFAULT_MAX_SPOTS = 512
 SSE_BUFFER = 256
 SSE_POLL_SECONDS = 0.5
+SSE_HEARTBEAT_SECONDS = 15.0
+SSE_RETRY_MS = 2000
 
 ACTIVE_STATES = ("queued", "building", "solving")
 TERMINAL_STATES = ("done", "cancelled", "failed")
@@ -211,6 +218,10 @@ def create_app(
     cors_origins: list[str] | None = None,
     max_spots: int | None = None,
     node_eval_max_work: int | None = None,
+    sse_buffer_size: int | None = None,
+    sse_poll_seconds: float | None = None,
+    sse_heartbeat_seconds: float | None = None,
+    sse_retry_ms: int | None = None,
 ) -> FastAPI:
     """Build the app; keyword args override the environment (tests use them)."""
     configure_logging()
@@ -258,6 +269,16 @@ def create_app(
         node_eval_max_work = int(
             os.environ.get("HOLDEM_NODE_EVAL_MAX_WORK", api_nodes.DEFAULT_MAX_EVAL_WORK)
         )
+    if sse_buffer_size is None:
+        sse_buffer_size = int(os.environ.get("HOLDEM_SSE_BUFFER", SSE_BUFFER))
+    if sse_poll_seconds is None:
+        sse_poll_seconds = float(os.environ.get("HOLDEM_SSE_POLL_SECONDS", SSE_POLL_SECONDS))
+    if sse_heartbeat_seconds is None:
+        sse_heartbeat_seconds = float(
+            os.environ.get("HOLDEM_SSE_HEARTBEAT_SECONDS", SSE_HEARTBEAT_SECONDS)
+        )
+    if sse_retry_ms is None:
+        sse_retry_ms = int(os.environ.get("HOLDEM_SSE_RETRY_MS", SSE_RETRY_MS))
     signer = (
         security.SessionSigner(api_key, secret=session_secret, ttl_seconds=session_seconds)
         if api_key
@@ -310,6 +331,11 @@ def create_app(
     app.state.metrics = metrics
     app.state.sse_buffers = {}  # job_id -> deque[(seq, payload)]
     app.state.sse_lock = threading.Lock()
+    # Per-process token in event ids (``<boot>-<seq>``): a Last-Event-ID from
+    # before an API restart can never alias this buffer's seq numbers.
+    import secrets as _secrets
+
+    app.state.sse_boot = _secrets.token_hex(4)
     auth = security.auth_dependency(api_key, signer)
     csrf = security.csrf_dependency
     rate_limit = security.rate_limit_dependency(limiter)
@@ -636,7 +662,7 @@ def create_app(
     def _sse_record(job_id: str, payload: dict[str, Any]) -> int:
         """Append ``payload`` to the job's replay buffer; return its event id."""
         with app.state.sse_lock:
-            buf = app.state.sse_buffers.setdefault(job_id, deque(maxlen=SSE_BUFFER))
+            buf = app.state.sse_buffers.setdefault(job_id, deque(maxlen=sse_buffer_size))
             if buf and buf[-1][1] == payload:
                 return buf[-1][0]
             seq = (buf[-1][0] if buf else 0) + 1
@@ -656,37 +682,60 @@ def create_app(
         if job is None:
             raise HTTPException(status_code=404, detail="unknown job id")
 
+        boot = app.state.sse_boot
+
         def frame(seq: int, event: str, payload: dict[str, Any]) -> str:
-            return "id: %d\nevent: %s\ndata: %s\n\n" % (seq, event, json.dumps(payload))
+            return "id: %s-%d\nevent: %s\ndata: %s\n\n" % (boot, seq, event, json.dumps(payload))
+
+        def parse_last_event_id() -> int | None:
+            """Valid ``<boot>-<seq>`` -> seq; anything else -> None (treated as
+            stale: snapshot + live, no replay)."""
+            if last_event_id is None:
+                return None
+            head, sep, tail = last_event_id.rpartition("-")
+            if not sep or head != boot:
+                return None
+            try:
+                return int(tail)
+            except ValueError:
+                return None
+
+        heartbeat_ticks = max(1, int(round(sse_heartbeat_seconds / sse_poll_seconds)))
 
         def stream() -> Iterator[str]:
-            last_payload = None
-            if last_event_id is not None:
-                try:
-                    last_seq = int(last_event_id)
-                except ValueError:
-                    last_seq = -1
-                with app.state.sse_lock:
-                    buf = list(app.state.sse_buffers.get(job_id, ()))
-                for seq, payload in buf:
-                    if seq > last_seq:
-                        yield frame(seq, "progress", payload)
-                        last_payload = payload
+            yield "retry: %d\n\n" % sse_retry_ms
             job_now = store.get(job_id)
             if job_now is None:
                 yield frame(0, "gone", {"status": "gone"})
                 return
             payload = _sse_snapshot(job_now)
             seq = _sse_record(job_id, payload)
-            if payload != last_payload:
-                yield frame(seq, "snapshot", payload)
-                last_payload = payload
+            # Every connection — new or reconnecting — starts with a snapshot
+            # of the current job state; the snapshot replaces client state.
+            yield frame(seq, "snapshot", payload)
+
+            # Finished jobs: snapshot then the terminal done event, no replay.
+            if job_now["status"] in TERMINAL_STATES:
+                yield frame(seq, "done", payload)
+                return
+
+            last_seq = parse_last_event_id()
+            if last_seq is not None:
+                with app.state.sse_lock:
+                    buf = list(app.state.sse_buffers.get(job_id, ()))
+                # Replay only when the id is still inside the buffer window;
+                # evicted (buf[0] > id), future (id > buf[-1]), empty buffer,
+                # malformed, or pre-restart ids all fall through to live.
+                # ``bseq < seq`` excludes the snapshot we just appended.
+                if buf and buf[0][0] <= last_seq <= buf[-1][0]:
+                    for bseq, bpayload in buf:
+                        if last_seq < bseq < seq:
+                            yield frame(bseq, "progress", bpayload)
+
+            last_payload = payload
             ticks = 0
             while True:
-                if job_now["status"] in TERMINAL_STATES:
-                    yield frame(seq, "done", payload)
-                    return
-                time.sleep(SSE_POLL_SECONDS)
+                time.sleep(sse_poll_seconds)
                 ticks += 1
                 job_now = store.get(job_id)
                 if job_now is None:
@@ -697,10 +746,20 @@ def create_app(
                 if payload != last_payload:
                     yield frame(seq, "progress", payload)
                     last_payload = payload
-                elif ticks % 40 == 0:
+                elif ticks % heartbeat_ticks == 0:
                     yield ": keep-alive\n\n"
+                if job_now["status"] in TERMINAL_STATES:
+                    yield frame(seq, "done", payload)
+                    return
 
-        return StreamingResponse(stream(), media_type="text/event-stream")
+        return StreamingResponse(
+            stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     # -- Phase 9: pin/unpin ------------------------------------------------------
 

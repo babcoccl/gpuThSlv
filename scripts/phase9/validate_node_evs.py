@@ -1,4 +1,4 @@
-"""Phase 9 EV validation: /node EV machinery vs the Phase 7 dump_ev walk.
+"""Phase 9/9.1 EV validation: /node EV machinery vs the Phase 7 dump_ev walk.
 
 Runs in ``.venv-engine``. For each of the 6 river raise_cap=0 spots:
 
@@ -14,20 +14,27 @@ Runs in ``.venv-engine``. For each of the 6 river raise_cap=0 spots:
 The saved Phase 8 TS dumps are reused (deterministic inputs); our solves
 run fresh on the GPU.
 
+Evidence integrity (Phase 9.1): every run writes a DISTINCT artifact —
+``runs/ev_validation_<spot>+<spot>+....json`` — whose filename carries the
+spot list and whose ``_manifest`` records the spots, per-spot comparison
+counts, the strategy dtype/source of each comparison, and the git commit.
+A partial run can never overwrite the full 6-spot artifact.
+
 Usage: .venv-engine/bin/python -m scripts.phase9.validate_node_evs [spot ...]
-Writes scripts/phase9/runs/ev_validation.json.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from holdem_solver.protocol.cards import combo_str, parse_cards, parse_range
 from holdem_solver.protocol.evwalk import (
-    TreeIndex, dealt_board, initial_reaches, node_action_evs as our_action_evs,
+    TreeIndex, dealt_board, node_action_evs as our_action_evs,
     reach_at, root_ev,
 )
 from scripts.phase7.ours import solve_ours
@@ -36,17 +43,40 @@ from scripts.phase8.spots import SPOTS
 from scripts.phase8.xeval import node_action_evs as ts_action_evs
 
 RUNS = os.path.join(os.path.dirname(__file__), "runs")
-OUT = os.path.join(RUNS, "ev_validation.json")
 TS_DUMPS = os.path.join(os.path.dirname(__file__), "..", "phase8", "runs")
 
 CAP0_RIVER = [s for s in SPOTS if s.raise_cap == 0 and len(s.board) == 5]
+FULL_RUN = [s.name for s in CAP0_RIVER]
 
 TOL_FRAC_OF_POT = 0.01   # standing tolerance: 1.0% of pot
 TOL_CHIPS = 0.05         #   + 0.05 chips absolute
 
+DTYPE = "float64"  # solve_ours dtype used for every comparison in this file
+
+
+def out_path(names):
+    """Distinct artifact per spot set: the filename carries the spot list."""
+    return os.path.join(RUNS, "ev_validation_%s.json" % "+".join(names))
+
+
+def partial_path(names):
+    """In-progress output; renamed to ``out_path`` only on completion, so an
+    interrupted run can never masquerade as the finished artifact."""
+    return out_path(names) + ".partial"
+
 
 def tol(pot):
     return TOL_FRAC_OF_POT * pot + TOL_CHIPS
+
+
+def git_commit():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=os.path.join(os.path.dirname(__file__), "..", ".."),
+        ).decode().strip()
+    except Exception:
+        return "unknown"
 
 
 def ts_index(nodes):
@@ -65,10 +95,16 @@ def our_index(nodes):
 
 def main(names=None):
     os.makedirs(RUNS, exist_ok=True)
+    spots = [s for s in CAP0_RIVER if names is None or s.name in names]
+    if names is not None:
+        missing = [n for n in names if n not in {s.name for s in spots}]
+        if missing:
+            print("unknown spot(s): %s" % ", ".join(missing))
+            sys.exit(2)
+    run_names = [s.name for s in spots]
+    out = out_path(run_names)
     results = {}
-    for spot in CAP0_RIVER:
-        if names is not None and spot.name not in names:
-            continue
+    for spot in spots:
         name = spot.name
         print("=== %s ===" % name, flush=True)
         dump_path = os.path.join(TS_DUMPS, "%s_ts.json" % name)
@@ -78,6 +114,7 @@ def main(names=None):
         blocked = board_ids + dead_ids
         w0 = {combo_str(c): w for c, w in parse_range(spot.range0).items()}
         w1 = {combo_str(c): w for c, w in parse_range(spot.range1).items()}
+        dump_rel = os.path.relpath(dump_path, os.path.join(os.path.dirname(__file__), "..", ".."))
 
         # --- 1. root EV on the TS dump's tree -------------------------------
         from scripts.phase7.texas_dump import dump_ev
@@ -88,7 +125,7 @@ def main(names=None):
         ref_root = dump_ev(dump_path, pot=pot, board=list(spot.board),
                            range0=spot.range0, range1=spot.range1)
         root_diff = abs(our_root - ref_root)
-        print("  ts-tree root ev: ours=%.6f dump_ev=%.6f |d|=%.6f (tol %.3f)"
+        print("  ts-tree root ev: evwalk=%r dump_ev=%r |d|=%r (tol %.3f)"
               % (our_root, ref_root, root_diff, tol(pot)), flush=True)
 
         # --- 2. per-node per-combo per-action EVs on the TS tree ------------
@@ -120,38 +157,76 @@ def main(names=None):
                     if d > max_diff:
                         max_diff = d
                         worst = (player, hist, combo, action)
-        print("  node EVs: %d compared, max |d|=%.6f (tol %.3f) worst=%s"
+        print("  node EVs: %d compared, max |d|=%r (tol %.3f) worst=%s"
               % (compared, max_diff, tol(pot), worst), flush=True)
 
         # --- 3. our solve's root EV vs profile_value_p0 --------------------
-        ours = solve_ours(spot, dtype="float64", accuracy_pct=0.5)
+        ours = solve_ours(spot, dtype=DTYPE, accuracy_pct=0.5)
         own_index = our_index(ours["nodes"])
         own_root = root_ev(own_index, w0, w1, board_ids, dead_ids, pot)
         status_diff = abs(own_root - ours["ev_p0"])
-        print("  own root ev: evwalk=%.6f profile_value_p0=%.6f |d|=%.6f"
+        print("  own root ev: evwalk=%r profile_value_p0=%r |d|=%r"
               % (own_root, ours["ev_p0"], status_diff), flush=True)
 
         limit = tol(pot)
         results[name] = {
             "pot": pot,
             "tol_chips": limit,
-            "root_ev_ts_tree": {"evwalk": our_root, "dump_ev": ref_root,
-                               "abs_diff": root_diff, "ok": root_diff <= limit},
-            "node_evs": {"compared": compared, "max_abs_diff": max_diff,
-                         "ok": max_diff <= limit and compared > 0},
-            "root_ev_own_tree": {"evwalk": own_root,
-                                 "profile_value_p0": ours["ev_p0"],
-                                 "abs_diff": status_diff,
-                                 "ok": status_diff <= limit},
+            "root_ev_ts_tree": {
+                "evwalk": our_root, "dump_ev": ref_root,
+                "abs_diff": root_diff, "ok": root_diff <= limit,
+                "strategy_source": "TexasSolver dump_result average strategy (%s)" % dump_rel,
+                "dtype": "float64 (dump JSON doubles; walk in Python float)"},
+            "node_evs": {
+                "compared": compared, "max_abs_diff": max_diff,
+                "ok": max_diff <= limit and compared > 0,
+                "strategy_source": "TexasSolver dump_result average strategy (%s)" % dump_rel,
+                "dtype": "float64 (dump JSON doubles; walk in Python float)"},
+            "root_ev_own_tree": {
+                "evwalk": own_root, "profile_value_p0": ours["ev_p0"],
+                "abs_diff": status_diff, "ok": status_diff <= limit,
+                "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+                "dtype": DTYPE},
             "ok": root_diff <= limit and max_diff <= limit
                   and status_diff <= limit and compared > 0,
         }
-        json.dump(results, open(OUT, "w"), indent=1)
+        _write(partial_path(run_names), results, requested=run_names)
 
     n_ok = sum(1 for r in results.values() if r["ok"])
+    _write(out, results, requested=run_names, complete=True)
+    if os.path.exists(partial_path(run_names)):
+        os.remove(partial_path(run_names))
     print("\n%d/%d spots within tolerance" % (n_ok, len(results)))
-    print("written to %s" % OUT)
-    sys.exit(0 if n_ok == len(results) else 1)
+    print("written to %s" % out)
+    sys.exit(0 if n_ok == len(results) and len(results) == len(spots) else 1)
+
+
+def _write(out, results, requested, complete=False):
+    run_names = list(results)
+    manifest = {
+        "spots": run_names,
+        "requested_spots": requested,
+        "complete": complete,
+        "spot_count": len(run_names),
+        "is_full_run": sorted(run_names) == sorted(FULL_RUN),
+        "expected_full_run": FULL_RUN,
+        "git_commit": git_commit(),
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "comparisons": {
+            name: {
+                "node_evs_compared": r["node_evs"]["compared"],
+                "node_evs_max_abs_diff": r["node_evs"]["max_abs_diff"],
+            }
+            for name, r in results.items()
+        },
+        "total_node_evs_compared": sum(
+            r["node_evs"]["compared"] for r in results.values()
+        ),
+        "max_abs_diff": max(
+            (r["node_evs"]["max_abs_diff"] for r in results.values()), default=0.0
+        ),
+    }
+    json.dump({"_manifest": manifest, "spots": results}, open(out, "w"), indent=1)
 
 
 if __name__ == "__main__":

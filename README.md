@@ -139,13 +139,26 @@ curl -H "Authorization: Bearer $HOLDEM_API_KEY" \
 # per hand class (per combo with combos=true): reach-weighted action
 # frequencies, per-action EVs, hand EV, equity vs the opponent's reaching
 # range, and both players' reaches at the node. Formulas in
-# docs/PHASE9.md; EVs validated to exactly match the Phase 7 dump_ev walk
-# on 6 cap-0 spots (1,657 values, max |Δ| = 0) — docs/VALIDATION.md.
+# docs/PHASE9.md; EVs validated against the Phase 7 dump_ev walk on
+# 6 cap-0 spots (1,756 values, max |Δ| = 7.993605777301127e-15) —
+# scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json,
+# docs/VALIDATION.md.
 
 curl -N -H "Authorization: Bearer $HOLDEM_API_KEY" \
   http://127.0.0.1:8000/v1/solves/<id>/events
 # server-sent events: snapshot/progress/done with status, iteration,
-# exploitability; send `Last-Event-ID: <n>` to resume after a disconnect.
+# exploitability. Contract (Phase 9.1):
+#  - every connection starts with a `retry:` field then a `snapshot`
+#    event carrying the CURRENT job state — never skipped;
+#  - `Last-Event-ID: <boot>-<seq>` still inside the replay buffer
+#    replays the buffered events after it in order, then goes live;
+#  - stale, unknown, malformed, evicted, future, or pre-restart ids —
+#    and finished jobs — get the snapshot then live events (or the
+#    terminal `done` event), no replay;
+#  - `: keep-alive` comment heartbeats; `Cache-Control: no-cache` and
+#    `X-Accel-Buffering: no` disable proxy buffering.
+# Client rule: the snapshot replaces local state; progress events with an
+# iteration lower than the current one are ignored; done is terminal.
 ```
 
 ### Saved spots
@@ -177,6 +190,12 @@ requests must echo the CSRF token in `x-csrf-token` (403 otherwise).
 `HOLDEM_CORS_ORIGINS` to allow browser origins. Login attempts are
 rate-limited (10/min, burst 5). The Bearer API key still works for
 scripts; a request that supplies both is a script call (no CSRF needed).
+The login credential is the API key (`{"key": ...}`). Session cookies are
+stateless HMAC tokens (`v1.<expiry>.<sig>`) signed with
+`HOLDEM_SESSION_SECRET` (or a sha256 of `"holdem-session:" + api_key` when
+unset), so they **survive an API restart** as long as the signing material
+is unchanged — tested in `tests/test_api_sse.py`/`test_api_phase9.py`.
+Changing the key or the secret invalidates every live session.
 
 ### API usage
 

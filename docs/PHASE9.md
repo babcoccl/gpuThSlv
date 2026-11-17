@@ -1,6 +1,6 @@
 # Phase 9 — UI backend (no UI code)
 
-Date: 2026-11-17. Status: in progress.
+Date: 2026-11-17. Status: complete — merged as PR #14; the Phase 9.1 branch fixed the corrupted evidence artifact (see PHASE9_1.md).
 
 Everything in the tolerances section is written **before** implementation and
 is not revised after seeing results. No vendored changes (GPU-CFR,
@@ -94,7 +94,12 @@ At a node with history `h` for acting player `p`, per own combo `c`:
 
 Recorded below as each numbered spec step lands (done / skipped+reason /
 failed+analysis). Curl evidence: `scripts/phase9/logs/`; validation JSON:
-`scripts/phase9/runs/ev_validation.json`, `tree_gate.json`.
+`scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`,
+`tree_gate.json`. (Phase 9.1 note: the `ev_validation.json` committed at
+this phase's close was a stale 4-spot partial run — a shorter invocation
+had overwritten the 6-spot artifact. Phase 9.1 renamed per-run outputs and
+re-ran the full 6-spot validation; the artifact above is the corrected,
+committed full run.)
 
 1. **Tree navigation — done.** `GET /v1/solves/{id}/tree` returns player,
    street, pot, per-player stacks, board (with dealt cards folded into the
@@ -111,12 +116,16 @@ failed+analysis). Curl evidence: `scripts/phase9/logs/`; validation JSON:
    equity, and both players' reaches (`ranges.p0`/`p1` with `reach` and
    `share` fields). `logs/node_root.txt` shows all four hand classes with
    frequencies, action_evs, ev, equity.
-   **EV validation** (`scripts/phase9/validate_node_evs.py`): **6/6 cap-0
-   river spots pass at exactly zero difference** —
-   1,657 (node, combo, action) EV values compared between `evwalk.py` and
-   the Phase 7/8 dump_ev walk, max |Δ| = 0.000000; root EV on the TS tree
-   equals `dump_ev` exactly; root EV on our tree equals
-   `profile_value_p0` exactly. Property tests in `tests/test_evwalk.py`:
+   **EV validation** (`scripts/phase9/validate_node_evs.py`, corrected in
+   Phase 9.1): **6/6 cap-0 river spots pass within tolerance** —
+   1,756 (node, combo, action) EV values compared between `evwalk.py` and
+   the Phase 7/8 dump_ev walk, max |Δ| = 7.993605777301127e-15 chips
+   (float64 round-off); per spot: 84 / 273 / 392 / 266 / 229 / 512 for
+   w-toy-check, w-dry-cap0, w-wet-cap0, w-pair-cap0, w-blocker-cap0,
+   w-full-cap0 (`runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`).
+   Root EVs agree to ~1e-14 (full-precision digits in the artifact); the
+   strategy source and dtype for each comparison are recorded there.
+   Property tests in `tests/test_evwalk.py`:
    frequencies sum to 1, child reach = parent reach × σ, equity ∈ [0,1],
    walk payoff on a fold/showdown.
 3. **Live progress — done.** `GET /v1/solves/{id}/events` streams SSE

@@ -1,0 +1,231 @@
+{
+ "_manifest": {
+  "spots": [
+   "w-toy-check",
+   "w-dry-cap0",
+   "w-wet-cap0",
+   "w-pair-cap0",
+   "w-blocker-cap0",
+   "w-full-cap0"
+  ],
+  "requested_spots": [
+   "w-toy-check",
+   "w-dry-cap0",
+   "w-wet-cap0",
+   "w-pair-cap0",
+   "w-blocker-cap0",
+   "w-full-cap0"
+  ],
+  "complete": true,
+  "spot_count": 6,
+  "is_full_run": true,
+  "expected_full_run": [
+   "w-toy-check",
+   "w-dry-cap0",
+   "w-wet-cap0",
+   "w-pair-cap0",
+   "w-blocker-cap0",
+   "w-full-cap0"
+  ],
+  "git_commit": "7b5f250d7ccc842a6e67e870f51001c1c8d716a8",
+  "generated_at": "2026-11-17T18:30:32.464587+00:00",
+  "comparisons": {
+   "w-toy-check": {
+    "node_evs_compared": 84,
+    "node_evs_max_abs_diff": 0.0
+   },
+   "w-dry-cap0": {
+    "node_evs_compared": 273,
+    "node_evs_max_abs_diff": 7.993605777301127e-15
+   },
+   "w-wet-cap0": {
+    "node_evs_compared": 392,
+    "node_evs_max_abs_diff": 1.7763568394002505e-15
+   },
+   "w-pair-cap0": {
+    "node_evs_compared": 266,
+    "node_evs_max_abs_diff": 7.549516567451064e-15
+   },
+   "w-blocker-cap0": {
+    "node_evs_compared": 229,
+    "node_evs_max_abs_diff": 0.0
+   },
+   "w-full-cap0": {
+    "node_evs_compared": 512,
+    "node_evs_max_abs_diff": 1.7763568394002505e-15
+   }
+  },
+  "total_node_evs_compared": 1756,
+  "max_abs_diff": 7.993605777301127e-15
+ },
+ "spots": {
+  "w-toy-check": {
+   "pot": 20.0,
+   "tol_chips": 0.25,
+   "root_ev_ts_tree": {
+    "evwalk": 10.063393305813008,
+    "dump_ev": 10.063393305813008,
+    "abs_diff": 0.0,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-toy-check_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "node_evs": {
+    "compared": 84,
+    "max_abs_diff": 0.0,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-toy-check_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "root_ev_own_tree": {
+    "evwalk": 10.012043746335033,
+    "profile_value_p0": 10.012043746335038,
+    "abs_diff": 5.329070518200751e-15,
+    "ok": true,
+    "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+    "dtype": "float64"
+   },
+   "ok": true
+  },
+  "w-dry-cap0": {
+   "pot": 20.0,
+   "tol_chips": 0.25,
+   "root_ev_ts_tree": {
+    "evwalk": 8.470648854069943,
+    "dump_ev": 8.470648854069944,
+    "abs_diff": 1.7763568394002505e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-dry-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "node_evs": {
+    "compared": 273,
+    "max_abs_diff": 7.993605777301127e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-dry-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "root_ev_own_tree": {
+    "evwalk": 8.456054258367729,
+    "profile_value_p0": 8.456054258367747,
+    "abs_diff": 1.7763568394002505e-14,
+    "ok": true,
+    "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+    "dtype": "float64"
+   },
+   "ok": true
+  },
+  "w-wet-cap0": {
+   "pot": 20.0,
+   "tol_chips": 0.25,
+   "root_ev_ts_tree": {
+    "evwalk": -8.83747504240893,
+    "dump_ev": -8.837475042408927,
+    "abs_diff": 1.7763568394002505e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-wet-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "node_evs": {
+    "compared": 392,
+    "max_abs_diff": 1.7763568394002505e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-wet-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "root_ev_own_tree": {
+    "evwalk": -8.847019809150343,
+    "profile_value_p0": -8.847019809150353,
+    "abs_diff": 1.0658141036401503e-14,
+    "ok": true,
+    "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+    "dtype": "float64"
+   },
+   "ok": true
+  },
+  "w-pair-cap0": {
+   "pot": 20.0,
+   "tol_chips": 0.25,
+   "root_ev_ts_tree": {
+    "evwalk": -5.691173115783226,
+    "dump_ev": -5.6911731157832275,
+    "abs_diff": 1.7763568394002505e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-pair-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "node_evs": {
+    "compared": 266,
+    "max_abs_diff": 7.549516567451064e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-pair-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "root_ev_own_tree": {
+    "evwalk": -5.692547638814184,
+    "profile_value_p0": -5.692547638814183,
+    "abs_diff": 8.881784197001252e-16,
+    "ok": true,
+    "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+    "dtype": "float64"
+   },
+   "ok": true
+  },
+  "w-blocker-cap0": {
+   "pot": 20.0,
+   "tol_chips": 0.25,
+   "root_ev_ts_tree": {
+    "evwalk": -10.119347567909221,
+    "dump_ev": -10.119347567909225,
+    "abs_diff": 3.552713678800501e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-blocker-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "node_evs": {
+    "compared": 229,
+    "max_abs_diff": 0.0,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-blocker-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "root_ev_own_tree": {
+    "evwalk": -10.083615534035715,
+    "profile_value_p0": -10.083615534035712,
+    "abs_diff": 3.552713678800501e-15,
+    "ok": true,
+    "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+    "dtype": "float64"
+   },
+   "ok": true
+  },
+  "w-full-cap0": {
+   "pot": 20.0,
+   "tol_chips": 0.25,
+   "root_ev_ts_tree": {
+    "evwalk": 1.3935390875666454,
+    "dump_ev": 1.3935390875666471,
+    "abs_diff": 1.7763568394002505e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-full-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "node_evs": {
+    "compared": 512,
+    "max_abs_diff": 1.7763568394002505e-15,
+    "ok": true,
+    "strategy_source": "TexasSolver dump_result average strategy (scripts/phase8/runs/w-full-cap0_ts.json)",
+    "dtype": "float64 (dump JSON doubles; walk in Python float)"
+   },
+   "root_ev_own_tree": {
+    "evwalk": 1.3939801881981284,
+    "profile_value_p0": 1.393980188198125,
+    "abs_diff": 3.3306690738754696e-15,
+    "ok": true,
+    "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
+    "dtype": "float64"
+   },
+   "ok": true
+  }
+ }
+}

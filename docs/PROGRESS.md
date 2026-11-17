@@ -263,10 +263,13 @@
   `HOLDEM_CORS_ORIGINS`; login rate-limited 10/min burst 5).
 - `holdem_solver/protocol/evwalk.py`: pure-Python evaluation walk
   mirroring the Phase 7 `dump_ev` reference — shared by both venvs
-  (3.9-safe). EV gate: 6/6 cap-0 river spots, 1,657 (node, combo,
-  action) EV values vs `xeval.node_action_evs`, **max |Δ| = 0.000000**;
-  root EV = `dump_ev` = `profile_value_p0` exactly
-  (`scripts/phase9/runs/ev_validation.json`).
+  (3.9-safe). EV gate: 6/6 cap-0 river spots, 1,756 (node, combo,
+  action) EV values vs `xeval.node_action_evs`, **max |Δ| =
+  7.993605777301127e-15** (float64 round-off); root EV =
+  `dump_ev` = `profile_value_p0` to ~1e-14
+  (`scripts/phase9/runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`;
+  Phase 9.1 regenerated — the originally committed file was a stale
+  4-spot partial run).
 - Subtree cache (step 6): mechanism shipped since Phase 6; re-verified
   — `compare_trees` green and node counts identical on all 10 rerun
   spots; spec-build on `river-full-pot` cap 2 = **68.01 s /
