@@ -115,6 +115,12 @@ class SolveRequest(BaseModel):
         body = self.model_dump(mode="json")
         if body.get("dtype") is None:
             body.pop("dtype", None)
+        # New in Phase 8.5: keep retries of pre-upgrade keys valid by
+        # hashing omitted/default raise fields exactly as before.
+        if body.get("raise_cap") == 0:
+            body.pop("raise_cap", None)
+        if not body.get("raise_sizes"):
+            body.pop("raise_sizes", None)
         return body
 
     @model_validator(mode="after")
