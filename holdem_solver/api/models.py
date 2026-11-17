@@ -199,6 +199,13 @@ class SpotUpdate(BaseModel):
     tags: list[str] | None = Field(default=None, max_length=32)
     notes: str | None = Field(default=None, max_length=2000)
 
+    @model_validator(mode="after")
+    def check_tags(self) -> "SpotUpdate":
+        for tag in self.tags or ():
+            if len(tag) > 64:
+                raise ValueError("tags must be at most 64 chars")
+        return self
+
 
 class SpotRecord(BaseModel):
     id: str
