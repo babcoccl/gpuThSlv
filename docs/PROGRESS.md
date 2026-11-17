@@ -59,3 +59,53 @@
 - Lifecycle: `Idempotency-Key` on POST (replay → same job, different body → 409). Strategy `.npz` files are written atomically, deleted after `HOLDEM_STRATEGY_RETENTION_SECONDS` (7 d), and `/strategy` returns 410 for them. On restart only building/solving jobs fail (`api_restart`, not replayed); queued jobs keep running.
 - Measured (`scripts/phase4/gate.py`, logs in `scripts/phase4/logs/`): 10 mixed jobs (2k–573k nodes) on 2 GPUs in 14.5 s. Max concurrent jobs per GPU was 1 over 286 samples. After one SIGKILL chaos event: 9 done and 1 `worker_died` (exit -9). Real OOM with a 15.2 GiB hog: `cuda_oom` in 6.8 s, worker respawned, and the next job was `done`. SIGSTOP with a 10 s threshold: `worker_hung` 12.5 s after the stop, then respawned. The 153k-node spot peaked at 1.56× its estimate (static factor was 1.15).
 - NaN/duplicate exploitability in the Phase 3 full-range log came from the wrapper's polling, not the engine evaluator. Over 17 direct evals there were 0 NaNs. `null` means no eval yet, and the duplicates were 2 s polls between ~3.2 s evals. The final float32 `0.0` is the evaluator clamping a NashConv of −1.5e-4, which is within its float32 tolerance; float64 gives 0.000833.
+
+## 2026-11-16 — Phase 5 release
+
+- VRAM admission seeds the factor at 1.6 (`SEED_FACTOR`) until 3 finished jobs of the same dtype with estimate ≥64 MiB exist, then uses `max(peak/estimate) × 1.05`. The reason is that Phase 4 measured 1.56× on the 153k-node spot: the old 1.15 seed under-admitted, and a single sample is too few to trust. The soak ended with 50 samples per dtype: float32 learned 1.17, float64 learned 1.00 (the float64 estimate over-counts).
+- `GET /metrics` (prometheus-client, same auth as `/v1`) exports:
+  - jobs by status and failed jobs by `error_code`;
+  - queue depth;
+  - NVML utilization and VRAM per GPU;
+  - build and solve latency histograms;
+  - iterations/sec;
+  - VRAM factor and sample count;
+  - worker restarts, taken from `EngineClient.generation` so every restart path is counted.
+- External worker mode (`HOLDEM_WORKER_MODE=external`):
+  - The API attaches to systemd-run workers. A worker pid change is treated as a restart.
+  - On a hang or OOM the API SIGKILLs the worker and waits for the supervisor to start a new one.
+  - Attaching happens on the watchdog thread, so a missing worker does not block startup.
+  - Spawn mode is still the default.
+- Packaging:
+  - `deploy/systemd/user/`: installed here via `deploy/install-user-units.sh`, no sudo, linger on.
+  - `deploy/systemd/system/`: root variants, logging to the journal.
+  - Also: env template, logrotate config and timer, `Dockerfile` + `compose.yaml` (NVIDIA runtime). Compose refuses to start without `HOLDEM_API_KEY`.
+  - The Docker image is ~11 GB (torch cu128 for the 3.9 engine).
+- Security:
+  - API key compared in constant time.
+  - POST token bucket: 120/min, burst 30 → 429 with Retry-After.
+  - Body limit 64 KiB → 413.
+  - Socket and shm directories 0700, sockets 0600, both tested.
+  - The strategy endpoint returns solver output only.
+- API:
+  - `exploitability_iteration` field.
+  - Top-level `dtype`.
+  - `?view=hand_grid`: 169 classes with combo-averaged frequencies.
+  - An OpenAPI example on every endpoint.
+- Benchmarks: `docs/BENCHMARKS.md`, fresh runs of 5 spots × float32/float64 × 2 GPUs. For example, the 9.6M-node full-range river spot: 96 s build, 83 it/s float32 and 56 it/s float64, 3.4 GiB peak, 1e-3 reached in 38 s (float32) and 64 s (float64).
+- Gate evidence (`scripts/phase5/logs/`):
+  - Tests: `run_gate.sh` engine `95 passed, 5 skipped` on each GPU; API `140 passed` (GPU tests included).
+  - Docker: `docker_smoke.txt` has the image built and solving on GPU 0 with both Python versions.
+  - Parent pid (`parent_pid.txt`): spawned workers carry `--parent-pid` and exit 0.6 s after the API is SIGKILLed.
+  - systemd (`systemd_restart.txt`): restarting `holdem-api` keeps the worker pids. SIGKILL of `holdem-worker@0` → systemd restart (NRestarts=1), the API reattaches and solves on both GPUs, and `holdem_worker_restarts_total{gpu="0"} 1`.
+- Soak (`soak.jsonl`, `scripts/phase5/soak.py` against the systemd deployment), 3614 s, 188 rounds, 1316 jobs:
+  - Outcomes: 940 done, 188 cancelled (intended), 188 `timeout` (intended).
+  - 0 stuck, 0 unexpected. Every strategy fetch passed in both views. 0 worker restarts.
+  - Jobs split 652 on GPU 0 and 664 on GPU 1; 846 float32, 470 float64.
+  - The full-range job was rejected 422 by `max_nodes=2M` all 31 times, so the largest admitted job was 573k nodes.
+- Soak bug found and fixed:
+  - Trigger: the first soak attempt (`soak_aborted_diskfull.jsonl`) overlapped a Docker build that filled `/` to 0 bytes.
+  - Queued jobs waited and resumed on their own.
+  - But one running job's progress write failed, and recording its failure also failed, so it stayed `solving` until the next API restart.
+  - Fix: `_run` now classifies SQLite "disk is full" as `disk_full` and retries the terminal write until it succeeds. The failure path also releases the worker, which had kept the dead job's solve running and answered the next build with `engine is busy`. Regression test: `test_store_disk_full_mid_solve_does_not_leave_job_stuck`.
+- Reboot test: pending. It needs the box rebooted and the Devin worker restarted by hand.

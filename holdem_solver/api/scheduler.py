@@ -41,6 +41,7 @@ from __future__ import annotations
 import errno
 import logging
 import os
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass, field
@@ -493,7 +494,10 @@ class Scheduler:
                 LOG.exception("job %s failed", job_id)
             else:
                 LOG.warning("job %s failed [%s]: %s", job_id, code, message)
-            self._store.finish(job_id, "failed", error_code=code, error=message, elapsed_seconds=time.time() - start)
+            self._finish_durably(job_id, code, message, time.time() - start)
+            if not st.killing:
+                # The job may have died with its solve still running on the worker.
+                self._release(st.client)
         finally:
             end = time.time()
             if self.metrics is not None:
@@ -511,6 +515,21 @@ class Scheduler:
                 st.kill_reason = None
                 st.completed += 1
             self._wake.set()
+
+    def _finish_durably(self, job_id: str, code: str, message: str, elapsed: float) -> None:
+        """Record the failure, retrying while SQLite cannot write (disk full):
+        giving up would leave the job 'solving' forever."""
+        warned = False
+        while True:
+            try:
+                self._store.finish(job_id, "failed", error_code=code, error=message, elapsed_seconds=elapsed)
+                return
+            except sqlite3.Error as exc:
+                if not warned:
+                    LOG.error("job %s: cannot record failure (%s); retrying until the store is writable", job_id, exc)
+                    warned = True
+            if self._stop.wait(1.0):
+                return  # on restart the job is failed as api_restart
 
     def _classify(self, exc: BaseException, st: _Gpu) -> tuple[str, str]:
         phase = st.phase
@@ -548,6 +567,8 @@ class Scheduler:
             # The RPC itself gave up: treat like a missed heartbeat.
             self._kill(st, "hung")
             return "worker_hung", f"engine worker on {where} stopped answering while {phase} ({exc}); it was killed and respawned"
+        if isinstance(exc, sqlite3.OperationalError) and "full" in str(exc):
+            return "disk_full", f"job store write failed while {phase} on {where} ({exc}); free disk space and resubmit"
         if isinstance(exc, StrategySaveError):
             return exc.code, str(exc)
         if isinstance(exc, RemoteEngineError):

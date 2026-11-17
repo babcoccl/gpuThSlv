@@ -391,3 +391,32 @@ def test_missing_external_worker_does_not_block_startup(tmp_path):
         with sup:  # the worker unit comes up after the API
             wait_for(lambda: client.app.state.scheduler.gpu_metrics()[0]["healthy"], timeout=30, message="attached")
             assert poll_until(client, submit(client, body()), timeout=30)["status"] == "done"
+
+
+def test_store_disk_full_mid_solve_does_not_leave_job_stuck(tmp_path):
+    import sqlite3
+
+    with make_client(tmp_path) as client:
+        store = client.app.state.scheduler._store
+        real_update, real_finish = store.update, store.finish
+        state = {"update": 0, "finish": 0}
+
+        def update(job_id, **fields):
+            if "iteration" in fields and state["update"] < 1:
+                state["update"] += 1
+                raise sqlite3.OperationalError("database or disk is full")
+            return real_update(job_id, **fields)
+
+        def finish(job_id, status, **fields):
+            if state["finish"] < 3:  # still full when the runner records the failure
+                state["finish"] += 1
+                raise sqlite3.OperationalError("database or disk is full")
+            return real_finish(job_id, status, **fields)
+
+        store.update, store.finish = update, finish
+        job = poll_until(client, submit(client, slow()), timeout=30)
+        assert (job["status"], job["error_code"]) == ("failed", "disk_full"), job
+        assert state == {"update": 1, "finish": 3}
+        store.update, store.finish = real_update, real_finish
+        after = poll_until(client, submit(client, body()))
+        assert after["status"] == "done", (after["error_code"], after["error"])

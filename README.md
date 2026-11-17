@@ -252,4 +252,6 @@ check log rotation (`systemctl --user list-timers holdem-logrotate.timer`).
 SQLite needs free space too: with the disk at 0 bytes the dispatcher logs
 `database or disk is full` once per tick and queued jobs simply wait (seen in
 the Phase 5 soak when a Docker build filled `/`); they resume on their own once
-space is freed. Resubmit any `disk_full` jobs after.
+space is freed. A job that was running when the store filled fails with
+`disk_full` (the runner retries the write until it succeeds, so it is never
+left `solving`). Resubmit any `disk_full` jobs after.
