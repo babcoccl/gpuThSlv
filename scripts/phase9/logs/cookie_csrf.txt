@@ -1,0 +1,2 @@
+$ curl -sS -b scripts/phase9/logs/cookies.txt -X POST http://127.0.0.1:8009/v1/spots -H content-type: application/json -H x-csrf-token: 2pdCR_OwZYWQ9eScjvrWQJFgDA7aLSxX -d {"name":"x","spot":{"board":"KsJsTh7d2c","range0":"AA","range1":"KK","pot":20.0,"stack":100.0,"bet_sizes":"standard"}}
+{"id":"487803a773bb","name":"x","spot":{"board":"KsJsTh7d2c","range0":"AA","range1":"KK","pot":20.0,"stack":100.0,"bet_sizes":"standard"},"tags":[],"notes":"","created_at":1794934288.2211845,"updated_at":1794934288.2211845}

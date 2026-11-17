@@ -19,12 +19,12 @@ Python 3.9 safe (runs in the engine venv too).
 """
 from __future__ import annotations
 
-import itertools
 import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from holdem_solver.protocol.cards import parse_range, combos_conflict
+from holdem_solver.protocol.evwalk import _rank5, rank7  # noqa: F401 (single source, Phase 9)
 
 RANKS = "AKQJT98765432"
 SUITS = "cdhs"
@@ -122,53 +122,6 @@ def parse_dump(path: str) -> List[Dict[str, Any]]:
 
     walk(root, [], (0.0, 0.0))
     return nodes
-
-
-# --- hand evaluation -------------------------------------------------------
-
-_RANK_VALUE = {r: 12 - i for i, r in enumerate(RANKS)}  # A=12 ... 2=0
-
-
-def _rank5(cards: Tuple[int, ...]) -> Tuple[int, Tuple[int, ...]]:
-    ranks = sorted((_RANK_VALUE[RANKS[c // 4]] for c in cards), reverse=True)
-    flush = len({c % 4 for c in cards}) == 1
-    uniq = sorted(set(ranks), reverse=True)
-    straight_high = -1
-    if len(uniq) == 5 and uniq[0] - uniq[-1] == 4:
-        straight_high = uniq[0]
-    elif uniq == [12, 3, 2, 1, 0]:  # wheel
-        straight_high = 3
-    counts = sorted(((ranks.count(r), r) for r in set(ranks)), reverse=True)
-    if straight_high >= 0 and flush:
-        return (8, (straight_high,))
-    if counts[0][0] == 4:
-        return (7, (counts[0][1], counts[1][1]))
-    if counts[0][0] == 3 and counts[1][0] == 2:
-        return (6, (counts[0][1], counts[1][1]))
-    if flush:
-        return (5, tuple(ranks))
-    if straight_high >= 0:
-        return (4, (straight_high,))
-    if counts[0][0] == 3:
-        return (3, tuple(r for _, r in counts))
-    if counts[0][0] == 2 and counts[1][0] == 2:
-        pairs = sorted((counts[0][1], counts[1][1]), reverse=True)
-        return (2, (pairs[0], pairs[1], counts[2][1]))
-    if counts[0][0] == 2:
-        return (1, tuple(r for _, r in counts))
-    return (0, tuple(ranks))
-
-
-_rank7_cache = {}  # type: Dict[Tuple[int, ...], Tuple[int, Tuple[int, ...]]]
-
-
-def rank7(cards: Tuple[int, ...]) -> Tuple[int, Tuple[int, ...]]:
-    key = tuple(sorted(cards))
-    cached = _rank7_cache.get(key)
-    if cached is None:
-        cached = max(_rank5(sub) for sub in itertools.combinations(key, 5))
-        _rank7_cache[key] = cached
-    return cached
 
 
 # --- EV walk ----------------------------------------------------------------

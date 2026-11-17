@@ -1,0 +1,93 @@
+{
+ "spots": {
+  "w-toy-check": {
+   "nodes_ours": 973,
+   "nodes_recorded": 973,
+   "tree_ok": true,
+   "checked": 4,
+   "mismatches": [],
+   "ok": true
+  },
+  "w-dry-cap0": {
+   "nodes_ours": 5086,
+   "nodes_recorded": 5086,
+   "tree_ok": true,
+   "checked": 6,
+   "mismatches": [],
+   "ok": true
+  },
+  "w-wet-cap0": {
+   "nodes_ours": 10216,
+   "nodes_recorded": 10216,
+   "tree_ok": true,
+   "checked": 6,
+   "mismatches": [],
+   "ok": true
+  },
+  "w-pair-cap0": {
+   "nodes_ours": 3871,
+   "nodes_recorded": 3871,
+   "tree_ok": true,
+   "checked": 6,
+   "mismatches": [],
+   "ok": true
+  },
+  "w-blocker-cap0": {
+   "nodes_ours": 3601,
+   "nodes_recorded": 3601,
+   "tree_ok": true,
+   "checked": 6,
+   "mismatches": [],
+   "ok": true
+  },
+  "w-full-cap0": {
+   "nodes_ours": 29458,
+   "nodes_recorded": 29458,
+   "tree_ok": true,
+   "checked": 4,
+   "mismatches": [],
+   "ok": true
+  },
+  "turn-narrow-a-cap3": {
+   "nodes_ours": 558253,
+   "nodes_recorded": 558253,
+   "tree_ok": true,
+   "checked": 103,
+   "mismatches": [],
+   "ok": true
+  },
+  "turn-narrow-a-allin": {
+   "nodes_ours": 415045,
+   "nodes_recorded": 415045,
+   "tree_ok": true,
+   "checked": 102,
+   "mismatches": [],
+   "ok": true
+  },
+  "river-cap2-eq": {
+   "nodes_ours": 2269,
+   "nodes_recorded": 2269,
+   "tree_ok": true,
+   "checked": 7,
+   "mismatches": [],
+   "ok": true
+  },
+  "river-cap3-eq": {
+   "nodes_ours": 8101,
+   "nodes_recorded": 8101,
+   "tree_ok": true,
+   "checked": 19,
+   "mismatches": [],
+   "ok": true
+  }
+ },
+ "build": {
+  "spot": "river-full-pot cap 2",
+  "spec_build_s": 68.0143069980004,
+  "phase6_spec_build_s": 60.7,
+  "num_nodes": 10374211,
+  "phase6_num_nodes": 10374211,
+  "nodes_match": true
+ },
+ "ok": true
+}

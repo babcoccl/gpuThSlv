@@ -57,7 +57,17 @@ Error codes (`protocol/messages.py`): JSON-RPC standard −32700/−32600/
   `GET /v1/gpus`, `POST /v1/solves` (202; `Idempotency-Key`),
   `GET /v1/solves/{id}`, `GET /v1/solves/{id}/strategy`
   (`view=infosets|hand_grid`, `player=`, `history=`),
-  `DELETE /v1/solves/{id}`.
+  `DELETE /v1/solves/{id}`. Phase 9 adds `GET /v1/solves/{id}/tree`
+  (node navigation), `GET /v1/solves/{id}/node` (frequencies, per-action
+  EVs, equity, ranges), `GET /v1/solves/{id}/events` (SSE,
+  `Last-Event-ID` replay), `POST /v1/solves/{id}/pin|unpin`,
+  `/v1/spots` CRUD + `duplicate` + `{id}/solve`, and
+  `POST /v1/auth/login|logout` (HttpOnly SameSite=strict session cookie +
+  CSRF token; CORS off unless `HOLDEM_CORS_ORIGINS`).
+- `nodes.py` — loads a strategy npz into a `protocol/evwalk` `TreeIndex`;
+  `tree_node` (children summary, chance-node dealt cards),
+  `node_values` (per hand class / per combo frequencies, per-action EVs,
+  hand EV, equity, ranges).
 - `models.py` — `SolveRequest` (SpotConfig fields incl. `bet_sizes`
   str|list|dict, `all_in`, `dead_cards`, `raise_cap`, `raise_sizes`;
   solver params `variant`, `dtype`, stop conditions, `priority`,
@@ -67,12 +77,13 @@ Error codes (`protocol/messages.py`): JSON-RPC standard −32700/−32600/
   qualifying samples, then worst measured peak/estimate ×1.05), heartbeat
   watchdog (`HOLDEM_HEARTBEAT_SECONDS`, `HOLDEM_HUNG_WORKER_SECONDS`),
   strategy retention.
-- `store.py` — SQLite `jobs` table; queued jobs survive restarts
-  (in-flight jobs fail `api_restart`). `gpus.py`, `metrics.py`
-  (Prometheus), `security.py` (Bearer key, token bucket, body cap),
-  `strategy.py` (infosets + reach-weighted `hand_grid`), `vram.py`,
-  `examples.py`, `client/` (`engine_client.py` JSON-RPC client,
-  `process.py` spawn/attach).
+- `store.py` — SQLite `jobs` and `spots` tables; queued jobs and saved
+  spots survive restarts (in-flight jobs fail `api_restart`). `pinned`
+  solves are skipped by strategy retention. `gpus.py`, `metrics.py`
+  (Prometheus), `security.py` (Bearer key, session cookies, CSRF, token
+  buckets, body cap), `strategy.py` (infosets + reach-weighted
+  `hand_grid`), `vram.py`, `examples.py`, `client/` (`engine_client.py`
+  JSON-RPC client, `process.py` spawn/attach).
 
 ## Job lifecycle
 
@@ -96,14 +107,18 @@ persist to `<data_dir>/strategy-<id>.npz`; deleted after
 ```
 holdem_solver/
   protocol/    spot.py (SpotConfig/validation), cards.py, messages.py
-               (JSON-RPC framing + error codes), paths.py
+               (JSON-RPC framing + error codes), paths.py,
+               evwalk.py (pure-Python strategy-tree walk: reaches, EVs,
+               equity, rank7 showdown — mirrors scripts/phase7/texas_dump)
   engine_worker/  solver.py, real.py, fake.py, service.py (RPC dispatch),
                   spot_builder.py, tree_builder.py, memory.py
   api/         app.py, models.py, scheduler.py, store.py, strategy.py,
-               gpus.py, metrics.py, security.py, vram.py, examples.py
+               nodes.py, gpus.py, metrics.py, security.py, vram.py,
+               examples.py
   client/      engine_client.py, process.py, errors.py
 scripts/
-  phase7|8|8_5/  TexasSolver comparison harnesses + run artifacts
+  phase7|8|8_5|8_6/  TexasSolver comparison harnesses + run artifacts
+  phase9/          UI-backend demo + validation (curl logs, ev/tree gates)
   run_all_tests.sh  both-venv test gate; check_links.py
 deploy/      systemd user/system units, env template, docker-compose
 ```

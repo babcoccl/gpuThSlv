@@ -37,6 +37,17 @@ our evaluator).
 | Phase 8.6 equal-tree raises (`scripts/phase8_6/runs/suite8_6.json`) | 4 | 1 | 3 | 0 |
 | Phase 8 cross-eval (13 identical-tree spots) | 13 | — | — | all ≤ ~0.001pp of TS's own exploitability |
 | Phase 8.5 dtype re-run (`float32_rerun.json`) | 4 | — | — | f32 vs f64 differ ≤3e-6 chips; f32 bitwise deterministic |
+| Phase 9 API-side EV walk (`scripts/phase9/runs/ev_validation.json`) | 6 cap-0 river | — | — | 1,657 node/combo/action EVs, max \|Δ\| = 0.000000 vs the dump_ev walk; root EV = `dump_ev` = `profile_value_p0` |
+
+**Phase 9 — API EV walk.** `holdem_solver/protocol/evwalk.py` is a pure-Python
+reimplementation of the Phase 7 `dump_ev` evaluation walk (reach products,
+chance-node averaging, `rank7` showdown). On the 6 river raise_cap=0 spots it
+was checked three ways (`scripts/phase9/validate_node_evs.py`): root EV on the
+TS-dumped tree equals `dump_ev` exactly; per-combo per-action EVs equal
+`scripts/phase8/xeval.py::node_action_evs` at every shared node (1,657 values,
+max |Δ| 0.000000); and the same walk on our own strategy equals the reported
+`profile_value_p0` status value. Equal-tree / node-count invariants were
+re-verified on 10 spots (`scripts/phase9/runs/tree_gate.json`).
 
 **Turn validation is full** (Phase 8.5, confirmed in 8.6): emitting
 `set_bet_sizes oop,<street>,donk,<sizes>` closes the Phase-8 donk gap —

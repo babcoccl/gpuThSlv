@@ -28,10 +28,74 @@ SOLVE_REQUEST_EXAMPLE = {
 }
 
 
-class SolveRequest(BaseModel):
-    """Body of ``POST /v1/solves``: a ``SpotConfig`` plus solver parameters."""
+class SolveParams(BaseModel):
+    """Solver parameters shared by ``POST /v1/solves`` and
+    ``POST /v1/spots/{id}/solve`` (Phase 9)."""
 
     model_config = ConfigDict(extra="forbid")
+
+    variant: Literal["cfr", "cfr_plus", "dcfr", "pcfr_plus"] = "cfr_plus"
+    dtype: Literal["float32", "float64"] | None = Field(
+        default=None,
+        description="solver precision; default float32. float64 doubles VRAM for the same tree. "
+        "Same as solver_options.dtype (give one, or the same value in both).",
+    )
+    solver_options: dict[str, Any] | None = None
+    iterations: int | None = Field(default=None, gt=0)
+    time_budget: float | None = Field(default=None, ge=0)
+    target_exploitability: float | None = Field(default=None, gt=0)
+    max_iterations: int | None = Field(default=None, gt=0)
+    progress_every: int | None = Field(default=None, gt=0)
+
+    # Scheduling
+    priority: int = Field(default=0, ge=-100, le=100, description="higher runs first; FIFO within a priority")
+    timeout_seconds: float | None = Field(
+        default=None, gt=0, description="wall-clock limit from start of build; the job fails with error_code=timeout"
+    )
+
+    @model_validator(mode="after")
+    def check_dtype(self) -> "SolveParams":
+        inner = (self.solver_options or {}).get("dtype")
+        if inner is not None and inner not in DTYPES:
+            raise ValueError(f"solver_options.dtype must be one of {DTYPES}")
+        if inner is not None and self.dtype is not None and inner != self.dtype:
+            raise ValueError("dtype and solver_options.dtype disagree")
+        return self
+
+    @model_validator(mode="after")
+    def check_stop_conditions(self) -> "SolveParams":
+        modes = [self.iterations is not None, self.time_budget is not None, self.target_exploitability is not None]
+        if not any(modes):
+            raise ValueError(
+                "at least one stop condition is required: iterations, time_budget, or target_exploitability"
+            )
+        if self.iterations is not None and self.time_budget is not None:
+            raise ValueError("iterations and time_budget are alternative stop modes; give only one")
+        if self.iterations is not None and self.target_exploitability is not None:
+            raise ValueError("use max_iterations (not iterations) as the iteration cap with target_exploitability")
+        if self.target_exploitability is not None and self.time_budget is None and self.max_iterations is None:
+            raise ValueError(
+                "target_exploitability mode has no iteration cap in the engine; "
+                "also require time_budget or max_iterations"
+            )
+        if self.max_iterations is not None and self.target_exploitability is None:
+            raise ValueError("max_iterations is only a cap for target_exploitability mode")
+        return self
+
+    def effective_dtype(self) -> str:
+        return self.dtype or (self.solver_options or {}).get("dtype") or "float32"
+
+    def solve_params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        for key in ("iterations", "time_budget", "target_exploitability", "progress_every"):
+            value = getattr(self, key)
+            if value is not None:
+                params[key] = value
+        return params
+
+
+class SolveRequest(SolveParams):
+    """Body of ``POST /v1/solves``: a ``SpotConfig`` plus solver parameters."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [SOLVE_REQUEST_EXAMPLE]})
 
@@ -61,35 +125,6 @@ class SolveRequest(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     max_nodes: int | None = DEFAULT_MAX_NODES
 
-    # Solver parameters
-    variant: Literal["cfr", "cfr_plus", "dcfr", "pcfr_plus"] = "cfr_plus"
-    dtype: Literal["float32", "float64"] | None = Field(
-        default=None,
-        description="solver precision; default float32. float64 doubles VRAM for the same tree. "
-        "Same as solver_options.dtype (give one, or the same value in both).",
-    )
-    solver_options: dict[str, Any] | None = None
-    iterations: int | None = Field(default=None, gt=0)
-    time_budget: float | None = Field(default=None, ge=0)
-    target_exploitability: float | None = Field(default=None, gt=0)
-    max_iterations: int | None = Field(default=None, gt=0)
-    progress_every: int | None = Field(default=None, gt=0)
-
-    # Scheduling
-    priority: int = Field(default=0, ge=-100, le=100, description="higher runs first; FIFO within a priority")
-    timeout_seconds: float | None = Field(
-        default=None, gt=0, description="wall-clock limit from start of build; the job fails with error_code=timeout"
-    )
-
-    @model_validator(mode="after")
-    def check_dtype(self) -> "SolveRequest":
-        inner = (self.solver_options or {}).get("dtype")
-        if inner is not None and inner not in DTYPES:
-            raise ValueError(f"solver_options.dtype must be one of {DTYPES}")
-        if inner is not None and self.dtype is not None and inner != self.dtype:
-            raise ValueError("dtype and solver_options.dtype disagree")
-        return self
-
     @model_validator(mode="after")
     def check_raise_sizes(self) -> "SolveRequest":
         for entry in self.raise_sizes:
@@ -107,9 +142,6 @@ class SolveRequest(BaseModel):
             raise ValueError("raise_sizes requires raise_cap > 0")
         return self
 
-    def effective_dtype(self) -> str:
-        return self.dtype or (self.solver_options or {}).get("dtype") or "float32"
-
     def hash_body(self) -> dict[str, Any]:
         """Body for the idempotency hash; an unset dtype hashes as before Phase 5."""
         body = self.model_dump(mode="json")
@@ -122,26 +154,6 @@ class SolveRequest(BaseModel):
         if not body.get("raise_sizes"):
             body.pop("raise_sizes", None)
         return body
-
-    @model_validator(mode="after")
-    def check_stop_conditions(self) -> "SolveRequest":
-        modes = [self.iterations is not None, self.time_budget is not None, self.target_exploitability is not None]
-        if not any(modes):
-            raise ValueError(
-                "at least one stop condition is required: iterations, time_budget, or target_exploitability"
-            )
-        if self.iterations is not None and self.time_budget is not None:
-            raise ValueError("iterations and time_budget are alternative stop modes; give only one")
-        if self.iterations is not None and self.target_exploitability is not None:
-            raise ValueError("use max_iterations (not iterations) as the iteration cap with target_exploitability")
-        if self.target_exploitability is not None and self.time_budget is None and self.max_iterations is None:
-            raise ValueError(
-                "target_exploitability mode has no iteration cap in the engine; "
-                "also require time_budget or max_iterations"
-            )
-        if self.max_iterations is not None and self.target_exploitability is None:
-            raise ValueError("max_iterations is only a cap for target_exploitability mode")
-        return self
 
     def spot_dict(self) -> dict[str, Any]:
         return {
@@ -159,13 +171,124 @@ class SolveRequest(BaseModel):
             "max_nodes": self.max_nodes,
         }
 
-    def solve_params(self) -> dict[str, Any]:
-        params: dict[str, Any] = {}
-        for key in ("iterations", "time_budget", "target_exploitability", "progress_every"):
-            value = getattr(self, key)
-            if value is not None:
-                params[key] = value
-        return params
+class SpotCreate(BaseModel):
+    """``POST /v1/spots`` body (Phase 9)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(max_length=200)
+    spot: dict[str, Any]
+    tags: list[str] = Field(default_factory=list, max_length=32)
+    notes: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def check_tags(self) -> "SpotCreate":
+        for tag in self.tags:
+            if len(tag) > 64:
+                raise ValueError("tags must be at most 64 chars")
+        return self
+
+
+class SpotUpdate(BaseModel):
+    """``PATCH /v1/spots/{id}`` body (Phase 9); omitted fields are unchanged."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, max_length=200)
+    spot: dict[str, Any] | None = None
+    tags: list[str] | None = Field(default=None, max_length=32)
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def check_tags(self) -> "SpotUpdate":
+        for tag in self.tags or ():
+            if len(tag) > 64:
+                raise ValueError("tags must be at most 64 chars")
+        return self
+
+
+class SpotRecord(BaseModel):
+    id: str
+    name: str
+    spot: dict[str, Any]
+    tags: list[str]
+    notes: str
+    created_at: float
+    updated_at: float
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(max_length=512)
+
+
+class LoginResponse(BaseModel):
+    expires_at: float
+    csrf: str
+
+
+class PinResponse(BaseModel):
+    id: str
+    pinned: bool
+
+
+class TreeChild(BaseModel):
+    edge: str
+    kind: Literal["player", "chance", "terminal"]
+    outcome: str | None = None
+    history: list[str] | None = None
+    player: int | None = None
+    actions: list[HandGridAction] | None = None
+
+
+class TreeNodeResponse(BaseModel):
+    id: str
+    iteration: int
+    history: list[str]
+    street: str
+    pot: float
+    stacks: dict[str, float]
+    board: list[str]
+    is_chance: bool
+    player: int | None = None
+    actions: list[HandGridAction] = Field(default_factory=list)
+    dealt_cards: list[str] | None = None
+    children: list[TreeChild] = Field(default_factory=list)
+
+
+class NodeHandRow(BaseModel):
+    hand_class: str | None = None
+    combo: str | None = None
+    combos: int | None = None
+    reach: float
+    weight: float
+    frequencies: dict[str, float | None]
+    action_evs: dict[str, float | None]
+    ev: float | None
+    equity: float | None
+
+
+class RangeEntry(BaseModel):
+    hand_class: str | None = None
+    combo: str | None = None
+    combos: int | None = None
+    reach: float
+    share: float
+
+
+class NodeValuesResponse(BaseModel):
+    id: str
+    iteration: int
+    history: list[str]
+    street: str
+    player: int
+    pot: float
+    stacks: dict[str, float]
+    board: list[str]
+    actions: list[HandGridAction]
+    ranges: dict[str, list[RangeEntry]]
+    hands: list[NodeHandRow]
 
 
 class SolveAccepted(BaseModel):

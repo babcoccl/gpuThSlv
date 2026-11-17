@@ -1,4 +1,4 @@
-"""API-key check, POST rate limiting and the request body size limit."""
+"""API-key check, browser session cookies + CSRF, rate limiting, body limit."""
 
 from __future__ import annotations
 
@@ -14,6 +14,13 @@ from fastapi import HTTPException, Request
 DEFAULT_MAX_BODY_BYTES = 64 * 1024
 DEFAULT_POST_RATE_PER_MINUTE = 120.0
 DEFAULT_POST_BURST = 30
+DEFAULT_SESSION_SECONDS = 12 * 3600
+DEFAULT_LOGIN_RATE_PER_MINUTE = 10.0
+DEFAULT_LOGIN_BURST = 5
+SESSION_COOKIE = "holdem_session"
+CSRF_COOKIE = "holdem_csrf"
+CSRF_HEADER = "x-csrf-token"
+_MUTATING = ("POST", "PUT", "PATCH", "DELETE")
 
 
 def presented_key(request: Request) -> str | None:
@@ -29,16 +36,79 @@ def key_matches(presented: str | None, expected: str) -> bool:
     return hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8"))
 
 
-def auth_dependency(api_key: str | None) -> Callable[[Request], Awaitable[None]]:
+class SessionSigner:
+    """Stateless session cookies: ``v1.<expiry_unix>.<hmac>`` signed with the
+    session secret (``HOLDEM_SESSION_SECRET``, else derived from the API key)."""
+
+    def __init__(self, api_key: str, *, secret: str | None = None,
+                 ttl_seconds: int = DEFAULT_SESSION_SECONDS) -> None:
+        material = secret or hashlib.sha256(("holdem-session:" + api_key).encode()).hexdigest()
+        self._key = material.encode("utf-8")
+        self.ttl_seconds = int(ttl_seconds)
+
+    def issue(self, now: float | None = None) -> tuple[str, float]:
+        exp = (now or time.time()) + self.ttl_seconds
+        exp_i = int(exp)
+        body = f"v1.{exp_i}"
+        sig = hmac.new(self._key, body.encode(), hashlib.sha256).hexdigest()
+        return f"{body}.{sig}", float(exp_i)
+
+    def verify(self, token: str | None, now: float | None = None) -> bool:
+        if not token:
+            return False
+        body, _, sig = token.rpartition(".")
+        if not body.startswith("v1.") or not sig:
+            return False
+        try:
+            exp = int(body.split(".", 1)[1])
+        except ValueError:
+            return False
+        if exp < (now or time.time()):
+            return False
+        expected = hmac.new(self._key, body.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, expected)
+
+
+def csrf_token() -> str:
+    import secrets
+
+    return secrets.token_urlsafe(24)
+
+
+def auth_dependency(
+    api_key: str | None, signer: SessionSigner | None = None
+) -> Callable[[Request], Awaitable[None]]:
+    """Accepts the API key (``request.state.auth = 'key'``) or a valid session
+    cookie (``'cookie'``). Cookie-authenticated mutating requests must also
+    present the CSRF token (checked by ``csrf_dependency``)."""
+
     async def require(request: Request) -> None:
         if api_key is None:
+            request.state.auth = "none"
             return
-        if not key_matches(presented_key(request), api_key):
-            raise HTTPException(
-                status_code=401, detail="invalid or missing API key", headers={"WWW-Authenticate": "Bearer"}
-            )
+        if key_matches(presented_key(request), api_key):
+            request.state.auth = "key"
+            return
+        if signer is not None and signer.verify(request.cookies.get(SESSION_COOKIE)):
+            request.state.auth = "cookie"
+            return
+        raise HTTPException(
+            status_code=401, detail="invalid or missing API key", headers={"WWW-Authenticate": "Bearer"}
+        )
 
     return require
+
+
+def csrf_dependency(request: Request) -> None:
+    """Double-submit CSRF check on mutating cookie-authenticated requests."""
+    if request.method not in _MUTATING:
+        return
+    if getattr(request.state, "auth", None) != "cookie":
+        return
+    cookie = request.cookies.get(CSRF_COOKIE)
+    header = request.headers.get(CSRF_HEADER)
+    if not cookie or not header or not hmac.compare_digest(cookie, header):
+        raise HTTPException(status_code=403, detail="missing or mismatched CSRF token")
 
 
 class RateLimiter:
@@ -82,11 +152,17 @@ def client_id(request: Request) -> str:
     return "ip:" + (request.client.host if request.client else "unknown")
 
 
-def rate_limit_dependency(limiter: RateLimiter | None) -> Callable[[Request], Awaitable[None]]:
+def rate_limit_dependency(
+    limiter: RateLimiter | None, *, ip_only: bool = False
+) -> Callable[[Request], Awaitable[None]]:
     async def limit(request: Request) -> None:
         if limiter is None:
             return
-        wait = limiter.take(client_id(request))
+        ident = (
+            "ip:" + (request.client.host if request.client else "unknown")
+            if ip_only else client_id(request)
+        )
+        wait = limiter.take(ident)
         if wait > 0:
             raise HTTPException(
                 status_code=429,

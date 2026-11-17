@@ -1,0 +1,10 @@
+$ curl -sS -i -X POST http://127.0.0.1:8009/v1/auth/login -H content-type: application/json -d {"key":"demo"}
+HTTP/1.1 200 OK
+date: Tue, 17 Nov 2026 16:51:27 GMT
+server: uvicorn
+content-length: 69
+content-type: application/json
+set-cookie: holdem_session=v1.1794977488.01112a8e2df205bbae41c6cfba67eafa1d1c014707cf43638842b8cd9c94c4ab; HttpOnly; Max-Age=43200; Path=/; SameSite=strict
+set-cookie: holdem_csrf=b5tSrEQ4BtIHtDLEWOoLk9lo93GRCbam; Max-Age=43200; Path=/; SameSite=strict
+
+{"expires_at":1794977488.0,"csrf":"b5tSrEQ4BtIHtDLEWOoLk9lo93GRCbam"}
