@@ -459,3 +459,48 @@ def test_detect_tier_t4_without_root():
     p = subprocess.run(["bash", "-c", f"source {RELEASE}/common.sh; detect_tier"],
                        capture_output=True, text=True, check=True)
     assert p.stdout.strip() == ("T4" if os.geteuid() != 0 else p.stdout.strip())
+
+
+def test_phase11_units_without_marker_are_ours_on_upgrade(box):
+    tmp, env = box
+    prefix = Path(env["HOLDEM_PREFIX"])
+    (prefix / "releases/v1").mkdir(parents=True)
+    (prefix / "current").symlink_to(prefix / "releases/v1")
+    (tmp / "units/holdem-api.service").write_text(
+        f"ExecStart={prefix}/current/.venv-api/bin/python -m holdem_solver.api\n")
+    (tmp / "units/holdem-solver.target").write_text(
+        "[Unit]\nDescription=holdem-solver (API + one engine worker per GPU)\n")
+    _, items, out = check(env, systemd=True)
+    assert status(items, "units") == {"PASS"}, out
+    (prefix / "current").unlink()  # no release installed: same files are foreign
+    _, items, out = check(env, systemd=True)
+    assert status(items, "units") == {"FAIL"}, out
+
+
+def test_port_held_by_degraded_installed_api_passes(box):
+    import http.server
+    import threading
+
+    tmp, env = box
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(503 if self.path == "/healthz" else 404)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        port = srv.server_address[1]
+        _, items, out = check(env, HOLDEM_API_PORT=port)
+        assert status(items, "port") == {"FAIL"}, out  # nothing installed: foreign
+        prefix = Path(env["HOLDEM_PREFIX"])
+        (prefix / "releases/v1").mkdir(parents=True)
+        (prefix / "current").symlink_to(prefix / "releases/v1")
+        _, items, out = check(env, HOLDEM_API_PORT=port)
+        assert status(items, "port") == {"PASS"} and "503" in detail(items, "port"), out
+    finally:
+        srv.shutdown()
