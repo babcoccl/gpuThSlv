@@ -205,6 +205,23 @@ Evidence:
   `prefix.engine` and `traverse.engine` (holdem cannot traverse
   `/home/ubuntu`), each naming the variable and the install command.
 
+## Gate
+
+- `scripts/release/smoke-results/20261118-211756-run_all_tests.log` —
+  `scripts/run_all_tests.sh` green: engine suite 216 passed / 15 skipped;
+  api suite 354 passed / 13 skipped; collection coverage and UI contract
+  checks green. Skips are CUDA/GPU tests (no GPU on the VM) and venv
+  boundary skips. `tests/test_api_gpu.py` now skips without a CUDA GPU like
+  the engine suite (it had been solving on CPU and failing on the missing
+  VRAM stats).
+- Known flake, not touched here: `tests/test_api_phase9.py::test_events_sse`
+  failed once in an earlier gate run on this VM and fails 1 of 3 isolated
+  runs on `origin/main` (replay after `Last-Event-ID` occasionally repeats
+  a seq).
+- `install.sh --check` items: each fails when its condition is broken
+  (TC1–TC3 tests); `acceptance-root.sh` PASS at T1 (fake); docs guarded by
+  `scripts/phase10/check_suites.py::check_release_docs`.
+
 ## Operator verifies (not verified in this phase)
 
 Run on the outpost: `sudo scripts/release/acceptance-root.sh --engine real`.
