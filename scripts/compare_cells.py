@@ -12,6 +12,8 @@ Cell tables are nested ``{combo: {action: value}}`` mappings, the shape
 """
 from __future__ import annotations
 
+import math
+
 
 def flatten(table):
     """``{(combo, action): value}`` for a nested cell table."""
@@ -47,6 +49,9 @@ def compare_cells(ref, got):
                 continue
             if action not in got_row:
                 omitted.append("%s/%s: action missing" % (combo, action))
+                continue
+            if not (math.isfinite(rv) and math.isfinite(got_row[action])):
+                omitted.append("%s/%s: non-finite value" % (combo, action))
                 continue
             compared += 1
             d = abs(got_row[action] - rv)

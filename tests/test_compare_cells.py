@@ -75,6 +75,15 @@ def test_max_abs_diff_only_over_compared_cells():
     assert compared == 4 and maxd == 1.0
 
 
+def test_nan_values_count_as_omitted_not_compared():
+    for side in ("ref", "got"):
+        ref = {c: dict(r) for c, r in REF.items()}
+        got = {c: dict(r) for c, r in REF.items()}
+        (ref if side == "ref" else got)["AsKd"]["c"] = float("nan")
+        compared, omitted, extras, maxd = compare_cells(ref, got)
+        assert compared == 3 and omitted == ["AsKd/c: non-finite value"]
+
+
 def test_expected_cells_counts_rows_times_actions():
     from test_evwalk import RIVER_SPOT, fake_index
 
