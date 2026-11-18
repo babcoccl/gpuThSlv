@@ -15,8 +15,14 @@ RUN_DIR="${HOLDEM_RUN_DIR:-/run/holdem}"
 RUN_NAME="${HOLDEM_RUN_NAME:-holdem}"
 STATE_NAME="${HOLDEM_STATE_NAME:-holdem}"
 BACKUP_DIR="${HOLDEM_BACKUP_DIR:-$DATA_DIR/backups}"
-API_PORT="${HOLDEM_API_PORT:-8000}"
-API_HOST="${HOLDEM_API_HOST:-127.0.0.1}"
+# Health-check endpoint: an explicit HOLDEM_API_HOST/PORT in the caller's
+# environment wins; else the persisted env file (what the service actually
+# binds); else the defaults.
+_env_val() { grep "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true; }
+API_PORT="${HOLDEM_API_PORT:-$(_env_val HOLDEM_API_PORT)}"
+API_PORT="${API_PORT:-8000}"
+API_HOST="${HOLDEM_API_HOST:-$(_env_val HOLDEM_API_HOST)}"
+API_HOST="${API_HOST:-127.0.0.1}"
 HOLDEM_USER="${HOLDEM_USER:-holdem}"
 HOLDEM_GROUP="${HOLDEM_GROUP:-$HOLDEM_USER}"
 HOLDEM_GPUS="${HOLDEM_GPUS:-0,1}"

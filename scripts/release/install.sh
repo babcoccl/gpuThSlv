@@ -63,16 +63,30 @@ elif [ -n "$STUB_VENVS" ]; then
 else
     [ -x "$API_PYTHON" ] || die "API interpreter $API_PYTHON not found (set HOLDEM_API_PYTHON)"
     [ -x "$ENGINE_PYTHON" ] || die "engine interpreter $ENGINE_PYTHON not found (set HOLDEM_ENGINE_PYTHON)"
+    # The units run with ProtectHome=yes: a venv's python is a symlink into
+    # its base interpreter, so a base under /home or /root is unreachable
+    # from the service. Require system-visible interpreters for real
+    # (non-smoke) installs.
+    if [ -z "$NO_SYSTEMD" ]; then
+        for py in "$API_PYTHON" "$ENGINE_PYTHON"; do
+            case "$(readlink -f "$py")" in
+                /home/*|/root/*|/run/user/*)
+                    die "interpreter $py resolves under a home dir, which ProtectHome=yes hides; install Python to a system path (e.g. UV_PYTHON_INSTALL_DIR=/opt/holdem/python uv python install 3.9) and set HOLDEM_API_PYTHON/HOLDEM_ENGINE_PYTHON" ;;
+            esac
+        done
+    fi
     if [ ! -x "$RELEASE/.venv-api/bin/python" ]; then
         log "building .venv-api ($API_PYTHON)"
         "$API_PYTHON" -m venv "$RELEASE/.venv-api"
-        "$RELEASE/.venv-api/bin/pip" install --no-input -r "$RELEASE/requirements/api.txt"
     fi
+    # pip is idempotent; always run it so a retry after a failed download
+    # completes the environment instead of activating a partial one.
+    "$RELEASE/.venv-api/bin/pip" install --no-input -r "$RELEASE/requirements/api.txt"
     if [ ! -x "$RELEASE/.venv-engine/bin/python" ]; then
         log "building .venv-engine ($ENGINE_PYTHON)"
         "$ENGINE_PYTHON" -m venv "$RELEASE/.venv-engine"
-        "$RELEASE/.venv-engine/bin/pip" install --no-input -r "$RELEASE/requirements/engine.txt"
     fi
+    "$RELEASE/.venv-engine/bin/pip" install --no-input -r "$RELEASE/requirements/engine.txt"
 fi
 
 # -- UI ------------------------------------------------------------------------
@@ -87,6 +101,7 @@ fi
 
 # -- env file (0600 root; secrets generated once, never overwritten) -----------
 if [ ! -f "$ENV_FILE" ]; then
+    umask 077  # secrets must never exist in a group/world-readable file
     api_key="$("$API_PYTHON" -c 'import secrets; print(secrets.token_urlsafe(32))')"
     sess_key="$("$API_PYTHON" -c 'import secrets; print(secrets.token_urlsafe(32))')"
     {
@@ -115,7 +130,8 @@ fi
 # -- ownership ------------------------------------------------------------------
 if [ "$(id -u)" -eq 0 ]; then
     chown -R "$HOLDEM_USER:$HOLDEM_GROUP" "$DATA_DIR" "$RUN_DIR"
-    chown -R "$HOLDEM_USER:$HOLDEM_GROUP" "$RELEASE"
+    # The release tree stays root-owned: the service user must not be able to
+    # rewrite code or scripts that later run as root or in its own units.
 fi
 
 # -- flip current ---------------------------------------------------------------

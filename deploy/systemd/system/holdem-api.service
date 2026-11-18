@@ -4,8 +4,7 @@
 [Unit]
 Description=holdem-solver REST API
 PartOf=holdem-solver.target
-Requires=holdem-worker@0.service holdem-worker@1.service
-Wants=network-online.target
+Wants=network-online.target holdem-worker@0.service holdem-worker@1.service
 After=network-online.target holdem-worker@0.service holdem-worker@1.service
 StartLimitIntervalSec=300
 StartLimitBurst=10

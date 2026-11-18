@@ -145,7 +145,7 @@ Against a throwaway prefix + user, all recorded into
 ### Results (2026-11-18 run on the outpost)
 
 - `scripts/release/smoke.sh` — PASS; log
-  `scripts/release/smoke-results/20261118-140449.log` (fresh install, login,
+  `scripts/release/smoke-results/20261118-145247.log` (fresh install, login,
   estimate, two solves on GPUs 0+1, `/node`, SSE reconnect, `/ui/`, restore
   drill, upgrade healthy, forced-failure rollback healthy). Smoke ran with
   `HOLDEM_NO_SYSTEMD=1` (no root in the session): `service.sh` drove the

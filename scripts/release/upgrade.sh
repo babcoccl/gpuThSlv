@@ -16,7 +16,8 @@ PREV="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
 "$REPO/scripts/release/backup.sh"
 
 # 2. Build + install the new release (units already installed; env kept).
-"$REPO/scripts/release/install.sh" "$VERSION"
+# The call itself is guarded below: once install.sh has flipped `current`,
+# activation may already have begun, so its failure rolls back too.
 
 restart_stack() {
     if [ -n "${HOLDEM_RESTART_CMD:-}" ]; then
@@ -30,22 +31,28 @@ restart_stack() {
     fi
 }
 
-restart_stack
+rollback_to_prev() {
+    log "upgrade to $VERSION failed ($1) — rolling back to ${PREV:-none}"
+    if [ -z "$PREV" ] || [ ! -d "$PREV" ]; then
+        die "no previous release to roll back to; system left on $VERSION"
+    fi
+    ln -sfn "$PREV" "$CURRENT_LINK"
+    restart_stack || true
+    if wait_healthy "$TIMEOUT"; then
+        log "rollback to $(basename "$PREV") healthy; failed release left at $RELEASES/$VERSION"
+        exit 1
+    fi
+    die "rollback also unhealthy — investigate: journalctl -u 'holdem-*'"
+}
+
+# Activation can already have begun once install.sh flipped `current`, so any
+# install or restart failure rolls back too — not only a failed health check.
+"$REPO/scripts/release/install.sh" "$VERSION" || rollback_to_prev "install failed"
+restart_stack || rollback_to_prev "restart failed"
 
 # 3. Health gate with automatic rollback.
 if wait_healthy "$TIMEOUT"; then
     log "upgrade to $VERSION healthy"
     exit 0
 fi
-
-log "health check FAILED after upgrade — rolling back to ${PREV:-none}"
-if [ -z "$PREV" ] || [ ! -d "$PREV" ]; then
-    die "no previous release to roll back to; system left on $VERSION"
-fi
-ln -sfn "$PREV" "$CURRENT_LINK"
-restart_stack
-if wait_healthy "$TIMEOUT"; then
-    log "rollback to $(basename "$PREV") healthy; failed release left at $RELEASES/$VERSION"
-    exit 1
-fi
-die "rollback also unhealthy — investigate: journalctl -u 'holdem-*'"
+rollback_to_prev "health check failed"
