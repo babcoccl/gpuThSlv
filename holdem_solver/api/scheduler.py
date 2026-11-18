@@ -792,6 +792,7 @@ class Scheduler:
             job = self._store.get(job_id)
             if job is None:
                 return
+            tmp = None
             index, _ = api_nodes.load_index(str(strategy_path))
             evs, masses = api_nodes.export_node_evs(index, job["spot"])
             bounds = strategy.offsets.tolist()
@@ -835,10 +836,11 @@ class Scheduler:
             os.replace(tmp, evs_path)
         except Exception:
             LOG.warning("job %s: node-EV export failed", job_id, exc_info=True)
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
+            if tmp is not None:
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
 
     def _release(self, client: EngineClient) -> None:
         try:
