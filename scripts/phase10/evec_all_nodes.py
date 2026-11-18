@@ -7,7 +7,7 @@ Runs in ``.venv-api`` (numpy). For each persisted solve listed in
    tree — player nodes, chance positions, and terminal edges — the pure-
    Python ``evwalk.edge_value`` (one full subtree walk per hist) is compared
    against ``Σ_c reach_own[c]·V[c]`` where ``V = evec._evs_walk(...)`` is the
-   vectorized payoff vector for ``own ∈ {0, 1}``. Tolerance 1e-9. Chance
+   vectorized payoff vector for ``own ∈ {0, 1}``. Chance
    positions are covered because ``edge_kind == "chance"`` hists are in the
    set, and each ``river:<card>`` child hist is its own entry.
 
@@ -25,10 +25,11 @@ Runs in ``.venv-api`` (numpy). For each persisted solve listed in
    (two more ``edge_value`` runs with the own reach split in half by combo
    gid, pinning both halves of ``V`` separately).
 
-Writes ``logs/evec_all_nodes.json``; exits 1 on any |delta| > 1e-9, on
-any cell the evaluator omitted without explanation (``compare_cells``
-splits compared vs omitted cells against an expected count derived from
-the tree itself), or on a check that compared zero cells.
+Writes ``logs/evec_all_nodes.json``; exits 1 on any cell outside the
+single per-cell rule ``|diff| <= 1e-12 * max(1, |ref|)``, on any cell
+the evaluator omitted without explanation (``compare_cells`` splits
+compared vs omitted cells against an expected count derived from the
+tree itself), or on a check that compared zero cells.
 
 Usage: .venv-api/bin/python -m scripts.phase10.evec_all_nodes [job_substr ...]
 """
@@ -61,7 +62,12 @@ from holdem_solver.api.nodes import (  # noqa: E402
     load_node_evs,
 )
 from holdem_solver.api.strategy import spot_ranges  # noqa: E402
-from scripts.compare_cells import compare_cells, expected_cells, flatten  # noqa: E402
+from scripts.compare_cells import (  # noqa: E402
+    REL_TOL,
+    compare_cells,
+    expected_cells,
+    flatten,
+)
 
 HERE = os.path.dirname(__file__)
 DATA_DIR = os.path.expanduser("~/.local/share/holdem-solver")
@@ -69,11 +75,12 @@ DB = os.path.join(DATA_DIR, "solves.db")
 SCALE_LOG = os.path.join(HERE, "logs", "scale-10-2.json")
 OUT = os.path.join(HERE, "logs", "evec_all_nodes.json")
 
-TOL = 1e-9
-# Relative tolerance alongside the absolute one (Phase 10.5): a cell
-# passes when |diff| <= 1e-12 * max(1, |ref|) — the river aggregate's
-# ~2e-10 residual at |EV| ~ 5.7e4 is ~2.3e-14 relative.
-REL_TOL = 1e-12
+# The single per-cell rule (Phase 10.6): a cell passes iff
+# |diff| <= 1e-12 * max(1, |ref|). The worst-absolute and worst-relative
+# cells are reported separately — on the river aggregate the worst-abs
+# cell is ~2.0e-10 at |ref| ~ 5.7e4 (~3.5e-15 relative) while the
+# worst-rel cell is a different cell at ~2.3e-14.
+TOL = REL_TOL
 # Per-combo exact check is skipped for hists with more descendants than this;
 # those are covered by the aggregate + parity checks instead.
 MAX_DESC_PER_NODE = 400
@@ -139,14 +146,22 @@ def main(names=None):
         n_chance = sum(1 for h in hists if index.edge_kind(h) == "chance")
 
         # --- 1+3: aggregate at every hist; exact per-combo under budget ----
-        agg_max = split_max = exact_max = 0.0
-        agg_rel = split_rel = exact_rel = 0.0
-        persisted_rel = 0.0
+        def bump_worst(cur, cell):
+            if cell is None:
+                return cur
+            if cur is None:
+                return {"abs": cell, "rel": cell}
+            if cell["diff"] > cur["abs"]["diff"]:
+                cur["abs"] = cell
+            if cell["rel"] > cur["rel"]["rel"]:
+                cur["rel"] = cell
+            return cur
+
+        agg_w = split_w = exact_w = persist_w = None
         exact_compared = exact_expected = exact_ref_missing = 0
         exact_hists = 0
         exact_omitted: list = []
         exact_extras: list = []
-        persisted_max = 0.0
         persist_compared = persist_expected = persist_ref_missing = 0
         persist_omitted: list = []
         persist_extras: list = []
@@ -182,9 +197,11 @@ def main(names=None):
                                    reach_vec(opp))
                 agg = float(np.dot(reach_vec(mine), v))
                 d = abs(agg - ref)
-                if d > agg_max:
-                    agg_max = d
-                agg_rel = max(agg_rel, d / max(1.0, abs(ref)))
+                agg_w = bump_worst(agg_w, {
+                    "hist": list(hist), "own": own,
+                    "got": agg, "ref": ref,
+                    "diff": d, "rel": d / max(1.0, abs(ref)),
+                })
                 # parity split: pin both halves of V separately
                 half = {c: r for c, r in mine.items()
                         if evec._gid(c) % 2 == 0}
@@ -195,9 +212,11 @@ def main(names=None):
                 agg_half = float(
                     np.dot(reach_vec(half), v))
                 d = abs(agg_half - ref_half)
-                if d > split_max:
-                    split_max = d
-                split_rel = max(split_rel, d / max(1.0, abs(ref_half)))
+                split_w = bump_worst(split_w, {
+                    "hist": list(hist), "own": own,
+                    "got": agg_half, "ref": ref_half,
+                    "diff": d, "rel": d / max(1.0, abs(ref_half)),
+                })
             if kind != "player":
                 continue
             node_exp = expected_per_hist[hist]
@@ -206,14 +225,12 @@ def main(names=None):
             live = evs_live.get((index.node_at[hist][0], hist), {})
             persist_expected += node_exp
             persist_ref_missing += node_exp - len(flatten(live))
-            c, o, e, m, rel = compare_cells(live, persisted.get(hist, {}) or {})
+            c, o, e, wa, wr = compare_cells(live, persisted.get(hist, {}) or {})
             persist_compared += c
             persist_omitted += o
             persist_extras += e
-            if m > persisted_max:
-                persisted_max = m
-            if rel > persisted_rel:
-                persisted_rel = rel
+            persist_w = bump_worst(persist_w, wa)
+            persist_w = bump_worst(persist_w, wr)
             # exact per-combo check under budget
             if desc(hist) <= MAX_DESC_PER_NODE:
                 exact_hists += 1
@@ -221,21 +238,38 @@ def main(names=None):
                 ref_evs = ref_action_evs(index, hist, r0, r1, board, pot)
                 got = evec.node_action_evs(index, hist, r0, r1, board, pot)
                 exact_ref_missing += node_exp - len(flatten(ref_evs))
-                c, o, e, m, rel = compare_cells(ref_evs, got)
+                c, o, e, wa, wr = compare_cells(ref_evs, got)
                 exact_compared += c
                 exact_omitted += o
                 exact_extras += e
-                if m > exact_max:
-                    exact_max = m
-                if rel > exact_rel:
-                    exact_rel = rel
+                exact_w = bump_worst(exact_w, wa)
+                exact_w = bump_worst(exact_w, wr)
+        def diffs(w):
+            """``(max_abs_diff, max_rel_diff, worst_abs_cell,
+            worst_rel_cell)`` — the two worst cells are usually
+            different cells and are reported separately."""
+            return (
+                0.0 if w is None else w["abs"]["diff"],
+                0.0 if w is None else w["rel"]["rel"],
+                None if w is None else w["abs"],
+                None if w is None else w["rel"],
+            )
+
+        agg_max, agg_rel, agg_abs_cell, agg_rel_cell = diffs(agg_w)
+        split_max, split_rel, split_abs_cell, split_rel_cell = diffs(split_w)
+        persisted_max, persisted_rel, p_abs_cell, p_rel_cell = diffs(persist_w)
+        exact_max, exact_rel, e_abs_cell, e_rel_cell = diffs(exact_w)
         checks = {
             "aggregate_edge_value": {
                 "hists_checked": len(hists), "max_abs_diff": agg_max,
-                "max_rel_diff": agg_rel},
+                "max_rel_diff": agg_rel,
+                "worst_abs_cell": agg_abs_cell,
+                "worst_rel_cell": agg_rel_cell},
             "parity_split": {"hists_checked": len(hists),
                              "max_abs_diff": split_max,
-                             "max_rel_diff": split_rel},
+                             "max_rel_diff": split_rel,
+                             "worst_abs_cell": split_abs_cell,
+                             "worst_rel_cell": split_rel_cell},
             "persisted_vs_live_evec": {
                 "player_nodes_checked": n_player,
                 "expected_cells": persist_expected,
@@ -246,7 +280,9 @@ def main(names=None):
                 "extras": persist_extras[:50],
                 "extras_count": len(persist_extras),
                 "max_abs_diff": persisted_max,
-                "max_rel_diff": persisted_rel},
+                "max_rel_diff": persisted_rel,
+                "worst_abs_cell": p_abs_cell,
+                "worst_rel_cell": p_rel_cell},
             "exact_per_combo": {
                 "player_nodes_checked": exact_hists,
                 "expected_cells": exact_expected,
@@ -258,16 +294,18 @@ def main(names=None):
                 "extras_count": len(exact_extras),
                 "max_abs_diff": exact_max,
                 "max_rel_diff": exact_rel,
+                "worst_abs_cell": e_abs_cell,
+                "worst_rel_cell": e_rel_cell,
                 "skipped_hists_over_budget": n_player - exact_hists},
         }
-        def within(m, rel):
-            return m <= TOL or rel <= REL_TOL
 
+        # One rule: |diff| <= 1e-12 * max(1, |ref|) per cell <=>
+        # max_rel_diff <= REL_TOL.
         ok = (
-            within(agg_max, agg_rel)
-            and within(split_max, split_rel)
-            and within(persisted_max, persisted_rel)
-            and within(exact_max, exact_rel)
+            agg_rel <= REL_TOL
+            and split_rel <= REL_TOL
+            and persisted_rel <= REL_TOL
+            and exact_rel <= REL_TOL
             # unexplained omissions / extras, ref-side shortfalls, and
             # zero-cell passes all fail — a check that compared nothing
             # proves nothing.
@@ -283,7 +321,7 @@ def main(names=None):
             and exact_ref_missing == 0
         )
         report[name] = {
-            "id": jid, "pot": pot, "tol": TOL, "rel_tol": REL_TOL,
+            "id": jid, "pot": pot, "rel_tol": REL_TOL,
             "hists": len(hists), "player_nodes": n_player,
             "chance_positions": n_chance,
             "checks": checks, "ok": ok,

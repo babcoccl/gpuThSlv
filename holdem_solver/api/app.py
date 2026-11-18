@@ -663,62 +663,64 @@ def create_app(
     # per-(job, history, combos) LRU of computed /node responses. Both are
     # bounded; the index cache is keyed by job id and validated against the
     # job's current strategy_path.
-    index_cache: OrderedDict[str, tuple[str, Any, int, tuple | None]] = OrderedDict()
+    index_cache: OrderedDict[str, tuple[str, Any, int, dict | None]] = OrderedDict()
     values_cache: OrderedDict[tuple[str, str | None, bool], dict[str, Any]] = OrderedDict()
     cache_lock = threading.Lock()
-    # Self-heal single-flight: one in-flight node-EV regeneration per job, so
+    # Single-flight: one in-flight node-EV table build per job, so
     # concurrent first /node requests after a declined evs.npz do not
-    # duplicate the compute+write.
-    regen_locks: dict[str, threading.Lock] = {}
+    # duplicate the compute. Nothing is written from the request path —
+    # the computed table lives in index_cache only.
+    table_locks: dict[str, threading.Lock] = {}
 
-    def _regen_lock(job_id: str) -> threading.Lock:
+    def _table_lock(job_id: str) -> threading.Lock:
         with cache_lock:
-            return regen_locks.setdefault(job_id, threading.Lock())
+            return table_locks.setdefault(job_id, threading.Lock())
 
-    def _regen_node_evs(
-        job_id: str, path: str, index: Any, iteration: int, spot: dict[str, Any]
-    ) -> tuple | None:
-        """Regenerate + atomically persist a declined ``*.evs.npz``.
+    def _node_evs_table(
+        job_id: str, path: str, index: Any, spot: dict[str, Any]
+    ) -> dict | None:
+        """The job's node-EV table: the persisted ``*.evs.npz`` when it
+        loads, else the vectorized evaluator run once per job and kept in
+        the bounded index LRU.
 
-        Called when ``load_node_evs`` returned ``None`` (missing,
-        pre-checksum/format, corrupt, or stale file). Single-flight per
-        job: the loser of the lock re-reads the file the winner wrote.
-        Returns the ``(evs, masses)`` pair, or ``None`` to fall back to
-        live computation.
+        The request path never writes: a declined companion file serves
+        live-computed values from memory (regeneration on disk is the
+        ``holdem_solver.api.regen_evs`` command's job). Single-flight per
+        job: concurrent first requests share exactly one build.
         """
-        evs_path = api_nodes.evs_path_for(path)
-        with _regen_lock(job_id):
+        with cache_lock:
+            hit = index_cache.get(job_id)
+            if hit is not None and hit[0] == path and hit[3] is not None:
+                return hit[3]
+        with _table_lock(job_id):
+            with cache_lock:
+                hit = index_cache.get(job_id)
+                if hit is not None and hit[0] == path and hit[3] is not None:
+                    return hit[3]
+            keys = getattr(index, "keys_list", [])
             pair = api_nodes.load_node_evs(
-                str(evs_path), getattr(index, "keys_list", [])
+                str(api_nodes.evs_path_for(path)), keys
             )
             if pair is not None:
-                return pair
-            try:
-                evs, masses = api_nodes.export_node_evs(index, spot)
-                flat, mass = api_nodes.pack_node_evs(
-                    evs, masses,
-                    index.keys_list, index.actions_list, index.offsets,
-                )
-                api_nodes.write_node_evs(
-                    evs_path, index.keys_list, index.actions_list,
-                    index.offsets, flat, mass, iteration,
-                )
-            except Exception:
-                LOG.warning(
-                    "job %s: node-EV regeneration failed; serving live values",
-                    job_id, exc_info=True,
-                )
-                return None
-            pair = api_nodes.load_node_evs(
-                str(evs_path), index.keys_list
-            )
+                table = pair[0]
+            else:
+                try:
+                    evs, _masses = api_nodes.export_node_evs(index, spot)
+                except Exception:
+                    LOG.warning(
+                        "job %s: node-EV table build failed; serving live values",
+                        job_id, exc_info=True,
+                    )
+                    return None
+                # (player, hist) -> hist keys: a history has one player.
+                table = {hist: rows for (_player, hist), rows in evs.items()}
             with cache_lock:
                 hit = index_cache.get(job_id)
                 if hit is not None and hit[0] == path:
-                    index_cache[job_id] = (path, index, iteration, pair)
-            return pair
+                    index_cache[job_id] = (path, index, hit[2], table)
+            return table
 
-    def _strategy_index(job_id: str) -> tuple[Any, int, dict[str, Any], tuple | None]:
+    def _strategy_index(job_id: str) -> tuple[Any, int, dict[str, Any]]:
         """Load the exported strategy as a TreeIndex, with the same guards as /strategy."""
         job = store.get(job_id)
         if job is None:
@@ -734,18 +736,21 @@ def create_app(
             hit = index_cache.get(job_id)
             if hit is not None and hit[0] == path:
                 index_cache.move_to_end(job_id)  # OrderedDict LRU refresh
-                return hit[1], hit[2], job, hit[3]
+                return hit[1], hit[2], job
         index, iteration = api_nodes.load_index(path)
-        evs_pair = api_nodes.load_node_evs(
-            path[:-len(".npz")] + ".evs.npz",
-            getattr(index, "keys_list", []),
-        )
         with cache_lock:
-            index_cache[job_id] = (path, index, iteration, evs_pair)
+            # A concurrent request may have loaded the same index and
+            # already built its table — keep that entry (index + table)
+            # instead of overwriting the completed table with None.
+            hit = index_cache.get(job_id)
+            if hit is not None and hit[0] == path:
+                index_cache.move_to_end(job_id)
+                return hit[1], hit[2], job
+            index_cache[job_id] = (path, index, iteration, None)
             index_cache.move_to_end(job_id)
             while len(index_cache) > index_cache_jobs:
                 index_cache.popitem(last=False)
-        return index, iteration, job, evs_pair
+        return index, iteration, job
 
     @app.get(
         "/v1/solves/{job_id}/tree", response_model=TreeNodeResponse,
@@ -759,7 +764,7 @@ def create_app(
             description="comma- or pipe-separated history; '' = root",
         ),
     ) -> TreeNodeResponse:
-        index, iteration, job, _evs = _strategy_index(job_id)
+        index, iteration, job = _strategy_index(job_id)
         try:
             hist = parse_history(history)
         except ValueError as exc:
@@ -782,30 +787,29 @@ def create_app(
         ),
         combos: bool = Query(False, description="per combo instead of per hand class"),
     ) -> NodeValuesResponse:
-        index, iteration, job, evs_pair = _strategy_index(job_id)
+        index, iteration, job = _strategy_index(job_id)
+        # History validation before any table work: chance and terminal
+        # histories never reach the node-EV table.
         try:
             hist = parse_history(history)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        if evs_pair is None:
-            evs_pair = _regen_node_evs(
-                job_id, job["strategy_path"], index, iteration, job["spot"]
-            )
         kind = index.edge_kind(hist)
         if kind == "chance":
             raise HTTPException(status_code=422, detail="this history is a chance node; use /tree for dealt cards")
         if kind == "terminal":
-            raise HTTPException(status_code=404, detail="no player node at this history")
+            raise HTTPException(status_code=422, detail="no player node at this history")
         vkey = (job_id, history, combos)
         with cache_lock:
             cached = values_cache.get(vkey)
             if cached is not None:
                 values_cache.move_to_end(vkey)
                 return NodeValuesResponse(id=job_id, iteration=iteration, **cached)
+        node_evs = _node_evs_table(job_id, job["strategy_path"], index, job["spot"])
         try:
             values = api_nodes.node_values(
                 index, job["spot"], hist, combos=combos, max_work=node_eval_max_work,
-                node_evs=None if evs_pair is None else evs_pair[0],
+                node_evs=node_evs,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

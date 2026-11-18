@@ -100,13 +100,17 @@ def write_node_evs(
     mass: np.ndarray,
     iteration: int,
     open_for_write: Any = None,
+    tmp_path: str | Path | None = None,
 ) -> None:
     """Atomically write ``strategy-<id>.evs.npz`` (format v2): temp file,
-    fsync, ``os.replace``; the temp file is unlinked on any failure."""
+    fsync, ``os.replace``; the temp file is unlinked on any failure.
+    ``tmp_path`` overrides the temp name — overlapping writers (e.g. two
+    migration processes) must not share ``tmp_path_for``'s deterministic
+    name, or one can truncate the other's file mid-publish."""
     if open_for_write is None:
         open_for_write = lambda p: open(p, "wb")
     evs_path = Path(evs_path)
-    tmp = tmp_path_for(evs_path)
+    tmp = Path(tmp_path) if tmp_path is not None else tmp_path_for(evs_path)
     try:
         with open_for_write(str(tmp)) as handle:
             np.savez(
@@ -226,12 +230,20 @@ def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
         if parsed is None:
             continue
         hist = tuple(parsed["history"])
+        masses.setdefault(hist, {})[parsed["hand"]] = float(mass[i])
+        evs.setdefault(hist, {})
+        # Combos with zero compatible opponent mass (or no own reach) carry
+        # zeros on disk; the live walk reports them as omitted cells (null
+        # action EVs). Drop the combos — but keep the history: an absent
+        # hist makes node_values treat the node as uncached (max_work),
+        # while an empty hist serves nulls exactly like the live table.
+        if mass[i] <= 0.0:
+            continue
         names = actions[i]
         row = ev[bounds[i] : bounds[i + 1]]
         evs.setdefault(hist, {})[parsed["hand"]] = {
             names[j]: float(v) for j, v in enumerate(row.tolist()) if j < len(names)
         }
-        masses.setdefault(hist, {})[parsed["hand"]] = float(mass[i])
     return evs, masses
 
 
