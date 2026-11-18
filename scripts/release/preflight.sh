@@ -142,14 +142,16 @@ _check_gpucfr() {
         || ! find "$GPUCFR_DIR/gpu_cfr" -maxdepth 1 -name '*.cpython-39-*.so' 2>/dev/null | grep -q .; then
         check_item FAIL gpucfr "$GPUCFR_DIR not initialized (no gpu_cfr/*.cpython-39-*.so); run: $init"; return
     fi
-    local bad
-    if [ "$(id -un)" = "$HOLDEM_USER" ]; then
-        bad="$(find "$GPUCFR_DIR/gpu_cfr" \( ! -readable -o -type d ! -executable \) -print -quit 2>/dev/null || true)"
-    elif [ "$(id -u)" -eq 0 ] && id "$HOLDEM_USER" >/dev/null 2>&1; then
-        bad="$(runuser -u "$HOLDEM_USER" -- find "$GPUCFR_DIR/gpu_cfr" \( ! -readable -o -type d ! -executable \) -print -quit 2>/dev/null || true)"
+    local bad rc=0
+    if [ "$(id -un)" = "$HOLDEM_USER" ] && [ "$(id -u)" -ne 0 ]; then
+        bad="$(find "$GPUCFR_DIR/gpu_cfr" \( ! -readable -o -type d ! -executable \) -print -quit 2>/dev/null)" || rc=$?
     else
-        # rsync -a preserves these modes into the root-owned release copy.
-        bad="$(find "$GPUCFR_DIR/gpu_cfr" \( ! -perm -o=r -o -type d ! -perm -o=x \) -print -quit 2>/dev/null || true)"
+        # install.sh copies the tree root-owned (rsync --no-owner) with its
+        # modes kept, so the service user reads it through the "other" bits.
+        bad="$(find "$GPUCFR_DIR/gpu_cfr" \( ! -perm -o=r -o -type d ! -perm -o=x \) -print -quit 2>/dev/null)" || rc=$?
+    fi
+    if [ "$rc" -ne 0 ]; then
+        check_item FAIL gpucfr "cannot scan $GPUCFR_DIR/gpu_cfr (find exit $rc); fix: chmod -R o+rX $GPUCFR_DIR/gpu_cfr"; return
     fi
     if [ -n "$bad" ]; then
         check_item FAIL gpucfr "$HOLDEM_USER cannot read $bad; fix: chmod -R o+rX $GPUCFR_DIR/gpu_cfr"
