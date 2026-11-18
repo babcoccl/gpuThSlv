@@ -1,6 +1,6 @@
 # Phase 10.3 — guard completeness and evec validation
 
-Date: 2026-11-18. Status: in progress.
+Date: 2026-11-18. Status: done.
 
 Everything in the test-case section below was written **before**
 implementation and is not revised after seeing results.
@@ -207,6 +207,8 @@ raise-cap-2 3.29 s.
 
 ## Gate
 
-Run `scripts/run_all_tests.sh`, `npx playwright test` and
-`npm run e2e:real` on the outpost; every new mutation test must exit
-nonzero; record validation results for both EV paths in this doc.
+**Gate result:** `scripts/run_all_tests.sh` clean on the outpost
+(engine 197 passed / 5 skipped, api 268 passed, all UI contract
+checks); `npx playwright test` 10/10; `npm run e2e:real` PASS; all new
+mutation tests exit nonzero as required; validation results for both
+EV paths recorded above.
