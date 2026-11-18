@@ -51,8 +51,13 @@ rollback() {
     local state="${1:-$(ls -d "$CUTOVER_ROOT"/*/ 2>/dev/null | sort | tail -1)}"
     state="${state%/}"
     [ -f "$state/state.env" ] || die "no cutover state under $CUTOVER_ROOT"
-    # shellcheck disable=SC1091
-    . "$state/state.env"
+    # Parsed, never sourced: OLD_KEY comes from the old user's own env file.
+    OLD_USER="$(env_get "$state/state.env" OLD_USER)"
+    OLD_PORT="$(env_get "$state/state.env" OLD_PORT)"
+    OLD_KEY="$(env_get "$state/state.env" OLD_KEY)"
+    CHECK_JOB="$(env_get "$state/state.env" CHECK_JOB)"
+    id "$OLD_USER" >/dev/null 2>&1 || die "state names unknown user '$OLD_USER'"
+    [[ "$OLD_PORT" =~ ^[0-9]+$ ]] || die "bad OLD_PORT in $state/state.env"
     log "rollback: stopping release units, restoring $OLD_USER's user units ($state)"
     systemctl stop holdem-solver.target holdem-api.service 'holdem-worker@*.service' 2>/dev/null || true
     systemctl disable holdem-solver.target holdem-api.service holdem-worker@0.service holdem-worker@1.service 2>/dev/null || true
