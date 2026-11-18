@@ -57,10 +57,11 @@ export function buildSpot(f: SpotForm): SpotSpec {
     raise_sizes: f.raiseCap > 0 ? f.raiseSizes.map((r) => [r.kind, Number(r.value)]) : [],
     dead_cards: f.dead,
     bet_sizes: f.sizeSet,
-    max_nodes: null,
+    // Blank node limit = the server's default admission cap (2M); null would
+    // disable the guard entirely.
+    max_nodes: f.maxNodes.trim() ? Number(f.maxNodes) : 2_000_000,
   };
   if (f.name.trim()) spot.name = f.name.trim();
-  if (f.maxNodes.trim()) spot.max_nodes = Number(f.maxNodes);
   switch (f.sizeMode) {
     case "set":
       spot.bet_sizes = f.sizeSet;
