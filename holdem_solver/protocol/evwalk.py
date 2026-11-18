@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import itertools
 import re
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .cards import RANKS, card_id, card_str, parse_cards
@@ -67,16 +68,15 @@ def _rank5(cards: Tuple[int, ...]) -> Tuple[int, Tuple[int, ...]]:
     return (0, tuple(ranks))
 
 
-_rank7_cache = {}  # type: Dict[Tuple[int, ...], Tuple[int, Tuple[int, ...]]]
-
-
 def rank7(cards: Tuple[int, ...]) -> Tuple[int, Tuple[int, ...]]:
-    key = tuple(sorted(cards))
-    cached = _rank7_cache.get(key)
-    if cached is None:
-        cached = max(_rank5(sub) for sub in itertools.combinations(key, 5))
-        _rank7_cache[key] = cached
-    return cached
+    return _rank7(tuple(sorted(cards)))
+
+
+# Bounded: a distinct board adds up to 1326 entries, and job export fills
+# the cache without any viewer request — it must not grow per solve.
+@lru_cache(maxsize=200_000)
+def _rank7(key: Tuple[int, ...]) -> Tuple[int, Tuple[int, ...]]:
+    return max(_rank5(sub) for sub in itertools.combinations(key, 5))
 
 
 def combo_tuple(text: str) -> Combo:

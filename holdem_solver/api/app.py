@@ -53,7 +53,7 @@ import logging
 import os
 import threading
 import time
-from collections import deque
+from collections import OrderedDict, deque
 from typing import Any, Iterator, Literal
 
 import numpy as np
@@ -287,6 +287,8 @@ def create_app(
         node_eval_max_work = int(
             os.environ.get("HOLDEM_NODE_EVAL_MAX_WORK", api_nodes.DEFAULT_MAX_EVAL_WORK)
         )
+    index_cache_jobs = int(os.environ.get("HOLDEM_INDEX_CACHE_JOBS", "4"))
+    values_cache_entries = int(os.environ.get("HOLDEM_NODE_VALUES_CACHE", "256"))
     if sse_buffer_size is None:
         sse_buffer_size = int(os.environ.get("HOLDEM_SSE_BUFFER", SSE_BUFFER))
     if sse_poll_seconds is None:
@@ -656,7 +658,15 @@ def create_app(
 
     # -- Phase 9: tree navigation + per-node values ------------------------------
 
-    def _strategy_index(job_id: str) -> tuple[Any, int, dict[str, Any]]:
+    # Per-job LRU of loaded strategy indexes + persisted node EVs, and a
+    # per-(job, history, combos) LRU of computed /node responses. Both are
+    # bounded; the index cache is keyed by job id and validated against the
+    # job's current strategy_path.
+    index_cache: OrderedDict[str, tuple[str, Any, int, tuple | None]] = OrderedDict()
+    values_cache: OrderedDict[tuple[str, str | None, bool], dict[str, Any]] = OrderedDict()
+    cache_lock = threading.Lock()
+
+    def _strategy_index(job_id: str) -> tuple[Any, int, dict[str, Any], tuple | None]:
         """Load the exported strategy as a TreeIndex, with the same guards as /strategy."""
         job = store.get(job_id)
         if job is None:
@@ -668,8 +678,22 @@ def create_app(
         path = job["strategy_path"]
         if not path or not os.path.exists(path):
             raise HTTPException(status_code=404, detail="no strategy was exported for this job")
+        with cache_lock:
+            hit = index_cache.get(job_id)
+            if hit is not None and hit[0] == path:
+                index_cache.move_to_end(job_id)  # OrderedDict LRU refresh
+                return hit[1], hit[2], job, hit[3]
         index, iteration = api_nodes.load_index(path)
-        return index, iteration, job
+        evs_pair = api_nodes.load_node_evs(
+            path[:-len(".npz")] + ".evs.npz",
+            getattr(index, "keys_list", []),
+        )
+        with cache_lock:
+            index_cache[job_id] = (path, index, iteration, evs_pair)
+            index_cache.move_to_end(job_id)
+            while len(index_cache) > index_cache_jobs:
+                index_cache.popitem(last=False)
+        return index, iteration, job, evs_pair
 
     @app.get(
         "/v1/solves/{job_id}/tree", response_model=TreeNodeResponse,
@@ -683,7 +707,7 @@ def create_app(
             description="comma- or pipe-separated history; '' = root",
         ),
     ) -> TreeNodeResponse:
-        index, iteration, job = _strategy_index(job_id)
+        index, iteration, job, _evs = _strategy_index(job_id)
         try:
             hist = parse_history(history)
         except ValueError as exc:
@@ -706,7 +730,7 @@ def create_app(
         ),
         combos: bool = Query(False, description="per combo instead of per hand class"),
     ) -> NodeValuesResponse:
-        index, iteration, job = _strategy_index(job_id)
+        index, iteration, job, evs_pair = _strategy_index(job_id)
         try:
             hist = parse_history(history)
         except ValueError as exc:
@@ -716,12 +740,24 @@ def create_app(
             raise HTTPException(status_code=422, detail="this history is a chance node; use /tree for dealt cards")
         if kind == "terminal":
             raise HTTPException(status_code=404, detail="no player node at this history")
+        vkey = (job_id, history, combos)
+        with cache_lock:
+            cached = values_cache.get(vkey)
+            if cached is not None:
+                values_cache.move_to_end(vkey)
+                return NodeValuesResponse(id=job_id, iteration=iteration, **cached)
         try:
             values = api_nodes.node_values(
-                index, job["spot"], hist, combos=combos, max_work=node_eval_max_work
+                index, job["spot"], hist, combos=combos, max_work=node_eval_max_work,
+                node_evs=None if evs_pair is None else evs_pair[0],
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        with cache_lock:
+            values_cache[vkey] = values
+            values_cache.move_to_end(vkey)
+            while len(values_cache) > values_cache_entries:
+                values_cache.popitem(last=False)
         return NodeValuesResponse(id=job_id, iteration=iteration, **values)
 
     # -- Phase 9: live progress (SSE) --------------------------------------------

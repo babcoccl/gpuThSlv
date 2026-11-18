@@ -378,3 +378,49 @@
 - Guard: `check_phase10` verifies the doc table vs `real_e2e.json`,
   the suite count vs `playwright_e2e.log`, and the committed
   screenshots. `check_suites.py`: 19 docs OK.
+
+## 2026-11-17 — Phase 10.1: UI API contract hardening
+
+- Every UI API call routed through the generated `openapi-fetch` client;
+  `client.use` middleware attaches `x-csrf-token` on mutating calls and
+  maps errors to `ApiError`; the raw `fetch()` helper deleted
+  (`EventSource` only in `src/api/sse.ts`).
+- `Record<string, unknown>` request types and `as` contract casts
+  removed; server pydantic models tightened (typed `bet_sizes` unions,
+  `raise_sizes` `[kind, value]` pairs, typed `exploitability_history`,
+  `ranges` as `{p0, p1}`); `schema.d.ts` regenerated.
+- Contract checks: `check-mutation.mjs` (mutate openapi.json → regen →
+  tsc must fail), `check-schema.sh` (regen diff), `check-no-fetch.mjs`,
+  `check-bodies.mjs` (ajv-validate every built body). Lint forbids raw
+  `fetch`/`new EventSource` outside `src/api/`.
+- Accessibility: `@axe-core/playwright` across all screens — 0
+  serious/critical; keyboard-only navigation tests in `a11y.spec.ts`.
+- Scale run on the outpost: 573k-node river, turn spot with chance
+  nodes, raise_cap-2 river; all usable; cold `/node` first hit 8–39 s
+  recorded as a limit (fixed in 10.2). Artifact:
+  `scripts/phase10/logs/scale-10-1.json`.
+- Details: `docs/PHASE10_1.md`.
+
+## 2026-11-17 — Phase 10.2: /node latency + check wiring
+
+- `/node` first hit dropped from ~8–39 s to ~0.01–0.2 s (warm ~2 ms):
+  per-node action EVs computed in one vectorized pass over the tree
+  (`api/evec.py`), persisted to `strategy-<id>.evs.npz` at job export,
+  loaded lazily with the index; per-job LRU index cache
+  (`HOLDEM_INDEX_CACHE_JOBS=4`) + per-(job, history) node-values LRU
+  (`HOLDEM_NODE_VALUES_CACHE=256`).
+- Persisted-EV path verified equal to the live walk: all six
+  EV-validation spots within tolerance (max |Δ| ≈ 8e-15); `brute_ev`
+  re-run green; evec unit tests 5 passed.
+- Scale table re-measured with job-status timings (build s, solve
+  elapsed s, iterations, exploitability) plus first/warm /node, /tree
+  and viewer TTFR; `check_phase10_2` verifies the doc table against the
+  committed artifact; `scenario wall` label corrected in
+  `docs/PHASE10_1.md`.
+- `check-mutation.mjs` wired into `run_all_tests.sh`; meta-tests assert
+  all four contract checks are wired and that check-mutation fails when
+  schema regeneration is a no-op.
+- `check-bodies.mjs` now exercises every `bet_sizes` union branch
+  (preset/list/per-player/per-street) and both `raise_sizes` kinds;
+  the PHASE8_5 worked-example chips corrected in `docs/PHASE10_1.md`.
+- Details: `docs/PHASE10_2.md`.

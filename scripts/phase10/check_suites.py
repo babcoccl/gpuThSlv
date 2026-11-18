@@ -476,6 +476,35 @@ def check_phase10(doc: Path) -> None:
             fail(doc, f"missing screenshot {name}.png")
 
 
+def check_phase10_2(doc: Path) -> None:
+    """Scale table vs committed scale-10-2.json (re-measured columns:
+    nodes, build s, solve s, iterations, exploitability, first/warm
+    /node, /tree, TTFR)."""
+    text = doc.read_text()
+    scale = load("phase10/logs/scale-10-2.json")
+    by_name = {r["name"]: r for r in scale}
+    rows = req_table(doc, text, "build s", "first /node", exclude=("wall",))
+    for ln, c in rows:
+        name = c[0].strip("`")
+        r = by_name.get(name)
+        if r is None:
+            fail(doc, f"line {ln}: spot {name!r} not in scale-10-1.json")
+            continue
+        num_close(doc, c[1].replace(",", ""), r["nodes"], f"{name} nodes")
+        num_close(doc, c[2], r["build_s"], f"{name} build s")
+        num_close(doc, c[3], r["solve_s"], f"{name} solve s")
+        num_close(doc, c[4], r["iterations"], f"{name} iterations")
+        num_close(doc, c[5], r["exploitability"], f"{name} exploitability")
+        root = r["calls"][0]
+        if root.get("history") != "root" or "first_node_ms" not in root:
+            fail(doc, f"{name}: artifact calls[0] has no root first/warm /node")
+            continue
+        num_close(doc, c[6], root["first_node_ms"], f"{name} first /node ms")
+        num_close(doc, c[7], root["warm_node_ms"], f"{name} warm /node ms")
+        num_close(doc, c[8], root["tree_ms"], f"{name} /tree ms")
+        num_close(doc, c[9], r["ttfr_ms"], f"{name} TTFR ms")
+
+
 def check_doc_status(doc: Path) -> None:
     """'Status: in progress' + a recorded gate result is contradictory."""
     text = doc.read_text()
@@ -525,6 +554,8 @@ def main(argv: list[str]) -> int:
             check_phase8_6(doc, suite8_6)
         elif name == "PHASE10.md":
             check_phase10(doc)
+        elif name == "PHASE10_2.md":
+            check_phase10_2(doc)
         elif name == "VALIDATION.md":
             check_validation(
                 doc,
