@@ -1,115 +1,115 @@
 [
   {
     "name": "scale-river-573k",
-    "id": "9d9b5166b383",
+    "id": "9cc6b0b43c98",
     "nodes": 573031,
-    "build_s": 5.873185560994898,
-    "solve_s": 8.130075216293335,
-    "export_s": 0.22656555600406136,
-    "scenario_wall_s": 9.697,
+    "build_s": 5.548844914002984,
+    "solve_s": 6.811905145645142,
+    "export_s": 0.1811993990013434,
+    "scenario_wall_s": 9.72,
     "iterations": 200,
-    "exploitability": 0.0800304114818573,
+    "exploitability": 0.08127647638320923,
     "stop_reason": "iteration cap",
-    "ttfr_ms": 253.12797300000057,
+    "ttfr_ms": 261.31472399999984,
     "calls": [
       {
         "history": "root",
-        "first_node_ms": 63.50268200000028,
-        "warm_node_ms": 3.187961000001451,
-        "tree_ms": 4.521861000001081,
-        "node_bytes": 21501,
+        "first_node_ms": 79.28353999999854,
+        "warm_node_ms": 3.7661189999998896,
+        "tree_ms": 3.0890699999999924,
+        "node_bytes": 21500,
         "tree_bytes": 802
       },
       {
         "history": "check",
-        "tree_ms": 3.0460480000001553,
+        "tree_ms": 3.1059210000003077,
         "tree_bytes": 737,
-        "node_ms": 52.133804000000964,
-        "node_bytes": 22716
+        "node_ms": 59.73786099999961,
+        "node_bytes": 22725
       },
       {
         "history": "check/b10",
-        "tree_ms": 3.4043079999992187,
+        "tree_ms": 2.9698159999989002,
         "tree_bytes": 487,
-        "node_ms": 52.37153099999887,
-        "node_bytes": 21486
+        "node_ms": 53.150667999998404,
+        "node_bytes": 21421
       }
     ],
     "ui_errors": []
   },
   {
     "name": "scale-turn-chance",
-    "id": "9eb2cec01565",
+    "id": "c5f4a72a2bd2",
     "nodes": 442891,
-    "build_s": 6.12574799900176,
-    "solve_s": 24.58836078643799,
-    "export_s": 16.43621621600323,
-    "scenario_wall_s": 27.557,
+    "build_s": 5.622847343001922,
+    "solve_s": 23.467041969299316,
+    "export_s": 16.82143068300138,
+    "scenario_wall_s": 24.537,
     "iterations": 200,
-    "exploitability": 0.2542681396007538,
+    "exploitability": 0.2544345408678055,
     "stop_reason": "iteration cap",
-    "ttfr_ms": 94.351410999996,
+    "ttfr_ms": 95.2975360000055,
     "calls": [
       {
         "history": "root",
-        "first_node_ms": 167.6218019999942,
-        "warm_node_ms": 2.913194000000658,
-        "tree_ms": 2.5892950000052224,
-        "node_bytes": 2204,
+        "first_node_ms": 189.5516209999987,
+        "warm_node_ms": 3.358167999998841,
+        "tree_ms": 3.0149380000002566,
+        "node_bytes": 2197,
         "tree_bytes": 796
       },
       {
         "history": "check",
-        "tree_ms": 2.4577809999973397,
+        "tree_ms": 2.918884999999136,
         "tree_bytes": 736,
-        "node_ms": 11.78851100000611,
-        "node_bytes": 2320
+        "node_ms": 11.805713999994623,
+        "node_bytes": 2316
       },
       {
         "history": "check/check",
-        "tree_ms": 2.5954249999995227,
+        "tree_ms": 2.3091679999997723,
         "tree_bytes": 5892,
         "node_ms": null,
         "node_bytes": null,
-        "node_error": "Error: GET /v1/solves/9eb2cec01565/node?history=check%2Ccheck -> 422: {\"detail\":\"this history is a chance node; use /tre"
+        "node_error": "Error: GET /v1/solves/c5f4a72a2bd2/node?history=check%2Ccheck -> 422: {\"detail\":\"this history is a chance node; use /tre"
       }
     ],
     "ui_errors": []
   },
   {
     "name": "scale-raisecap2",
-    "id": "4a037014a459",
+    "id": "3eaf99ddfdb2",
     "nodes": 95743,
-    "build_s": 1.1018972839956405,
-    "solve_s": 2.7469351291656494,
-    "export_s": 0.6255487900052685,
-    "scenario_wall_s": 3.298,
+    "build_s": 0.8794823310017819,
+    "solve_s": 2.556978464126587,
+    "export_s": 0.6530031740003324,
+    "scenario_wall_s": 3.251,
     "iterations": 200,
-    "exploitability": 0.11536094546318054,
+    "exploitability": 0.11536189913749695,
     "stop_reason": "iteration cap",
-    "ttfr_ms": 92.56962000000203,
+    "ttfr_ms": 80.45841400000063,
     "calls": [
       {
         "history": "root",
-        "first_node_ms": 22.60927499999525,
-        "warm_node_ms": 3.0726790000044275,
-        "tree_ms": 3.0072759999966365,
-        "node_bytes": 4358,
+        "first_node_ms": 22.75033199999598,
+        "warm_node_ms": 3.1017099999953643,
+        "tree_ms": 2.9646760000032373,
+        "node_bytes": 4346,
         "tree_bytes": 918
       },
       {
         "history": "check",
-        "tree_ms": 2.943015999997442,
+        "tree_ms": 2.875024000000849,
         "tree_bytes": 853,
-        "node_ms": 7.447134999994887,
-        "node_bytes": 4734
+        "node_ms": 7.573609999999462,
+        "node_bytes": 4731
       },
       {
         "history": "check/b10",
-        "tree_ms": 2.867172999998729,
+        "tree_ms": 2.9122449999995297,
         "tree_bytes": 989,
-        "node_ms": 7.442145999993954,
-        "node_bytes": 5574
+        "node_ms": 7.5113990000027115,
+        "node_bytes": 5628
       }
     ],
     "ui_errors": []

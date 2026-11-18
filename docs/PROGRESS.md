@@ -547,3 +547,48 @@
   on unresolved, and the negative test goes through the production
   indexer with a bare-sibling edge reaching `holdem_solver.api`.
 - Details: `docs/PHASE10_6.md`.
+
+## Phase 11 — native single-host release (2026-11-18)
+
+- Third-party hygiene: `git ls-files` audited — no tracked GPU-CFR
+  files/binaries, no TexasSolver binaries, no vendored code; the only
+  third-party entry is the `third_party/GPU-CFR` submodule gitlink.
+  `docs/LICENSES.md` inventories every pip (both venvs, `pip-licenses`)
+  and npm (`license-checker`) dependency plus GPU-CFR (no license file
+  upstream; CC BY-NC-SA badge only), TexasSolver (AGPL v3, validation
+  only) and the CUDA/driver stack (NVIDIA proprietary); it states the
+  system is private-use, not redistributed, and that the install expects
+  the user's own GPU-CFR copy at the configured path.
+- Release layout `/opt/holdem/releases/<version>` + `current` symlink,
+  `/var/lib/holdem` data dir, root-only `0600` `/etc/holdem/holdem.env`
+  (API key + session secret generated once, never overwritten).
+  `scripts/release/install.sh` (idempotent; venvs from the pinned
+  requirements with full interpreter paths, `npm ci` + `npm run build`),
+  `upgrade.sh` (backup → flip → restart → auto-rollback on /healthz),
+  `uninstall.sh`, `backup.sh`/`restore.sh` (solves.db incl. spots;
+  strategy files excluded, regenerable via `regen_evs`), `service.sh`
+  (no-systemd process manager used by smoke), `smoke.sh` (acceptance in
+  a throwaway prefix+user).
+- systemd: `holdem-api.service` `Requires=`/`After=` the worker units;
+  `holdem-worker@.service` picks its GPU from the instance
+  (`CUDA_VISIBLE_DEVICES=%i`); `Restart=always`, `TimeoutStopSec=30`
+  graceful shutdown, `RuntimeDirectory=holdem`, hardening
+  (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`,
+  `PrivateTmp`, `ReadWritePaths`); journald retention capped by
+  `deploy/systemd/holdem-journald.conf`. API binds `HOLDEM_API_HOST`
+  (127.0.0.1).
+- `/healthz` returns `{status, workers, gpus, disk}` — 503 `degraded`
+  when any worker is down, a GPU is invisible to NVML, or the data dir
+  drops below `HOLDEM_HEALTH_MIN_FREE_BYTES` (1 GiB). `/version`
+  returns `{version, git_sha}` (sha from `HOLDEM_GIT_SHA`, written by
+  install.sh).
+- TLS/proxy: RUNBOOK documents a Caddy internal-CA config with
+  `flush_interval -1` for SSE; `HOLDEM_SECURE_COOKIES=1` is set in the
+  generated env so cookies are `Secure; HttpOnly; SameSite=Strict` end
+  to end; login rate limiting (10/min burst 5) covered by tests; session
+  key rotation documented (logs everyone out).
+- Tests: `tests/test_api_phase11.py` (healthz ok/degraded paths,
+  /version, no vendored binaries, LICENSES.md completeness, script
+  syntax, stub install idempotency, backup/restore roundtrip, login
+  rate limit, Secure cookie attributes).
+  Details: `docs/PHASE11.md`.

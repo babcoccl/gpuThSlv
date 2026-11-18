@@ -344,6 +344,23 @@ Operations (Phase 4, `docs/PHASE4.md`):
 
 ## Deployment
 
+### Quickstart (native single-host release, Phase 11)
+
+```bash
+sudo scripts/release/install.sh v1.0.0
+# builds /opt/holdem/releases/v1.0.0 (both venvs from pinned
+# requirements, ui/dist via npm ci), creates the `holdem` user,
+# /var/lib/holdem and a root-only /etc/holdem/holdem.env, installs the
+# units, flips /opt/holdem/current and restarts.
+curl -fsS http://127.0.0.1:8000/healthz
+sudo scripts/release/upgrade.sh v1.1.0   # backup + flip + health gate + auto-rollback
+```
+
+Private use only; the install expects your own GPU-CFR copy at
+`third_party/GPU-CFR` (see `docs/LICENSES.md`). Operations:
+[RUNBOOK.md](RUNBOOK.md) (start/stop, logs, GPU fault, disk full, key
+rotation, restore, Caddy TLS, driver updates).
+
 ### systemd (no sudo)
 
 ```bash
@@ -359,11 +376,12 @@ Units (`deploy/systemd/user/`): `holdem-worker@.service` (one per GPU, Python
 3.9, `Restart=always`), `holdem-api.service` (Python 3.15,
 `HOLDEM_WORKER_MODE=external`, `Restart=always`), `holdem-solver.target`,
 and an hourly `holdem-logrotate.timer` (`deploy/logrotate/holdem-solver`:
-daily or 100 MB, 14 kept, compressed). `deploy/systemd/system/` has the
-root-installed equivalents (`User=holdem`, `/opt/holdem-solver`,
-`/etc/holdem-solver/holdem.env`, `/run/holdem-solver`, hardening; logs go to
-the journal, `journalctl -u holdem-api -u 'holdem-worker@*'`). The env
-template is `deploy/holdem.env.example`.
+daily or 100 MB, 14 kept, compressed). `deploy/systemd/system/` holds the
+release units `install.sh` renders and installs (`User=holdem`,
+`/opt/holdem/current`, `/etc/holdem/holdem.env`, `/var/lib/holdem`,
+`/run/holdem`, hardening; logs go to the journal, retention capped by
+`/etc/systemd/journald.conf.d/holdem.conf`). The env template is
+`deploy/holdem.env.example`.
 
 Windows / PowerShell (to reach a remote box's API):
 

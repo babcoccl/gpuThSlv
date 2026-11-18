@@ -1,34 +1,42 @@
+# System-wide unit (installed by scripts/release/install.sh; needs root).
+# Assumes: `holdem` user, release tree at @PREFIX@/current with both venvs
+# built, @CONFDIR@/holdem.env (0600, root), @DATADIR@ data dir.
 [Unit]
 Description=holdem-solver REST API
 PartOf=holdem-solver.target
-Wants=network-online.target holdem-worker@0.service holdem-worker@1.service
+Requires=holdem-worker@0.service holdem-worker@1.service
+Wants=network-online.target
 After=network-online.target holdem-worker@0.service holdem-worker@1.service
 StartLimitIntervalSec=300
 StartLimitBurst=10
 
 [Service]
 Type=simple
-User=holdem
-Group=holdem
-WorkingDirectory=/opt/holdem-solver
-EnvironmentFile=/etc/holdem-solver/holdem.env
-Environment=PYTHONPATH=/opt/holdem-solver HOLDEM_API_DATA_DIR=/var/lib/holdem-solver
-Environment=HOLDEM_SOLVER_RUNTIME_DIR=/run/holdem-solver
-RuntimeDirectory=holdem-solver
+User=@USER@
+Group=@GROUP@
+WorkingDirectory=@PREFIX@/current
+EnvironmentFile=@CONFDIR@/holdem.env
+Environment=PYTHONPATH=@PREFIX@/current HOLDEM_API_DATA_DIR=@DATADIR@
+Environment=HOLDEM_SOLVER_RUNTIME_DIR=@RUNDIR@
+RuntimeDirectory=@RUNNAME@
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
-StateDirectory=holdem-solver
+StateDirectory=@STATENAME@
 StateDirectoryMode=0700
-ExecStart=/opt/holdem-solver/.venv-api/bin/python -m holdem_solver.api
+ExecStart=@PREFIX@/current/.venv-api/bin/python -m holdem_solver.api
 Restart=always
 RestartSec=2
+# Graceful shutdown: uvicorn finishes in-flight requests, workers are
+# external so their CUDA contexts survive an API restart.
 TimeoutStopSec=30
+KillSignal=SIGTERM
 UMask=0077
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-# Logs go to the journal (rotated by journald): journalctl -u <unit>.
+ReadWritePaths=@DATADIR@ @RUNDIR@
+# Logs go to the journal (rotated by journald): journalctl -u holdem-api.
 StandardOutput=journal
 StandardError=inherit
 

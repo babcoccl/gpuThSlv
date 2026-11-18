@@ -57,6 +57,9 @@ from collections import OrderedDict, deque
 from typing import Any, Iterator, Literal
 
 import numpy as np
+import shutil
+
+import holdem_solver
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -94,6 +97,7 @@ from .models import (
     StatusResponse,
     StrategyResponse,
     TreeNodeResponse,
+    VersionResponse,
 )
 from .scheduler import Scheduler, SchedulerConfig
 from .store import IdempotencyConflictError, JobStore, QueueFullError, request_hash
@@ -365,9 +369,51 @@ def create_app(
     async def validation_422(request: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
 
+    min_free_bytes = int(os.environ.get("HOLDEM_HEALTH_MIN_FREE_BYTES", str(1 << 30)))
+
     @app.get("/healthz", response_model=HealthResponse, responses=examples.HEALTHZ)
-    def healthz() -> HealthResponse:
-        return HealthResponse(status="ok")
+    def healthz() -> Response:
+        """Readiness: every configured worker answers ping, NVML sees each
+        GPU (real engine), and the data dir has ``min_free_bytes`` free.
+        503 when degraded so supervisors (and upgrade.sh) can gate on it."""
+        workers: dict[str, Any] = {}
+        gpus_seen: dict[str, Any] = {}
+        ok = True
+        for gpu in scheduler.gpus:
+            key = "cpu" if gpu is None else str(gpu)
+            st = scheduler.gpu_status(gpu)
+            up = st.get("state") not in (None, "unavailable") and st.get("healthy", True)
+            workers[key] = {"up": up, "state": st.get("state")}
+            ok = ok and up
+            # NVML visibility only applies to the real engine; the fake
+            # engine runs on arbitrary ids in tests.
+            if gpu is not None and engine == "real":
+                seen = gpu_stats.gpu_stats(gpu) is not None
+                gpus_seen[str(gpu)] = seen
+                ok = ok and seen
+        usage = shutil.disk_usage(data_dir)
+        disk = {
+            "path": os.path.abspath(data_dir),
+            "free_bytes": usage.free,
+            "min_free_bytes": min_free_bytes,
+            "ok": usage.free >= min_free_bytes,
+        }
+        ok = ok and disk["ok"]
+        payload = HealthResponse(
+            status="ok" if ok else "degraded",
+            workers=workers, gpus=gpus_seen, disk=disk,
+        )
+        return JSONResponse(
+            status_code=200 if ok else 503,
+            content=jsonable_encoder(payload),
+        )
+
+    @app.get("/version", response_model=VersionResponse, include_in_schema=False)
+    def version() -> VersionResponse:
+        return VersionResponse(
+            version=holdem_solver.__version__,
+            git_sha=os.environ.get("HOLDEM_GIT_SHA") or None,
+        )
 
     @app.get(
         "/metrics", dependencies=[Depends(auth)], response_class=Response, responses=examples.METRICS,

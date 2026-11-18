@@ -508,4 +508,12 @@ class GpuInfo(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ok", "degraded"]
+    workers: dict[str, Any] | None = None
+    gpus: dict[str, Any] | None = None
+    disk: dict[str, Any] | None = None
+
+
+class VersionResponse(BaseModel):
+    version: str
+    git_sha: str | None = None

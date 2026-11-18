@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 11 — 2026-11-18
+
+- Native single-host release: `scripts/release/install.sh` builds
+  `/opt/holdem/releases/<version>/` (both venvs from pinned requirements,
+  `ui/dist` via `npm ci`), creates the `holdem` user, `/var/lib/holdem` and
+  a root-only `0600` `/etc/holdem/holdem.env` (API key + session secret,
+  never overwritten), installs the system units and flips
+  `/opt/holdem/current`. Idempotent; `upgrade.sh` adds a DB backup, symlink
+  flip, restart and automatic rollback on a failed `/healthz`;
+  `uninstall.sh` removes units/env (`--purge` also data and releases).
+- `GET /healthz` now checks workers up, every configured GPU visible to
+  NVML, and data-dir free space — `503`/`status:"degraded"` on failure.
+  New unauthenticated `GET /version` (`{version, git_sha}`).
+- `backup.sh`/`restore.sh` for the job DB + saved spots (strategy files
+  excluded; regenerable via `regen_evs`); `smoke.sh` runs the full
+  acceptance in a throwaway prefix.
+- `docs/LICENSES.md`: full dependency license inventory.
+- `RUNBOOK.md`: start/stop, logs, GPU fault, disk full, key rotation,
+  restore, Caddy TLS (internal CA, SSE-safe), driver update.
+
 ## Phase 8.5 — 2026-11-17
 
 - `POST /v1/solves` now accepts `bet_sizes` as a per-player/per-street dict
