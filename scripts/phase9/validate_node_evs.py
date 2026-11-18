@@ -99,6 +99,76 @@ def our_index(nodes):
     return ts_index(nodes)
 
 
+def _hist_sections(hist):
+    """Infoset-key history sections: action runs comma-joined; river
+    edges are bare-card sections (``river:As`` -> ``As``)."""
+    sections = []
+    run = []
+    for elem in hist:
+        if elem.startswith("river:"):
+            if run:
+                sections.append(",".join(run))
+                run = []
+            sections.append(elem[6:])
+        else:
+            run.append(elem)
+    if run:
+        sections.append(",".join(run))
+    return sections
+
+
+def persisted_roundtrip(index, spot):
+    """Write ``export_node_evs`` output to a real ``*.evs.npz`` and read
+    it back through ``load_node_evs`` — the persisted path exactly as
+    ``/node`` serves it. Returns ``evs`` keyed by ``hist``."""
+    import tempfile
+
+    import numpy as np
+
+    from holdem_solver.api.nodes import export_node_evs, load_node_evs
+
+    evs, masses = export_node_evs(index, spot)
+    keys, actions, flat, mass = [], [], [], []
+    for (player, hist), combos in sorted(evs.items()):
+        for hand, a_evs in sorted(combos.items()):
+            acts = list(a_evs)
+            keys.append(
+                "p%d|%s|%s" % (player, hand, "|".join(_hist_sections(hist)))
+            )
+            actions.append(",".join(acts))
+            flat.extend(float(a_evs[a]) for a in acts)
+            mass.append(float(masses.get((player, hist), {}).get(hand, 0.0)))
+    offsets = np.cumsum([0] + [len(a.split(",")) for a in actions])
+    tmp = tempfile.NamedTemporaryFile(suffix=".evs.npz", delete=False)
+    tmp.close()
+    np.savez(
+        tmp.name,
+        keys=np.array([k.encode() for k in keys], dtype=np.bytes_),
+        actions=np.array([a.encode() for a in actions], dtype=np.bytes_),
+        offsets=offsets,
+        ev=np.array(flat, dtype=np.float64),
+        opp_mass=np.array(mass, dtype=np.float64),
+        iteration=np.int64(0),
+    )
+    try:
+        loaded = load_node_evs(tmp.name, keys)
+    finally:
+        os.unlink(tmp.name)
+    assert loaded is not None, "persisted round-trip npz failed to load"
+    return loaded[0]
+
+
+def served_hand_evs(index, spot, hist, node_evs):
+    """``node_values`` hand EVs per combo as ``/node`` aggregates them
+    from the persisted table."""
+    from holdem_solver.api.nodes import node_values
+
+    resp = node_values(
+        index, spot, hist, combos=True, node_evs=node_evs
+    )
+    return {row["combo"]: row["ev"] for row in resp["hands"]}
+
+
 def main(names=None, via="all"):
     os.makedirs(RUNS, exist_ok=True)
     spots = [s for s in CAP0_RIVER if names is None or s.name in names]
@@ -184,18 +254,39 @@ def main(names=None, via="all"):
         api_compared = 0
         live_max = 0.0
         persist_max = 0.0
+        served_max = 0.0
         if via != "evwalk":
-            evs_persisted, _masses = export_node_evs(
-                own_index, spot.to_dict())
+            # persisted path: real npz round-trip through load_node_evs,
+            # plus the served aggregation through node_values.
+            evs_persisted = (
+                persisted_roundtrip(own_index, spot.to_dict())
+                if via in ("persisted", "all") else {}
+            )
             for (player, hist), _rows in sorted(own_index.by_node.items()):
                 reach0, reach1 = reach_at(own_index, hist, w0, w1, blocked)
                 board_now = dealt_board(spot.board, hist)
                 ref = our_action_evs(own_index, hist, reach0, reach1,
                                      board_now, pot)
-                got = evec.node_action_evs(own_index, hist, reach0, reach1,
-                                           board_now, pot)                     if via in ("evec", "all") else {}
-                prow = evs_persisted.get((player, hist), {})                     if via in ("persisted", "all") else {}
+                got = (
+                    evec.node_action_evs(own_index, hist, reach0, reach1,
+                                         board_now, pot)
+                    if via in ("evec", "all") else {}
+                )
+                prow = evs_persisted.get(hist, {})
+                served = (
+                    served_hand_evs(own_index, spot.to_dict(), hist,
+                                    evs_persisted)
+                    if via in ("persisted", "all") else {}
+                )
+                node_rows = own_index.rows_at[hist]
                 for combo, ref_evs in ref.items():
+                    ref_hand = sum(
+                        float(node_rows.get(combo, {}).get(a, 0.0))
+                        * float(v) for a, v in ref_evs.items()
+                    )
+                    sv = served.get(combo)
+                    if sv is not None:
+                        served_max = max(served_max, abs(sv - ref_hand))
                     for action, ref_ev in ref_evs.items():
                         api_compared += 1
                         lv = got.get(combo, {}).get(action)
@@ -205,8 +296,9 @@ def main(names=None, via="all"):
                         if pv is not None:
                             persist_max = max(persist_max, abs(pv - ref_ev))
             print("  api-path node EVs: %d compared, evec max |d|=%r, "
-                  "persisted max |d|=%r"
-                  % (api_compared, live_max, persist_max), flush=True)
+                  "persisted max |d|=%r, served max |d|=%r"
+                  % (api_compared, live_max, persist_max, served_max),
+                  flush=True)
 
         limit = tol(pot)
         results[name] = {
@@ -236,11 +328,18 @@ def main(names=None, via="all"):
             "node_evs_api_persisted": {
                 "compared": api_compared if via in ("persisted", "all") else 0,
                 "max_abs_diff": persist_max,
+                "served_max_abs_diff": served_max,
                 "ok": via not in ("persisted", "all")
-                      or (persist_max <= limit and api_compared > 0),
-                "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"},
+                      or (persist_max <= limit and served_max <= limit
+                          and api_compared > 0),
+                "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"},
             "ok": root_diff <= limit and max_diff <= limit
-                  and status_diff <= limit and compared > 0,
+                  and status_diff <= limit and compared > 0
+                  and (via not in ("evec", "all")
+                       or (live_max <= limit and api_compared > 0))
+                  and (via not in ("persisted", "all")
+                       or (persist_max <= limit and served_max <= limit
+                           and api_compared > 0)),
         }
         _write(partial_path(run_names), results, requested=run_names)
 
