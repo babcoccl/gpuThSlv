@@ -169,8 +169,8 @@ histories:
 
 | job | histories | agg worst abs diff | parity split | per-combo exact | persisted vs live |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| scale-river-573k | 15 | 2.0e-10 | 1.4e-10 | 7.1e-14 over 2,926 cells | 0.0 |
-| scale-turn-chance | 2,175 | 8.6e-13 | 4.0e-13 | 7.2e-13 over 33,264 cells | 0.0 |
+| scale-river-573k | 15 | 2.0e-10 | 1.4e-10 | 6.4e-14 over 2,926 cells | 0.0 |
+| scale-turn-chance | 2,175 | 8.6e-13 | 4.0e-13 | 7.5e-13 over 33,264 cells | 0.0 |
 | scale-raisecap2 | 81 | 4.1e-12 | 9.7e-13 | 1.8e-13 over 3,200 cells | 0.0 |
 
 The per-combo exact check covers nodes with at most 400 descendants
@@ -198,12 +198,13 @@ three runs stopped at the iteration cap).
 
 ### 5 — baseline-method caveat
 
-Recorded in `docs/PHASE10_2.md`: the Phase 10.1 baseline measured the
-first `/node` after `/tree` calls had already warmed the index — a
-different method than the cold-first call used in 10.2. Re-measured
-once under the 10.2 method (cold `/node` at root on the persisted
-strategy, no `/tree` first): river 38.42 s, turn 7.98 s,
-raise-cap-2 3.29 s.
+Recorded in `docs/PHASE10_2.md`: the Phase 10.1 run's first-`/node`
+figures (39.2 / 32.3 / 14.9 s) were sampled while sibling jobs still
+ran — CPU contention, not a cold measurement. The canonical
+before-numbers are the re-measure at the Phase-10.1 merge commit
+`0ef7d5a` (`logs/scale-10-1-cold.json`, API restarted per rep, 3 reps,
+no `/tree` first): river 37.83 ± 0.06 s, turn 7.99 ± 0.09 s,
+raise-cap-2 3.29 ± 0.02 s.
 
 ## Gate
 

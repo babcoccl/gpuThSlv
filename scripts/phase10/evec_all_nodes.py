@@ -25,7 +25,10 @@ Runs in ``.venv-api`` (numpy). For each persisted solve listed in
    (two more ``edge_value`` runs with the own reach split in half by combo
    gid, pinning both halves of ``V`` separately).
 
-Writes ``logs/evec_all_nodes.json``; exits 1 on any |delta| > 1e-9.
+Writes ``logs/evec_all_nodes.json``; exits 1 on any |delta| > 1e-9, on
+any cell the evaluator omitted without explanation (``compare_cells``
+splits compared vs omitted cells against an expected count derived from
+the tree itself), or on a check that compared zero cells.
 
 Usage: .venv-api/bin/python -m scripts.phase10.evec_all_nodes [job_substr ...]
 """
@@ -58,6 +61,7 @@ from holdem_solver.api.nodes import (  # noqa: E402
     load_node_evs,
 )
 from holdem_solver.api.strategy import spot_ranges  # noqa: E402
+from scripts.compare_cells import compare_cells, expected_cells, flatten  # noqa: E402
 
 HERE = os.path.dirname(__file__)
 DATA_DIR = os.path.expanduser("~/.local/share/holdem-solver")
@@ -133,12 +137,16 @@ def main(names=None):
         # --- 1+3: aggregate at every hist; exact per-combo under budget ----
         agg_max = 0.0
         split_max = 0.0
-        exact_checked = exact_max = 0.0
-        exact_cells = 0
+        exact_max = 0.0
+        exact_compared = exact_expected = exact_ref_missing = 0
         exact_hists = 0
-        persisted_checked = persisted_max = 0.0
-        persist_cells = 0
-        exact_budget_left = None  # all player hists under MAX_DESC are checked
+        exact_omitted: list = []
+        exact_extras: list = []
+        persisted_max = 0.0
+        persist_compared = persist_expected = persist_ref_missing = 0
+        persist_omitted: list = []
+        persist_extras: list = []
+        expected_per_hist = expected_cells(index)
         desc_cache = {}
 
         def desc(h):
@@ -186,45 +194,74 @@ def main(names=None):
                     split_max = d
             if kind != "player":
                 continue
-            # persisted vs live evec — every player node, per combo per action
+            node_exp = expected_per_hist[hist]
+            # persisted vs live evec — every player node, per combo per action.
+            # live is the reference: a cell it omits counts against expected.
             live = evs_live.get((index.node_at[hist][0], hist), {})
-            for combo, row in live.items():
-                prow = persisted.get(hist, {}).get(combo, {})
-                for a, val in row.items():
-                    persist_cells += 1
-                    d = abs(val - prow.get(a, 0.0))
-                    if d > persisted_max:
-                        persisted_max = d
+            persist_expected += node_exp
+            persist_ref_missing += node_exp - len(flatten(live))
+            c, o, e, m = compare_cells(live, persisted.get(hist, {}) or {})
+            persist_compared += c
+            persist_omitted += o
+            persist_extras += e
+            if m > persisted_max:
+                persisted_max = m
             # exact per-combo check under budget
             if desc(hist) <= MAX_DESC_PER_NODE:
                 exact_hists += 1
+                exact_expected += node_exp
                 ref_evs = ref_action_evs(index, hist, r0, r1, board, pot)
                 got = evec.node_action_evs(index, hist, r0, r1, board, pot)
-                for combo, row in ref_evs.items():
-                    for a, val in row.items():
-                        exact_cells += 1
-                        for cand in (got.get(combo, {}).get(a),
-                                     persisted.get(hist, {}).get(combo, {})
-                                     .get(a)):
-                            if cand is None:
-                                continue
-                            d = abs(val - cand)
-                            if d > exact_max:
-                                exact_max = d
+                exact_ref_missing += node_exp - len(flatten(ref_evs))
+                c, o, e, m = compare_cells(ref_evs, got)
+                exact_compared += c
+                exact_omitted += o
+                exact_extras += e
+                if m > exact_max:
+                    exact_max = m
         checks = {
             "aggregate_edge_value": {
                 "hists_checked": len(hists), "max_abs_diff": agg_max},
             "parity_split": {"hists_checked": len(hists),
                              "max_abs_diff": split_max},
             "persisted_vs_live_evec": {
-                "player_nodes_checked": n_player, "cells": persist_cells,
+                "player_nodes_checked": n_player,
+                "expected_cells": persist_expected,
+                "compared": persist_compared,
+                "ref_missing": persist_ref_missing,
+                "omitted": persist_omitted[:50],
+                "omitted_count": len(persist_omitted),
+                "extras": persist_extras[:50],
+                "extras_count": len(persist_extras),
                 "max_abs_diff": persisted_max},
             "exact_per_combo": {
-                "player_nodes_checked": exact_hists, "cells": exact_cells,
+                "player_nodes_checked": exact_hists,
+                "expected_cells": exact_expected,
+                "compared": exact_compared,
+                "ref_missing": exact_ref_missing,
+                "omitted": exact_omitted[:50],
+                "omitted_count": len(exact_omitted),
+                "extras": exact_extras[:50],
+                "extras_count": len(exact_extras),
                 "max_abs_diff": exact_max,
                 "skipped_hists_over_budget": n_player - exact_hists},
         }
-        ok = max(agg_max, split_max, persisted_max, exact_max) <= TOL
+        ok = (
+            max(agg_max, split_max, persisted_max, exact_max) <= TOL
+            # unexplained omissions / extras, ref-side shortfalls, and
+            # zero-cell passes all fail — a check that compared nothing
+            # proves nothing.
+            and persist_compared == persist_expected
+            and persist_compared > 0
+            and not persist_omitted
+            and not persist_extras
+            and persist_ref_missing == 0
+            and exact_compared == exact_expected
+            and exact_compared > 0
+            and not exact_omitted
+            and not exact_extras
+            and exact_ref_missing == 0
+        )
         report[name] = {
             "id": jid, "pot": pot, "tol": TOL,
             "hists": len(hists), "player_nodes": n_player,
@@ -233,9 +270,12 @@ def main(names=None):
             "seconds": round(time.time() - t0, 2),
         }
         print("  hists=%d (player=%d chance=%d) agg=%r split=%r "
-              "persisted=%r exact=%r (%d cells over %d nodes) %.1fs"
+              "persisted=%r(%d/%d cells, omit=%d) exact=%r(%d/%d cells, "
+              "omit=%d over %d nodes) %.1fs"
               % (len(hists), n_player, n_chance, agg_max, split_max,
-                 persisted_max, exact_max, exact_cells, exact_hists,
+                 persisted_max, persist_compared, persist_expected,
+                 len(persist_omitted), exact_max, exact_compared,
+                 exact_expected, len(exact_omitted), exact_hists,
                  time.time() - t0), flush=True)
         if not ok:
             failures += 1

@@ -44,6 +44,7 @@ import os
 import sqlite3
 import threading
 import time
+import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -822,6 +823,11 @@ class Scheduler:
                     offsets=strategy.offsets,
                     ev=flat,
                     opp_mass=mass,
+                    # Integrity checksum: load_node_evs recomputes this over
+                    # the payload bytes and declines to serve on mismatch.
+                    crc32=np.int64(
+                        zlib.crc32(flat.tobytes()) ^ zlib.crc32(mass.tobytes())
+                    ),
                     iteration=np.int64(strategy.iteration),
                 )
                 handle.flush()
@@ -829,6 +835,10 @@ class Scheduler:
             os.replace(tmp, evs_path)
         except Exception:
             LOG.warning("job %s: node-EV export failed", job_id, exc_info=True)
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
 
     def _release(self, client: EngineClient) -> None:
         try:

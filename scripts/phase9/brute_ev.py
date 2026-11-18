@@ -561,7 +561,7 @@ def main():
         hmap = HistMap(tree)
 
         from holdem_solver.api import evec  # API-path EVs (numpy vectorized)
-        from scripts.phase9.validate_node_evs import (
+        from scripts.phase9.validate_node_evs_api import (
             persisted_roundtrip, served_hand_evs,
         )
         evs_persisted = persisted_roundtrip(index, spot.to_dict())
@@ -581,6 +581,7 @@ def main():
             api_served = served_hand_evs(
                 index, spot.to_dict(), hist, evs_persisted)
             node_rows = index.rows_at[hist]
+            expected = len(node_rows)
             compared = 0
             max_diff = 0.0
             api_live_max = 0.0
@@ -588,6 +589,8 @@ def main():
             api_served_max = 0.0
             worst = None
             skipped = {}
+            api_compared = {"live": 0, "persisted": 0, "served": 0}
+            api_omitted = []
             for combo_key in node_rows:
                 # profile-aggregated hand EV from the evwalk per-action EVs
                 freqs = node_rows[combo_key]
@@ -604,7 +607,10 @@ def main():
                 )
                 sv = api_served.get(combo_key)
                 if sv is not None:
+                    api_compared["served"] += 1
                     api_served_max = max(api_served_max, abs(sv - hand_ev))
+                else:
+                    api_omitted.append("%s: api served missing" % combo_key)
                 # API paths: same hand EV from live evec and from the
                 # persisted evs.npz table (as /node serves it)
                 for table, acc in ((api_live, "live"),
@@ -612,6 +618,7 @@ def main():
                     parts = api_live.get(combo_key) if acc == "live" \
                         else api_persisted.get(combo_key)
                     if parts:
+                        api_compared[acc] += 1
                         api_hand = sum(
                             float(freqs.get(a, 0.0)) * float(v)
                             for a, v in parts.items()
@@ -622,6 +629,9 @@ def main():
                         else:
                             api_persisted_max = max(
                                 api_persisted_max, abs(api_hand - hand_ev))
+                    else:
+                        api_omitted.append(
+                            "%s: api %s missing" % (combo_key, acc))
                 brute = brute_hand_ev(
                     hmap, hist, combo_key, my_w0, my_w1, my_board, pot
                 )
@@ -639,8 +649,12 @@ def main():
             spot_out["nodes"][label] = {
                 "player": player,
                 "rows": len(node_rows),
+                "expected": expected,
                 "compared": compared,
                 "skipped": skipped,
+                "api_compared": api_compared,
+                "api_omitted": api_omitted[:50],
+                "api_omitted_count": len(api_omitted),
                 "max_abs_diff": max_diff,
                 "worst_combo": worst,
                 "api_evec_max_abs_diff": api_live_max,
@@ -648,7 +662,9 @@ def main():
                 "api_served_max_abs_diff": api_served_max,
                 "ok": max_diff <= limit and compared > 0
                       and api_live_max <= limit and api_persisted_max <= limit
-                      and api_served_max <= limit,
+                      and api_served_max <= limit
+                      and all(api_compared[k] > 0 for k in api_compared)
+                      and not api_omitted,
             }
             worst_overall = max(worst_overall, max_diff)
             print("  %s: %d of %d combos compared, max |d|=%r (tol %.3f) "

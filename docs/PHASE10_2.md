@@ -152,16 +152,20 @@ Before/after `/node` at root (Phase 10.1 baseline `scale-10-1.json`
 
 | spot | first /node before | first /node after |
 | --- | ---: | ---: |
-| scale-river-573k | 39,246 ms | 64 ms |
-| scale-turn-chance | 32,309 ms | 168 ms |
-| scale-raisecap2 | 14,916 ms | 23 ms |
+| scale-river-573k | 37,828 ms | 64 ms |
+| scale-turn-chance | 7,986 ms | 168 ms |
+| scale-raisecap2 | 3,292 ms | 23 ms |
 
-The `before` baseline was measured by a different method — its cold
-`/node` ran *after* `/tree` calls on the job (warm index path), so the
-two columns are not like-for-like. Re-measured once with the same
-method as `after` (cold `/node` at root on the persisted strategy,
-no `/tree` first): river 38.42 s, turn 7.98 s, raise-cap-2 3.29 s —
-still two orders of magnitude slower than the warm-index path.
+The `before` column is the cold `/node` re-measured on the Phase-10.1
+merge commit `0ef7d5a` (`logs/scale-10-1-cold.json`): API restarted per
+repetition, three reps per spot, no `/tree` first — river
+37.83 ± 0.06 s, turn 7.99 ± 0.09 s, raise-cap-2 3.29 ± 0.02 s. The
+Phase-10.1 run's figures (39.2 / 32.3 / 14.9 s) came from the same code
+but were sampled while the scenario's sibling jobs were still running
+— CPU contention from concurrent solves, not a like-for-like cold
+measurement — so the re-measured numbers above are the single
+before-number per spot (method: cold `GET /v1/solves/<id>/node` at
+root, persisted strategy, `0ef7d5a`).
 
 All targets met: first `/node` ≤ 2 s on all three spots (64 / 168 /
 23 ms), warm `/node` ≤ 500 ms (≤ 3 ms), and the 573k river is 64 ms on
@@ -203,8 +207,9 @@ entry existed but lacked a `PHASE10.md` link — it names the doc now).
 **Profile (before):** a first `/node` spent its time in three parts —
 `.npz` parse + `TreeIndex` build (~1–3 s), then `node_action_evs`
 walking the subtree once per hand combo (~1326 combos × subtree DFS —
-the dominant term: river root 38.3 s of the 39.2 s total, turn root
-32.3 s, raisecap2 root 14.9 s), plus ms-scale serialization. Warm hits
+the dominant term: river root ~37.8 s of the ~37.8 s total, turn root
+~8.0 s, raisecap2 root ~3.3 s — cold re-measure at `0ef7d5a`), plus
+ms-scale serialization. Warm hits
 dropped only the index-rebuild part: the per-combo walk still cost
 0.2–19 s. Per-river-card fan-out on the turn spot was part of the
 walk's cost, not a separate overhead.

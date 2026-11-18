@@ -17,18 +17,30 @@
    },
    "persisted_vs_live_evec": {
     "player_nodes_checked": 6,
-    "cells": 2926,
+    "expected_cells": 2926,
+    "compared": 2926,
+    "ref_missing": 0,
+    "omitted": [],
+    "omitted_count": 0,
+    "extras": [],
+    "extras_count": 0,
     "max_abs_diff": 0.0
    },
    "exact_per_combo": {
     "player_nodes_checked": 6,
-    "cells": 2926,
-    "max_abs_diff": 7.105427357601002e-14,
+    "expected_cells": 2926,
+    "compared": 2926,
+    "ref_missing": 0,
+    "omitted": [],
+    "omitted_count": 0,
+    "extras": [],
+    "extras_count": 0,
+    "max_abs_diff": 6.394884621840902e-14,
     "skipped_hists_over_budget": 0
    }
   },
   "ok": true,
-  "seconds": 71.63
+  "seconds": 43.27
  },
  "scale-turn-chance": {
   "id": "9eb2cec01565",
@@ -48,18 +60,30 @@
    },
    "persisted_vs_live_evec": {
     "player_nodes_checked": 966,
-    "cells": 33372,
+    "expected_cells": 33372,
+    "compared": 33372,
+    "ref_missing": 0,
+    "omitted": [],
+    "omitted_count": 0,
+    "extras": [],
+    "extras_count": 0,
     "max_abs_diff": 0.0
    },
    "exact_per_combo": {
     "player_nodes_checked": 964,
-    "cells": 33264,
-    "max_abs_diff": 7.247535904753022e-13,
+    "expected_cells": 33264,
+    "compared": 33264,
+    "ref_missing": 0,
+    "omitted": [],
+    "omitted_count": 0,
+    "extras": [],
+    "extras_count": 0,
+    "max_abs_diff": 7.531752999057062e-13,
     "skipped_hists_over_budget": 2
    }
   },
   "ok": true,
-  "seconds": 182.29
+  "seconds": 163.89
  },
  "scale-raisecap2": {
   "id": "4a037014a459",
@@ -79,17 +103,29 @@
    },
    "persisted_vs_live_evec": {
     "player_nodes_checked": 28,
-    "cells": 3200,
+    "expected_cells": 3200,
+    "compared": 3200,
+    "ref_missing": 0,
+    "omitted": [],
+    "omitted_count": 0,
+    "extras": [],
+    "extras_count": 0,
     "max_abs_diff": 0.0
    },
    "exact_per_combo": {
     "player_nodes_checked": 28,
-    "cells": 3200,
+    "expected_cells": 3200,
+    "compared": 3200,
+    "ref_missing": 0,
+    "omitted": [],
+    "omitted_count": 0,
+    "extras": [],
+    "extras_count": 0,
     "max_abs_diff": 1.8474111129762605e-13,
     "skipped_hists_over_budget": 0
    }
   },
   "ok": true,
-  "seconds": 18.46
+  "seconds": 13.0
  }
 }
