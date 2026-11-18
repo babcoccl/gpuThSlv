@@ -1,4 +1,6 @@
-"""Phase 9.2: doc claims parsed from the documents must match the artifacts.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 9.2: doc claims parsed from the documents must match the artifacts.
 
 The hand-maintained claim table is gone: every claim-shaped number in
 ``docs/*.md`` and ``README.md`` is parsed out of the prose itself and must

@@ -1,4 +1,6 @@
-"""Phase 4 concurrency + chaos test on the real engine; needs both GPUs."""
+"""Runs in ``.venv-api``.
+
+Phase 4 concurrency + chaos test on the real engine; needs both GPUs."""
 
 import pytest
 

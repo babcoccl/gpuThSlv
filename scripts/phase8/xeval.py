@@ -1,4 +1,6 @@
-"""Phase 8 step 3: evaluate TexasSolver's dumped strategy inside our evaluator.
+"""Runs in ``.venv-engine``.
+
+Phase 8 step 3: evaluate TexasSolver's dumped strategy inside our evaluator.
 
 Maps TS's per-combo per-node strategy onto our compiled spec's flat
 per-infoset-action layout (fuzzy node/action matching, same tolerances as

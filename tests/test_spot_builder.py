@@ -1,4 +1,6 @@
-"""SpotConfig -> GameSpec with the real GPU-CFR builders, and known answers.
+"""Runs in ``.venv-engine``.
+
+SpotConfig -> GameSpec with the real GPU-CFR builders, and known answers.
 
 The known-answer spots are polarized-versus-bluff-catcher toy games with a
 closed-form solution. Player 0 holds the nuts (fraction ``v`` of the range) or

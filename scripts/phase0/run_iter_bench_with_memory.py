@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Run gpu_cfr.benchmarks.iter_bench and append a peak-VRAM JSON line.
+"""Runs in ``.venv-engine``.
+
+Run gpu_cfr.benchmarks.iter_bench and append a peak-VRAM JSON line.
 
 The upstream iter_bench driver prints steady-state timing JSON but does not
 report torch.cuda.max_memory_allocated. This wrapper resets PyTorch's peak

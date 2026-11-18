@@ -1,4 +1,6 @@
-"""Phase 8.6 spots: structurally equal trees vs TexasSolver's raise limit.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 8.6 spots: structurally equal trees vs TexasSolver's raise limit.
 
 TexasSolver's ``raise_limit`` is a hard-coded 4 (``CommandLineTool.h`` /
 ``qsolverjob.h``) counted per street by a shared ``raise_times`` counter:

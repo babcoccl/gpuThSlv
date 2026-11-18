@@ -275,9 +275,11 @@ rank-sorted cumsums (`above = comp − below − eq`), a different
 association than `evwalk`'s per-combo loop. At the river root
 |EV| ≈ 57k chips, so ~4·eps·|EV| ≈ 2e-10 — matching the observed
 maximum; the turn-chance and raisecap2 roots sit at |EV| ~1e3–1e4 and
-land at ~1e-12 for the identical mechanism. Tolerance stays 1e-9
-(~50× headroom): tightening toward 1e-12 would require re-ordering
-the evec accumulation itself, not justified.
+land at ~1e-12 for the identical mechanism. In Phase 10.5 the
+absolute 1e-9 tolerance gained a relative bound alongside it:
+a check passes when `max_rel_diff <= 1e-12` with
+`rel = |diff| / max(1, |ref|)` — the river's 2.0e-10 worst diff at
+|EV| ≈ 57k is ~2.3e-14 relative, comfortably inside.
 
 ### 6 — PROGRESS.md
 

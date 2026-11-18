@@ -35,6 +35,7 @@ from holdem_solver.protocol.evwalk import (  # noqa: E402
     reach_at,
 )
 from holdem_solver.api import evec  # noqa: E402
+from holdem_solver.api import nodes as api_nodes  # noqa: E402
 from holdem_solver.api.nodes import (  # noqa: E402
     export_node_evs,
     load_node_evs,
@@ -87,7 +88,6 @@ def persisted_roundtrip(index, spot):
     through ``load_node_evs``, exactly as ``/node`` serves it. Returns
     ``evs`` keyed by ``hist``."""
     import tempfile
-    import zlib
 
     import numpy as np
 
@@ -107,16 +107,7 @@ def persisted_roundtrip(index, spot):
     mass_a = np.array(mass, dtype=np.float64)
     tmp = tempfile.NamedTemporaryFile(suffix=".evs.npz", delete=False)
     tmp.close()
-    np.savez(
-        tmp.name,
-        keys=np.array([k.encode() for k in keys], dtype=np.bytes_),
-        actions=np.array([a.encode() for a in actions], dtype=np.bytes_),
-        offsets=offsets,
-        ev=ev,
-        opp_mass=mass_a,
-        crc32=np.int64(zlib.crc32(ev.tobytes()) ^ zlib.crc32(mass_a.tobytes())),
-        iteration=np.int64(0),
-    )
+    api_nodes.write_node_evs(tmp.name, keys, actions, offsets, ev, mass_a, 0)
     try:
         loaded = load_node_evs(tmp.name, keys)
     finally:
@@ -220,7 +211,7 @@ def main(names=None, via="all"):
                 live_ref_missing += node_exp - len(flatten(ref))
                 got = evec.node_action_evs(own_index, hist, reach0, reach1,
                                            board_now, pot)
-                c, o, e, m = compare_cells(ref, got)
+                c, o, e, m, rel = compare_cells(ref, got)
                 live_compared += c
                 live_omitted += o
                 live_extras += e
@@ -229,7 +220,7 @@ def main(names=None, via="all"):
                 persist_expected += node_exp
                 persist_ref_missing += node_exp - len(flatten(ref))
                 prow = evs_persisted.get(hist, {})
-                c, o, e, m = compare_cells(ref, prow)
+                c, o, e, m, rel = compare_cells(ref, prow)
                 persist_compared += c
                 persist_omitted += o
                 persist_extras += e

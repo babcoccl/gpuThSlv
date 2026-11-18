@@ -1,4 +1,6 @@
-"""SpotConfig, ranges, and blockers: pure Python, runs in both runtimes."""
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+SpotConfig, ranges, and blockers: pure Python, runs in both runtimes."""
 
 import json
 

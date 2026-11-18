@@ -1,4 +1,6 @@
-"""End-to-end API test on the real engine; requires a CUDA GPU.
+"""Runs in ``.venv-api``.
+
+End-to-end API test on the real engine; requires a CUDA GPU.
 
 Solves the 573k-node broad river spot (Phase 2's ``river-broad-standard``)
 through HTTP and checks exploitability decreases over the run.

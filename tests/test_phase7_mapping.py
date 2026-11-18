@@ -1,4 +1,6 @@
-"""Phase 7: SpotConfig <-> TexasSolver mapping round-trip tests.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 7: SpotConfig <-> TexasSolver mapping round-trip tests.
 
 Runs in both venvs: pure stdlib + protocol only.
 """

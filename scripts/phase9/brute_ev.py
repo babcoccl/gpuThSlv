@@ -21,8 +21,10 @@ It then compares against:
 * the brute-force root EV (Σ_c w_c·EV(c)/Σ w_c) against ``root_ev`` /
   ``dump_ev``.
 
-Runs in ``.venv-engine``. Usage:
-.venv-engine/bin/python -m scripts.phase9.brute_ev
+Runs in ``.venv-api`` — its API-path section imports
+``holdem_solver.api`` (Phase 10.5: the earlier "Runs in the engine venv"
+statement contradicted the code). Usage:
+.venv-api/bin/python -m scripts.phase9.brute_ev
 Writes scripts/phase9/runs/brute_ev.json.
 """
 from __future__ import annotations

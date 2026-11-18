@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Check that relative links in Markdown files resolve to existing files.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Check that relative links in Markdown files resolve to existing files.
 
 Covers [text](path) and bare-path references in code spans are skipped.
 Usage: python3 scripts/check_links.py

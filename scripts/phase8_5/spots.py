@@ -1,4 +1,6 @@
-"""Phase 8.5 spots: donk turn re-runs, per-player/per-street sizes, raises.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 8.5 spots: donk turn re-runs, per-player/per-street sizes, raises.
 
 Python 3.9 safe.
 """

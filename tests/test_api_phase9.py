@@ -1,4 +1,6 @@
-"""Phase 9 API tests: /tree, /node, /events (SSE), /v1/spots, browser auth.
+"""Runs in ``.venv-api``.
+
+Phase 9 API tests: /tree, /node, /events (SSE), /v1/spots, browser auth.
 
 Runs on ``FakeEngine`` with ``fake_real_keys`` so the strategy export is a
 real parseable cap-0 river tree; no GPU needed.
@@ -367,3 +369,119 @@ def test_cors_configured(tmp_path):
             },
         )
         assert resp.headers.get("access-control-allow-origin") == "https://example.com"
+
+
+def _evs_file(tmp_path, job_id):
+    return tmp_path / "api" / f"strategy-{job_id}.evs.npz"
+
+
+def _check_self_heal(tmp_path, job_id, mutate):
+    """Decline the evs.npz via ``mutate``, then assert the first /node
+    regenerates and persists a loadable format-v2 file."""
+    import numpy as np
+
+    from holdem_solver.api import nodes as api_nodes
+
+    evs_path = _evs_file(tmp_path, job_id)
+    strat = tmp_path / "api" / f"strategy-{job_id}.npz"
+    keys = api_nodes.load_index(str(strat))[0].keys_list
+    mutate(evs_path)
+    assert api_nodes.load_node_evs(str(evs_path), keys) is None
+
+    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
+    with client:
+        body = client.get(f"/v1/solves/{job_id}/node")
+        assert body.status_code == 200, body.text
+    assert evs_path.exists(), "regenerated file not persisted"
+    pair = api_nodes.load_node_evs(str(evs_path), keys)
+    assert pair is not None, "regenerated file does not load"
+    assert dict(np.load(evs_path))["format"] == api_nodes.EVS_FORMAT
+
+
+@pytest.mark.parametrize("kind", ("missing", "corrupt", "stale", "v1"))
+def test_node_evs_self_heal_on_first_node_request(tmp_path, kind):
+    """A declined evs.npz (missing, pre-checksum/format, corrupt, stale)
+    is regenerated + persisted by the first /node request."""
+    import numpy as np
+
+    from holdem_solver.api import nodes as api_nodes
+
+    # First app instance finishes the job (writes strategy + evs.npz);
+    # the second instance re-opens the same data dir with fresh caches.
+    _app0, client0 = make_client(tmp_path, gpus=[0], engine="fake")
+    with client0:
+        job_id = solved_job(client0)
+    evs_path = _evs_file(tmp_path, job_id)
+    strat = tmp_path / "api" / f"strategy-{job_id}.npz"
+    keys = api_nodes.load_index(str(strat))[0].keys_list
+    assert evs_path.exists()  # written at job completion
+
+    def make_missing(p):
+        p.unlink()
+
+    def make_corrupt(p):
+        p.write_bytes(b"junk")
+
+    def make_stale(p):
+        data = dict(np.load(p).items())
+        data["keys"] = np.array([b"stale-key"] * len(keys), dtype=np.bytes_)
+        np.savez(p, **data)
+
+    def make_v1(p):
+        import zlib
+
+        data = dict(np.load(p).items())
+        ev, mass = data["ev"], data["opp_mass"]
+        data.pop("format")
+        data["crc32"] = np.int64(
+            zlib.crc32(ev.tobytes()) ^ zlib.crc32(mass.tobytes())
+        )
+        np.savez(p, **data)
+
+    mutators = {
+        "missing": make_missing,
+        "corrupt": make_corrupt,
+        "stale": make_stale,
+        "v1": make_v1,
+    }
+    _check_self_heal(tmp_path, job_id, mutators[kind])
+
+
+def test_node_evs_self_heal_single_flight(tmp_path):
+    """Concurrent first /node requests after a declined file trigger
+    exactly one regeneration (single-flight per job)."""
+    import threading
+
+    from holdem_solver.api import nodes as api_nodes
+
+    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
+    calls = {"n": 0}
+    orig = api_nodes.export_node_evs
+
+    def counted(index, spot):
+        calls["n"] += 1
+        import time
+        time.sleep(0.3)  # widen the race window
+        return orig(index, spot)
+
+    with client:
+        job_id = solved_job(client)
+        evs_path = _evs_file(tmp_path, job_id)
+        evs_path.unlink()
+        api_nodes.export_node_evs = counted
+        try:
+            results = []
+
+            def hit():
+                results.append(client.get(f"/v1/solves/{job_id}/node").status_code)
+
+            threads = [threading.Thread(target=hit) for _ in range(8)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        finally:
+            api_nodes.export_node_evs = orig
+        assert results == [200] * 8
+        assert calls["n"] == 1, calls
+        assert evs_path.exists()

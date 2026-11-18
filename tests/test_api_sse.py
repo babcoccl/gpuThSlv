@@ -1,4 +1,6 @@
-"""Phase 9.1 SSE contract tests for ``GET /v1/solves/{job}/events``.
+"""Runs in ``.venv-api``.
+
+Phase 9.1 SSE contract tests for ``GET /v1/solves/{job}/events``.
 
 Contract (docs/PHASE9_1.md, README):
 

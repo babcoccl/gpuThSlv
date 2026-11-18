@@ -1,4 +1,6 @@
-"""Shared helpers for the Phase 4 failure-mode tests (fake engine)."""
+"""Runs in ``.venv-api``.
+
+Shared helpers for the Phase 4 failure-mode tests (fake engine)."""
 
 import time
 

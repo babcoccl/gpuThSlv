@@ -1,4 +1,6 @@
-"""The Phase 7 comparison suite: 15 spots.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+The Phase 7 comparison suite: 15 spots.
 
 Known-answer toys (2), river boards at cap 0/1/2 (9), narrow turns (2),
 short-stack (1), full-range river (1). Only ('p', f) raise sizes are used so

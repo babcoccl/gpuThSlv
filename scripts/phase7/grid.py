@@ -1,4 +1,6 @@
-"""Aggregate parsed nodes (ours or TexasSolver's) into 169 hand-class grids.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Aggregate parsed nodes (ours or TexasSolver's) into 169 hand-class grids.
 
 Mirrors ``holdem_solver.api.strategy.hand_grid``: per (player, history)
 decision point, each class's frequency per action is a mean over its combos —

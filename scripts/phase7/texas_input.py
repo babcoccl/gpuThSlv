@@ -1,4 +1,6 @@
-"""Render a ``SpotConfig`` to a TexasSolver console input file.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Render a ``SpotConfig`` to a TexasSolver console input file.
 
 Mapping conventions (verified against TexasSolver v0.2.0 source):
 * range0 -> ``set_range_oop`` (player 1), range1 -> ``set_range_ip`` (player 0)
