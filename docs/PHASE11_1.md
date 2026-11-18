@@ -182,21 +182,20 @@ Bugs found by the first run on the real systemd path (all fixed here):
 
 Evidence:
 
-- `scripts/release/smoke-results/20261118-204657-T1-fake.log` —
-  `acceptance-root.sh --engine fake` PASS at commit `1f4665d`: preflight
+- `scripts/release/smoke-results/20261118-213306-T1-fake.log` —
+  `acceptance-root.sh --engine fake` PASS at commit `bc04505` (after the review fixes): preflight
   PASS; install as root through system units; units active as `holdem`,
   interpreters from `/opt/holdem/python`, cwd = release, hardening props,
   worker cmdline `--engine fake --gpu N`, `CUDA_VISIBLE_DEVICES=N`, groups
   `video render`, no `gpu_cfr`/torch/CUDA mapped; login, estimate, solves
   on workers 0 and 1, `/node`, SSE reconnect, `/ui/`, restore drill,
   upgrade, forced-failure rollback (bug 2 fixed), `uninstall --purge`.
-  Later commits did not touch the systemd path (`service.sh`, docs, tests).
-- `scripts/release/smoke-results/20261118-205006-T1-fake-cutover.log` —
+- `scripts/release/smoke-results/20261118-213608-T1-fake-cutover.log` —
   `cutover-rehearsal.sh` PASS: simulated `holdemold` user-unit deployment
   on :8000, `cutover.sh --dry-run`, cutover (strategy_path rewritten, old
   key kept, pre-cutover `/node` identical), `--rollback` (old units back,
   `/node` identical), teardown.
-- `scripts/release/smoke-results/20261118-210342-nosys-fake.log` —
+- `scripts/release/smoke-results/20261118-214808-nosys-fake.log` —
   `smoke.sh --engine fake` PASS (tier nosys: `service.sh`, no units),
   including the interpreter preflight.
 - `install.sh --check` on the VM: fake engine all PASS; real engine FAILs
@@ -207,9 +206,9 @@ Evidence:
 
 ## Gate
 
-- `scripts/release/smoke-results/20261118-211756-run_all_tests.log` —
-  `scripts/run_all_tests.sh` green: engine suite 216 passed / 15 skipped;
-  api suite 354 passed / 13 skipped; collection coverage and UI contract
+- `scripts/release/smoke-results/20261118-213654-run_all_tests.log` —
+  `scripts/run_all_tests.sh` green: engine suite 217 passed / 14 skipped;
+  api suite 357 passed / 12 skipped; collection coverage and UI contract
   checks green. Skips are CUDA/GPU tests (no GPU on the VM) and venv
   boundary skips. `tests/test_api_gpu.py` now skips without a CUDA GPU like
   the engine suite (it had been solving on CPU and failing on the missing
