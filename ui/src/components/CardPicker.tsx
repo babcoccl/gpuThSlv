@@ -28,8 +28,10 @@ export default function CardPicker({ selected, onChange, max, disabled = [], dea
     let next = idx;
     if (e.key === "ArrowRight") next = idx + 1;
     else if (e.key === "ArrowLeft") next = idx - 1;
-    else if (e.key === "ArrowDown") next = idx + 4;
-    else if (e.key === "ArrowUp") next = idx - 4;
+    // The deck renders as a 13-column grid; vertical arrows move one
+    // displayed row (13 cards), horizontal one cell.
+    else if (e.key === "ArrowDown") next = idx + 13;
+    else if (e.key === "ArrowUp") next = idx - 13;
     else if (e.key === " " || e.key === "Enter") {
       const card = el.dataset.card;
       if (card && !deadSet.has(card)) toggle(card);

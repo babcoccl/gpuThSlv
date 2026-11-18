@@ -55,15 +55,18 @@ test("keyboard-only: setup form, deck arrows, range import, solve", async ({ pag
   await deck.getByRole("gridcell", { name: "As" }).focus();
   const cards = ["Ks", "Js", "Th", "7d", "2c"];
   for (const card of cards) {
-    // Arrow keys move within ALL_CARDS order; walk there directly.
+    // Deck grid is 13 columns wide: Down/Up move a displayed row (±13),
+    // Right/Left a cell (±1). Walk row-first then column.
     let guard = 0;
     while ((await page.evaluate(() => document.activeElement?.getAttribute("data-card"))) !== card) {
       const cur = await page.evaluate(() => document.activeElement?.getAttribute("data-card"));
       const ALL = "AKQJT98765432".split("").flatMap((r) => "sdch".split("").map((s) => r + s));
       const i = ALL.indexOf(cur!), j = ALL.indexOf(card);
-      if (Math.floor(i / 4) < Math.floor(j / 4)) await page.keyboard.press("ArrowDown");
-      else if (Math.floor(i / 4) > Math.floor(j / 4)) await page.keyboard.press("ArrowUp");
-      else if (i < j) await page.keyboard.press("ArrowRight");
+      const rowDelta = Math.floor(j / 13) - Math.floor(i / 13);
+      const colDelta = (j % 13) - (i % 13);
+      if (rowDelta > 0) await page.keyboard.press("ArrowDown");
+      else if (rowDelta < 0) await page.keyboard.press("ArrowUp");
+      else if (colDelta > 0) await page.keyboard.press("ArrowRight");
       else await page.keyboard.press("ArrowLeft");
       if (++guard > 60) throw new Error(`could not arrow to ${card}`);
     }
