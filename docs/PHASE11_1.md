@@ -1,6 +1,6 @@
 # Phase 11.1 — real install path, correct and verified
 
-Status: in progress
+Status: complete (VM gate, T1 + fake engine; GPU items are operator-verifies)
 
 Goal: make `scripts/release/install.sh` correct on the real systemd path
 and verify it end to end on Devin's VM (no GPUs) with the fake engine.
@@ -148,6 +148,62 @@ Evidence: `scripts/release/smoke-results/<ts>-<tier>-<engine>-cutover.log`.
   (`scripts/phase10/check_suites.py::check_release_docs`) fails when a
   `PHASE11*.md` cites a missing/untracked file path, or a suite count that
   does not match the cited gate log.
+
+## Decisions
+
+- Fake engine venv: `requirements/engine-fake.txt` (numpy, same pin as
+  `requirements/engine.txt`). `engine.txt` pins torch/triton CUDA wheels
+  that the fake worker never imports; installing them on a GPU-less box
+  only costs time and disk. Real installs are unchanged.
+- Engine selection lives in the env file (`HOLDEM_SOLVER_ENGINE`), read by
+  the worker unit (`--engine ${HOLDEM_SOLVER_ENGINE}`), `service.sh` and
+  the API, so one switch moves all three.
+- Interpreters for the VM run: `uv python install --no-bin 3.9 3.15.2` into
+  `/opt/holdem/python` (3.9.25, 3.15.2), found by discovery (no
+  `HOLDEM_*_PYTHON` set).
+
+## Results (Devin VM, tier T1, engine fake)
+
+Bugs found by the first run on the real systemd path (all fixed here):
+
+1. As root, `rsync -a` copied the checkout owner's uid into the release
+   tree (not root-owned, contrary to `install.sh`'s comment). Now
+   `--no-owner --no-group`; acceptance asserts no non-root file.
+2. Forced-failure rollback under systemd: the broken release crash-looped
+   into `StartLimitBurst`, so the rollback's `systemctl restart` was refused
+   ("Start request repeated too quickly") and the stack stayed down.
+   `upgrade.sh` now runs `systemctl reset-failed` before restarting.
+3. `service.sh` (non-systemd path) launched `python -m` from the caller's
+   cwd, so from a checkout it ran the checkout's code, not the release's
+   (`/ui/` 404'd because the checkout had no `ui/dist`). It now `cd`s to
+   `current`, like the units' `WorkingDirectory`; smoke asserts the cwd.
+4. `scripts/release/smoke-results/` was gitignored, so Phase 11's cited
+   smoke log was never committed. Un-ignored; logs committed.
+
+Evidence:
+
+- `scripts/release/smoke-results/20261118-204657-T1-fake.log` —
+  `acceptance-root.sh --engine fake` PASS at commit `1f4665d`: preflight
+  PASS; install as root through system units; units active as `holdem`,
+  interpreters from `/opt/holdem/python`, cwd = release, hardening props,
+  worker cmdline `--engine fake --gpu N`, `CUDA_VISIBLE_DEVICES=N`, groups
+  `video render`, no `gpu_cfr`/torch/CUDA mapped; login, estimate, solves
+  on workers 0 and 1, `/node`, SSE reconnect, `/ui/`, restore drill,
+  upgrade, forced-failure rollback (bug 2 fixed), `uninstall --purge`.
+  Later commits did not touch the systemd path (`service.sh`, docs, tests).
+- `scripts/release/smoke-results/20261118-205006-T1-fake-cutover.log` —
+  `cutover-rehearsal.sh` PASS: simulated `holdemold` user-unit deployment
+  on :8000, `cutover.sh --dry-run`, cutover (strategy_path rewritten, old
+  key kept, pre-cutover `/node` identical), `--rollback` (old units back,
+  `/node` identical), teardown.
+- `scripts/release/smoke-results/20261118-210342-nosys-fake.log` —
+  `smoke.sh --engine fake` PASS (tier nosys: `service.sh`, no units),
+  including the interpreter preflight.
+- `install.sh --check` on the VM: fake engine all PASS; real engine FAILs
+  exactly `gpus` ("nvidia-smi not found"); with
+  `HOLDEM_ENGINE_PYTHON` pointing at the home-dir uv interpreter it FAILs
+  `prefix.engine` and `traverse.engine` (holdem cannot traverse
+  `/home/ubuntu`), each naming the variable and the install command.
 
 ## Operator verifies (not verified in this phase)
 
