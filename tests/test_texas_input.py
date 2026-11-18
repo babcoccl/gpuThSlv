@@ -1,4 +1,6 @@
-"""Mapping-layer regression tests for Phase 8.5 additions.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Mapping-layer regression tests for Phase 8.5 additions.
 
 Pure-python (no torch/gpu_cfr): collected by both venvs.
 """

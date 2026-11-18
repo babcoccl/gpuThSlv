@@ -1,4 +1,6 @@
-"""Phase 6: the custom raise-grammar tree builder in ``engine_worker.tree_builder``.
+"""Runs in ``.venv-engine``.
+
+Phase 6: the custom raise-grammar tree builder in ``engine_worker.tree_builder``.
 
 Gate tests: ``raise_cap=0`` reproduces the shipped ``build_hunl_river_game`` /
 ``build_hunl_turn_game`` exactly (node count, infoset count, solved value and

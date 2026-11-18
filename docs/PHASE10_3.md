@@ -99,7 +99,8 @@ numpy already exists in both venvs.)
 (b) `scripts/phase10/evec_all_nodes.py` (api venv): loads each scale
 job's committed strategy npz from the API data dir, and for every player
 node in `index.node_at` compares `evec.node_action_evs` to
-`evwalk.node_action_evs` per combo per action at `max |Δ| <= 1e-9`; at
+`evwalk.node_action_evs` per combo per action at `max |Δ| <= 1e-9`
+(or `|Δ| <= 1e-12 * max(1, |ref|)` — Phase 10.5); at
 every chance position it compares the summed subtree value from
 `_evs_walk` (aggregated over own reach) against `evwalk.edge_value`.
 Runs on `scale-river-573k` (573,031 nodes), `scale-turn-chance`
@@ -173,7 +174,11 @@ histories:
 | scale-turn-chance | 2,175 | 8.6e-13 | 4.0e-13 | 7.5e-13 over 33,264 cells | 0.0 |
 | scale-raisecap2 | 81 | 4.1e-12 | 9.7e-13 | 1.8e-13 over 3,200 cells | 0.0 |
 
-The per-combo exact check covers nodes with at most 400 descendants
+The river aggregate's 2.0e-10 worst diff is summation-order noise
+scaled by magnitude (PHASE10_4 §5): at |EV| ≈ 57k it is ~2.3e-14
+relative, well under the Phase-10.5 relative bound of 1e-12 that now
+sits alongside the absolute 1e-9. The per-combo exact check covers
+nodes with at most 400 descendants
 (964 of 966 turn nodes; the two skipped roots are still covered by the
 aggregate and parity-split checks). Persisted `evs.npz` equals the
 live walk bit-for-bit on every player node.

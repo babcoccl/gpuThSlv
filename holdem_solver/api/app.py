@@ -666,6 +666,57 @@ def create_app(
     index_cache: OrderedDict[str, tuple[str, Any, int, tuple | None]] = OrderedDict()
     values_cache: OrderedDict[tuple[str, str | None, bool], dict[str, Any]] = OrderedDict()
     cache_lock = threading.Lock()
+    # Self-heal single-flight: one in-flight node-EV regeneration per job, so
+    # concurrent first /node requests after a declined evs.npz do not
+    # duplicate the compute+write.
+    regen_locks: dict[str, threading.Lock] = {}
+
+    def _regen_lock(job_id: str) -> threading.Lock:
+        with cache_lock:
+            return regen_locks.setdefault(job_id, threading.Lock())
+
+    def _regen_node_evs(
+        job_id: str, path: str, index: Any, iteration: int, spot: dict[str, Any]
+    ) -> tuple | None:
+        """Regenerate + atomically persist a declined ``*.evs.npz``.
+
+        Called when ``load_node_evs`` returned ``None`` (missing,
+        pre-checksum/format, corrupt, or stale file). Single-flight per
+        job: the loser of the lock re-reads the file the winner wrote.
+        Returns the ``(evs, masses)`` pair, or ``None`` to fall back to
+        live computation.
+        """
+        evs_path = api_nodes.evs_path_for(path)
+        with _regen_lock(job_id):
+            pair = api_nodes.load_node_evs(
+                str(evs_path), getattr(index, "keys_list", [])
+            )
+            if pair is not None:
+                return pair
+            try:
+                evs, masses = api_nodes.export_node_evs(index, spot)
+                flat, mass = api_nodes.pack_node_evs(
+                    evs, masses,
+                    index.keys_list, index.actions_list, index.offsets,
+                )
+                api_nodes.write_node_evs(
+                    evs_path, index.keys_list, index.actions_list,
+                    index.offsets, flat, mass, iteration,
+                )
+            except Exception:
+                LOG.warning(
+                    "job %s: node-EV regeneration failed; serving live values",
+                    job_id, exc_info=True,
+                )
+                return None
+            pair = api_nodes.load_node_evs(
+                str(evs_path), index.keys_list
+            )
+            with cache_lock:
+                hit = index_cache.get(job_id)
+                if hit is not None and hit[0] == path:
+                    index_cache[job_id] = (path, index, iteration, pair)
+            return pair
 
     def _strategy_index(job_id: str) -> tuple[Any, int, dict[str, Any], tuple | None]:
         """Load the exported strategy as a TreeIndex, with the same guards as /strategy."""
@@ -736,6 +787,10 @@ def create_app(
             hist = parse_history(history)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if evs_pair is None:
+            evs_pair = _regen_node_evs(
+                job_id, job["strategy_path"], index, iteration, job["spot"]
+            )
         kind = index.edge_kind(hist)
         if kind == "chance":
             raise HTTPException(status_code=422, detail="this history is a chance node; use /tree for dealt cards")

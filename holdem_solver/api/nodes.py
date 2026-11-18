@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import zlib
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -41,6 +42,99 @@ from .strategy import (
 # Cap on combo-node visits for a /node EV request (defends pure-Python cost).
 DEFAULT_MAX_EVAL_WORK = 5_000_000
 
+# Persisted node-EV format. v2: one chained crc32 over both payload arrays
+# plus this ``format`` member; v1 files (XOR of two crc32s, no ``format``)
+# are declined by load_node_evs so /node rewrites them via self-heal.
+EVS_FORMAT = 2
+
+
+def evs_path_for(strategy_path: str | Path) -> Path:
+    """The ``strategy-<id>.evs.npz`` companion path of a strategy npz."""
+    return Path(strategy_path).with_suffix(".evs.npz")
+
+
+def tmp_path_for(path: str | Path) -> Path:
+    """The temp file a strategy/evs export writes before ``os.replace`` —
+    the single source for the name used by the exporters and the tests."""
+    path = Path(path)
+    return path.parent / (path.name + ".tmp")
+
+
+def _evs_crc(ev: np.ndarray, mass: np.ndarray) -> int:
+    """One chained crc32 over both payload arrays (format v2)."""
+    return zlib.crc32(mass.tobytes(), zlib.crc32(ev.tobytes()))
+
+
+def pack_node_evs(
+    evs: dict,
+    masses: dict,
+    keys: list[str],
+    actions: list,
+    offsets: Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Flat ``(ev, opp_mass)`` payload arrays aligned with the strategy
+    npz's keys/offsets/actions — the layout ``write_node_evs`` persists."""
+    bounds = list(offsets)
+    flat = np.zeros(bounds[-1] if bounds else 0, dtype=np.float64)
+    mass = np.zeros(len(keys), dtype=np.float64)
+    for i, key in enumerate(keys):
+        parsed = parse_infoset_key(key)
+        if parsed is None:
+            continue
+        hist = tuple(parsed["history"])
+        names = actions[i] if i < len(actions) else ()
+        row = evs.get((parsed["player"], hist), {}).get(parsed["hand"]) or {}
+        for j, name in enumerate(names):
+            if bounds[i] + j < len(flat):
+                flat[bounds[i] + j] = row.get(name, 0.0)
+        mass[i] = masses.get((parsed["player"], hist), {}).get(parsed["hand"], 0.0)
+    return flat, mass
+
+
+def write_node_evs(
+    evs_path: str | Path,
+    keys: list[str],
+    actions: list,
+    offsets: Any,
+    ev: np.ndarray,
+    mass: np.ndarray,
+    iteration: int,
+    open_for_write: Any = None,
+) -> None:
+    """Atomically write ``strategy-<id>.evs.npz`` (format v2): temp file,
+    fsync, ``os.replace``; the temp file is unlinked on any failure."""
+    if open_for_write is None:
+        open_for_write = lambda p: open(p, "wb")
+    evs_path = Path(evs_path)
+    tmp = tmp_path_for(evs_path)
+    try:
+        with open_for_write(str(tmp)) as handle:
+            np.savez(
+                handle,
+                keys=np.array([key.encode("utf-8") for key in keys], dtype=np.bytes_),
+                actions=np.array(
+                    [",".join(names).encode("utf-8") if not isinstance(names, str)
+                     else names.encode("utf-8") for names in actions],
+                    dtype=np.bytes_,
+                ),
+                offsets=np.asarray(offsets, dtype=np.int64),
+                ev=np.asarray(ev, dtype=np.float64),
+                opp_mass=np.asarray(mass, dtype=np.float64),
+                format=np.int64(EVS_FORMAT),
+                crc32=np.int64(_evs_crc(np.asarray(ev, dtype=np.float64),
+                                        np.asarray(mass, dtype=np.float64))),
+                iteration=np.int64(iteration),
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, evs_path)
+    except Exception:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
 
 def load_index(path: str) -> tuple[TreeIndex, int]:
     """``(TreeIndex, iteration)`` from a ``strategy-<id>.npz`` file."""
@@ -67,6 +161,8 @@ def load_index(path: str) -> tuple[TreeIndex, int]:
     index = TreeIndex(by_node)
     index.unmapped_keys = unmapped  # type: ignore[attr-defined]
     index.keys_list = keys  # type: ignore[attr-defined]
+    index.actions_list = actions  # type: ignore[attr-defined]
+    index.offsets = bounds  # type: ignore[attr-defined]
     return index, int(data["iteration"])
 
 
@@ -96,6 +192,7 @@ def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
         ev = data["ev"]
         mass = data["opp_mass"]
         crc = data["crc32"]
+        fmt = data["format"]
     except Exception:
         # truncated/garbage archives surface as OSError, KeyError,
         # ValueError, EOFError, BadZipFile, ... — all mean "not usable".
@@ -115,11 +212,12 @@ def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
     if len(actions) != len(keys):
         return None
     try:
+        if int(np.asarray(fmt).reshape(-1)[0]) != EVS_FORMAT:
+            return None
         want = int(np.asarray(crc).reshape(-1)[0])
     except (IndexError, ValueError, TypeError, OverflowError):
         return None
-    got = zlib.crc32(ev.tobytes()) ^ zlib.crc32(mass.tobytes())
-    if want != got:
+    if want != _evs_crc(ev, mass):
         return None
     evs: dict[tuple[str, ...], dict[str, dict[str, float]]] = {}
     masses: dict[tuple[str, ...], dict[str, float]] = {}

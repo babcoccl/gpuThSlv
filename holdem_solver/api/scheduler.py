@@ -44,7 +44,6 @@ import os
 import sqlite3
 import threading
 import time
-import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -62,6 +61,7 @@ from holdem_solver.client import (
 )
 
 from . import gpus as gpu_stats
+from . import nodes as api_nodes
 from .store import JobStore
 from .vram import VramModel
 
@@ -742,7 +742,7 @@ class Scheduler:
             LOG.warning("job %s: strategy export failed: %s", job_id, exc)
             return None
         path = self._data_dir / ("strategy-%s.npz" % job_id)
-        tmp = self._data_dir / ("strategy-%s.npz.tmp" % job_id)
+        tmp = api_nodes.tmp_path_for(path)
         try:
             # Write-then-rename: a failed write never leaves a truncated .npz
             # behind under the final name.
@@ -786,61 +786,22 @@ class Scheduler:
         Failure is logged and skipped: the endpoint still computes on demand.
         """
         try:
-            from . import nodes as api_nodes
-            from .strategy import parse_infoset_key
-
             job = self._store.get(job_id)
             if job is None:
                 return
-            tmp = None
             index, _ = api_nodes.load_index(str(strategy_path))
             evs, masses = api_nodes.export_node_evs(index, job["spot"])
-            bounds = strategy.offsets.tolist()
-            flat = np.zeros(len(strategy.values), dtype=np.float64)
-            mass = np.zeros(len(strategy.keys), dtype=np.float64)
-            for i, key in enumerate(strategy.keys):
-                parsed = parse_infoset_key(key)
-                if parsed is None:
-                    continue
-                hist = tuple(parsed["history"])
-                names = strategy.actions[i] if i < len(strategy.actions) else ()
-                row = evs.get((parsed["player"], hist), {}).get(parsed["hand"]) or {}
-                for j, name in enumerate(names):
-                    if bounds[i] + j < len(flat):
-                        flat[bounds[i] + j] = row.get(name, 0.0)
-                mass[i] = masses.get((parsed["player"], hist), {}).get(parsed["hand"], 0.0)
-            evs_path = strategy_path.with_suffix(".evs.npz")
-            tmp = evs_path.with_suffix(".evs.npz.tmp")
-            with self._open_for_write(str(tmp)) as handle:
-                np.savez(
-                    handle,
-                    keys=np.array(
-                        [key.encode("utf-8") for key in strategy.keys], dtype=np.bytes_
-                    ),
-                    actions=np.array(
-                        [",".join(names).encode("utf-8") for names in strategy.actions],
-                        dtype=np.bytes_,
-                    ),
-                    offsets=strategy.offsets,
-                    ev=flat,
-                    opp_mass=mass,
-                    # Integrity checksum: load_node_evs recomputes this over
-                    # the payload bytes and declines to serve on mismatch.
-                    crc32=np.int64(
-                        zlib.crc32(flat.tobytes()) ^ zlib.crc32(mass.tobytes())
-                    ),
-                    iteration=np.int64(strategy.iteration),
-                )
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(tmp, evs_path)
+            flat, mass = api_nodes.pack_node_evs(
+                evs, masses, strategy.keys, strategy.actions, strategy.offsets
+            )
+            api_nodes.write_node_evs(
+                api_nodes.evs_path_for(strategy_path),
+                strategy.keys, strategy.actions, strategy.offsets,
+                flat, mass, strategy.iteration,
+                open_for_write=self._open_for_write,
+            )
         except Exception:
             LOG.warning("job %s: node-EV export failed", job_id, exc_info=True)
-            if tmp is not None:
-                try:
-                    tmp.unlink()
-                except OSError:
-                    pass
 
     def _release(self, client: EngineClient) -> None:
         try:

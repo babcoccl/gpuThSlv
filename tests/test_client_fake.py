@@ -1,4 +1,6 @@
-"""EngineClient against a FakeEngine worker process: no GPU, no gpu_cfr."""
+"""Runs in ``.venv-api``.
+
+EngineClient against a FakeEngine worker process: no GPU, no gpu_cfr."""
 
 import os
 import shutil

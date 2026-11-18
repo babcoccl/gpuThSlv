@@ -1,4 +1,6 @@
-"""Shared pure-Python tests for protocol/evwalk.py (collected in both venvs).
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Shared pure-Python tests for protocol/evwalk.py (collected in both venvs).
 
 The property tests use the FakeEngine's ``fake_real_keys`` strategy: real
 HUNL infoset keys on a raise_cap=0 river tree, no GPU needed.

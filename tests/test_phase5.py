@@ -1,4 +1,6 @@
-"""Phase 5: VRAM seed, /metrics, security limits, API polish, external
+"""Runs in ``.venv-api``.
+
+Phase 5: VRAM seed, /metrics, security limits, API polish, external
 (systemd-style) workers. Fake-engine workers; no GPU needed."""
 
 import os

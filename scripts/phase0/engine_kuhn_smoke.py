@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Run the README Kuhn API path against the single visible CUDA device.
+"""Runs in ``.venv-engine``.
+
+Run the README Kuhn API path against the single visible CUDA device.
 
 Run once with CUDA_VISIBLE_DEVICES=0 and once with CUDA_VISIBLE_DEVICES=1.
 """

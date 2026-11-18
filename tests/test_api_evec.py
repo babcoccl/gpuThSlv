@@ -1,4 +1,6 @@
-"""evec vs evwalk equivalence + persisted node-EV roundtrip (API venv only).
+"""Runs in ``.venv-api``.
+
+evec vs evwalk equivalence + persisted node-EV roundtrip (API venv only).
 
 ``evec.node_action_evs`` must produce the same per-combo per-action
 conditional EVs as the shared pure-Python ``evwalk.node_action_evs``
@@ -6,7 +8,12 @@ conditional EVs as the shared pure-Python ``evwalk.node_action_evs``
 ``load_node_evs`` must roundtrip the ``strategy-<id>.evs.npz`` layout.
 """
 
+import os
+import zlib
+from pathlib import Path
+
 import numpy as np
+import pytest
 
 from holdem_solver.api import evec
 from holdem_solver.api import nodes as api_nodes
@@ -97,8 +104,18 @@ def test_all_node_evs_covers_every_node_and_matches():
 
 
 def _write_evs_npz(path, keys, acts, offsets, ev_flat, mass):
-    """The ``strategy-<id>.evs.npz`` layout as ``_export_node_evs`` writes
-    it, including the payload checksum."""
+    """The ``strategy-<id>.evs.npz`` layout via the real writer (format
+    v2, chained payload checksum)."""
+    api_nodes.write_node_evs(
+        path, keys, acts, offsets,
+        np.asarray(ev_flat, dtype=np.float64),
+        np.asarray(mass, dtype=np.float64),
+        iteration=7,
+    )
+
+
+def _write_evs_npz_v1(path, keys, acts, offsets, ev_flat, mass):
+    """The pre-10.5 v1 layout: XOR of two crc32s, no ``format`` member."""
     import zlib
 
     ev = np.asarray(ev_flat, dtype=np.float64)
@@ -138,6 +155,176 @@ def _evs_fixture(index, spot):
     return keys, acts, offsets, ev_flat, mass, evs, masses
 
 
+def test_load_node_evs_declines_v1_format(tmp_path):
+    """Pre-10.5 files (XOR checksum, no ``format`` member) decline
+    cleanly so /node can regenerate them as v2."""
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    keys, acts, offsets, ev_flat, mass, _e, _m = _evs_fixture(index, spot)
+    v1 = tmp_path / "v1.evs.npz"
+    _write_evs_npz_v1(v1, keys, acts, offsets, ev_flat, mass)
+    assert api_nodes.load_node_evs(str(v1), keys) is None
+
+
+def _sched_fixture(tmp_path):
+    """(sched, job_id, strat_path, strategy, evs_path) with a real store
+    job and strategy npz for ``_export_node_evs``."""
+    import types
+
+    from holdem_solver.api.scheduler import Scheduler
+    from holdem_solver.api.store import JobStore
+
+    keys = ["p0|AsKd|c|x:c"]
+    acts = ["c"]
+    offsets = np.array([0, 1], dtype=np.int64)
+    values = np.array([1.0], dtype=np.float64)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    store = JobStore(str(tmp_path / "jobs.db"))
+    job, _ = store.create(RIVER_SPOT.to_dict(), {})
+    job_id = job["id"]
+    strat_path = data_dir / ("strategy-%s.npz" % job_id)
+    np.savez(
+        strat_path,
+        keys=np.array([k.encode() for k in keys], dtype=np.bytes_),
+        actions=np.array([a.encode() for a in acts], dtype=np.bytes_),
+        offsets=offsets,
+        values=values,
+        iteration=np.int64(3),
+    )
+    strategy = types.SimpleNamespace(
+        offsets=offsets, keys=keys, actions=acts,
+        values=values, iteration=3,
+    )
+    sched = Scheduler([None], store, str(data_dir), engine="external")
+    return sched, job_id, strat_path, strategy, api_nodes.evs_path_for(strat_path)
+
+
+class _EnospcAfterN:
+    """File wrapper raising ENOSPC once more than ``n`` bytes are
+    written — a real mid-write disk-full, not a fake open."""
+
+    def __init__(self, handle, limit, on_fail=lambda: None):
+        self._handle = handle
+        self._limit = limit
+        self._written = 0
+        self._on_fail = on_fail
+
+    def write(self, data):
+        import errno
+        if self._written + len(data) > self._limit:
+            self._on_fail()
+            raise OSError(errno.ENOSPC, "No space left on device")
+        self._written += len(data)
+        return self._handle.write(data)
+
+    def __getattr__(self, name):
+        return getattr(self._handle, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self._handle.close()
+        return False
+
+
+def _assert_crash_leaves_nothing(evs_path, tmp_seen, prior_bytes=None):
+    """Shared post-crash assertions: tmp existed at failure time, is gone
+    now, no final file appeared, a prior final file is untouched."""
+    assert tmp_seen, "the real temp file never existed during the write"
+    assert not api_nodes.tmp_path_for(evs_path).exists()
+    if prior_bytes is None:
+        assert not evs_path.exists()
+    else:
+        assert evs_path.read_bytes() == prior_bytes
+
+
+@pytest.mark.parametrize("with_prior", (False, True))
+@pytest.mark.parametrize(
+    "where", ("mid_write", "fsync", "replace"),
+)
+def test_export_node_evs_crash_points(tmp_path, monkeypatch, where, with_prior):
+    """Inject failures inside the real write: ENOSPC mid-write, at
+    fsync, and at os.replace — with and without a prior final file."""
+    sched, job_id, strat_path, strategy, evs_path = _sched_fixture(tmp_path)
+    tmp_seen = []
+
+    if with_prior:
+        sched._export_node_evs(job_id, strat_path, strategy)
+        assert evs_path.exists()
+        prior_bytes = evs_path.read_bytes()
+    else:
+        prior_bytes = None
+
+    if where == "mid_write":
+        real_open = sched._open_for_write
+
+        def flaky(path):
+            handle = real_open(path)
+            return _EnospcAfterN(
+                handle, 32,
+                on_fail=lambda: tmp_seen.append(
+                    api_nodes.tmp_path_for(evs_path).exists()
+                ),
+            )
+
+        sched._open_for_write = flaky
+    elif where == "fsync":
+        def bad_fsync(fd):
+            tmp_seen.append(api_nodes.tmp_path_for(evs_path).exists())
+            raise OSError(5, "injected fsync failure")
+
+        monkeypatch.setattr(os, "fsync", bad_fsync)
+    else:
+        def bad_replace(src, dst):
+            tmp_seen.append(api_nodes.tmp_path_for(evs_path).exists())
+            raise OSError(13, "injected replace failure")
+
+        monkeypatch.setattr(os, "replace", bad_replace)
+
+    sched._export_node_evs(job_id, strat_path, strategy)
+    _assert_crash_leaves_nothing(evs_path, tmp_seen, prior_bytes)
+
+
+def test_export_node_evs_cleanup_mutation(tmp_path):
+    """Mutation check: the same mid-write crash run against a copy of
+    the writer with the tmp cleanup removed must leave the .tmp file
+    behind — i.e. the real assertions would fail."""
+    import errno
+    import inspect
+    import textwrap
+
+    sched, job_id, strat_path, strategy, evs_path = _sched_fixture(tmp_path)
+    src = textwrap.dedent(inspect.getsource(api_nodes.write_node_evs))
+    mutated = src.replace("tmp.unlink()", "pass  # mutation: no cleanup")
+    assert mutated != src
+    ns = {
+        "np": np, "os": os, "zlib": zlib, "Path": Path,
+        "tmp_path_for": api_nodes.tmp_path_for,
+        "_evs_crc": api_nodes._evs_crc,
+        "EVS_FORMAT": api_nodes.EVS_FORMAT,
+    }
+    exec(mutated, ns)
+    bad_write = ns["write_node_evs"]
+
+    def flaky(path):
+        return _EnospcAfterN(open(path, "wb"), 32)
+
+    keys, acts = ["p0|AsKd|c|x:c"], ["c"]
+    offsets = np.array([0, 1], dtype=np.int64)
+    ev = np.array([1.0], dtype=np.float64)
+    mass = np.array([1.0], dtype=np.float64)
+    with pytest.raises(OSError):
+        bad_write(evs_path, keys, acts, offsets, ev, mass, 3,
+                  open_for_write=flaky)
+    tmp = api_nodes.tmp_path_for(evs_path)
+    # The mutation is detected: the cleanup assertion the real tests make
+    # ("no .tmp lingers") fails against the mutated writer.
+    assert tmp.exists(), "mutated writer left no .tmp — mutation undetected"
+    tmp.unlink()
+
+
 def test_export_node_evs_atomic_write(tmp_path):
     """The evs export is temp+fsync+rename: a mid-write crash must leave
     neither a truncated evs.npz nor a lingering .tmp file."""
@@ -164,8 +351,8 @@ def test_export_node_evs_atomic_write(tmp_path):
         values=values,
         iteration=np.int64(3),
     )
-    evs_path = data_dir / ("strategy-%s.evs.npz" % job_id)
-    tmp_path_name = evs_path.parent / (evs_path.name + ".tmp")
+    evs_path = api_nodes.evs_path_for(strat_path)
+    tmp_path_name = api_nodes.tmp_path_for(evs_path)
     strategy = types.SimpleNamespace(
         offsets=np.array(offsets, dtype=np.int64),
         keys=keys,

@@ -1,4 +1,6 @@
-"""REST API tests on ``FakeEngine`` workers; no GPU or torch needed."""
+"""Runs in ``.venv-api``.
+
+REST API tests on ``FakeEngine`` workers; no GPU or torch needed."""
 
 import tempfile
 

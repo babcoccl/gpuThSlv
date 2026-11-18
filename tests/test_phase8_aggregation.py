@@ -1,4 +1,6 @@
-"""Phase 8 step 1: reach-weighted hand-class aggregation.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 8 step 1: reach-weighted hand-class aggregation.
 
 Runs in both venvs: pure stdlib + protocol only. Covers
 ``scripts.phase7.grid.to_grid`` (TS-parse node shape) and

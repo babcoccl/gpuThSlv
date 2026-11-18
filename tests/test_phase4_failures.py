@@ -1,4 +1,6 @@
-"""Phase 4: one regression test per failure the Phase 3 scheduler could not
+"""Runs in ``.venv-api``.
+
+Phase 4: one regression test per failure the Phase 3 scheduler could not
 survive (see docs/PHASE4.md, "Failure modes"), plus the scheduler features
 that fix them. Fake-engine workers; no GPU needed."""
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Phase 1 check: which gpu_cfr eval/export APIs work without project_llm_opp_prior."""
+"""Runs in ``.venv-engine``.
+
+Phase 1 check: which gpu_cfr eval/export APIs work without project_llm_opp_prior."""
 
 import importlib
 import sys

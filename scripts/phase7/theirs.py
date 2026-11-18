@@ -1,4 +1,6 @@
-"""Run TexasSolver console on a SpotConfig; return nodes + EV + exploitability.
+"""Runs in ``.venv-engine``.
+
+Run TexasSolver console on a SpotConfig; return nodes + EV + exploitability.
 
 Python 3.9 safe.
 """

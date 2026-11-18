@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Verify API venv imports and both-GPU torch matmuls."""
+"""Runs in ``.venv-api``.
+
+Verify API venv imports and both-GPU torch matmuls."""
 
 import importlib.metadata
 

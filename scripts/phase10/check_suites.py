@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Phase 10 evidence guard: docs result tables vs committed suite JSONs.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 10 evidence guard: docs result tables vs committed suite JSONs.
 
 Verifies the result tables and aggregate claims in docs/PHASE7.md,
 docs/PHASE8.md, docs/PHASE8_5.md, docs/PHASE8_6.md and the verdict-counts
@@ -618,6 +620,20 @@ def check_phase10_3(doc: Path) -> None:
             ):
                 if prob:
                     fail(doc, f"{name} {label}: {prob}")
+        # Phase 10.5: a check passes on the absolute 1e-9 bound OR the
+        # relative bound |diff| <= 1e-12 * max(1, |ref|) — assert the JSON
+        # reports max_rel_diff and that at least one bound holds.
+        for label, chk in r["checks"].items():
+            abs_d = chk["max_abs_diff"]
+            rel = chk.get("max_rel_diff")
+            if rel is None:
+                fail(doc, f"{name} {label}: max_rel_diff missing")
+            elif abs_d > 1e-9 and rel > 1e-12:
+                fail(
+                    doc,
+                    f"{name} {label}: abs {abs_d} > 1e-9 and "
+                    f"rel {rel} > 1e-12",
+                )
 
 
 def check_doc_status(doc: Path) -> None:

@@ -1,4 +1,6 @@
-"""Compared-cell accounting for the EV validation scripts.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Compared-cell accounting for the EV validation scripts.
 
 A validation pass that silently skips cells reports a misleading
 ``max_abs_diff``: an evaluator that returns nothing produces
@@ -39,6 +41,7 @@ def compare_cells(ref, got):
     """
     compared = 0
     max_diff = 0.0
+    max_rel = 0.0
     omitted = []
     extras = []
     for combo, row in ref.items():
@@ -57,12 +60,15 @@ def compare_cells(ref, got):
             d = abs(got_row[action] - rv)
             if d > max_diff:
                 max_diff = d
+            rel = d / max(1.0, abs(rv))
+            if rel > max_rel:
+                max_rel = rel
     for combo, row in got.items():
         ref_row = ref.get(combo)
         for action in row:
             if ref_row is None or action not in ref_row:
                 extras.append("%s/%s" % (combo, action))
-    return compared, omitted, extras, max_diff
+    return compared, omitted, extras, max_diff, max_rel
 
 
 def expected_cells(index):

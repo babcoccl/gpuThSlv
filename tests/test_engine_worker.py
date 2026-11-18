@@ -1,4 +1,6 @@
-"""EngineService with the FakeEngine, in-process (no socket, no GPU)."""
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+EngineService with the FakeEngine, in-process (no socket, no GPU)."""
 
 import os
 import shutil

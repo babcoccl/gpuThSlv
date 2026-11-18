@@ -1,4 +1,6 @@
-"""Parse a TexasSolver ``dump_result`` JSON into our /strategy node shape.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Parse a TexasSolver ``dump_result`` JSON into our /strategy node shape.
 
 TexasSolver dump conventions (v0.2.0):
 * ``player`` 1 = OOP -> our 0, ``player`` 0 = IP -> our 1

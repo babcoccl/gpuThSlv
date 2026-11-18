@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Verify the engine venv torch build sees both Blackwell GPUs."""
+"""Runs in ``.venv-engine``.
+
+Verify the engine venv torch build sees both Blackwell GPUs."""
 
 import torch
 

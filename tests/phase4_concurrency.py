@@ -1,4 +1,6 @@
-"""10 mixed jobs on two GPUs with a SIGKILL chaos event; shared by the fake
+"""Runs in ``.venv-api``.
+
+10 mixed jobs on two GPUs with a SIGKILL chaos event; shared by the fake
 and GPU tests and by scripts/phase4/concurrency_gate.py."""
 
 import os

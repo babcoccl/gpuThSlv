@@ -1,4 +1,6 @@
-"""Phase 9.1 guard: a doc may not cite a validation count with no matching
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 9.1 guard: a doc may not cite a validation count with no matching
 committed artifact.
 
 Two checks, both cheap (no solves):

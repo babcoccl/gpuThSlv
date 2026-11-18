@@ -1,3 +1,4 @@
+"""Runs in ``.venv-engine`` and ``.venv-api``."""
 import pytest
 
 from holdem_solver.engine_worker import estimate_vram_bytes

@@ -1,4 +1,6 @@
-"""Compare our solver output vs TexasSolver: trees, EV, frequencies.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Compare our solver output vs TexasSolver: trees, EV, frequencies.
 
 Python 3.9 safe.
 """

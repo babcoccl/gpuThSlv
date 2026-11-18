@@ -1,4 +1,6 @@
-"""Phase 8 weighted-range spots.
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Phase 8 weighted-range spots.
 
 Weighted ranges use ``CLASS:fraction`` tokens — identical syntax on both
 sides (our ``cards.parse_range`` and TexasSolver's ``set_range_*``).

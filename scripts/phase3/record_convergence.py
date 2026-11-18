@@ -1,4 +1,6 @@
-"""Record exploitability-vs-time for a full-range HUNL river solve (Phase 3).
+"""Runs in ``.venv-api``.
+
+Record exploitability-vs-time for a full-range HUNL river solve (Phase 3).
 
 Runs through EngineClient on one GPU and writes JSON lines to stdout:
 one line per progress eval, plus a final result line.

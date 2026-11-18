@@ -479,3 +479,32 @@
   noise scaled by |EV| ≈ 57k chips (~4·eps·|EV|); no float32 path;
   tolerance unchanged at 1e-9.
 - Details: `docs/PHASE10_4.md`.
+
+## 2026-11-18 — Phase 10.5: last validation-tooling fixes
+
+- Import boundary fails closed: every `scripts/**/*.py` and
+  `tests/**/*.py` declares `.venv-engine` and/or `.venv-api` in its
+  docstring; `test_import_boundary.py` fails on undeclared files,
+  proves a file declaring `.venv-engine` that reaches
+  `holdem_solver.api` transitively is caught (negative test on a temp
+  tree), and a `sys.meta_path` hook in engine-venv test runs raises on
+  `holdem_solver.api` at runtime. `brute_ev.py`'s docstring corrected —
+  it imports `holdem_solver.api`, so it runs in `.venv-api`.
+- Atomic-export crash tests drive the real `Scheduler._export_node_evs`
+  through its shared temp-file helper (`api_nodes.tmp_path_for`):
+  ENOSPC mid-write, fsync failure and os.replace failure each leave no
+  final file, remove the temp file, and preserve a prior valid
+  `evs.npz`; a mutation test re-runs the crash case against an exporter
+  copy with the cleanup removed and requires the failure.
+- Self-healing `/node`: when `load_node_evs` declines the persisted
+  file (missing, corrupt, stale keys, pre-checksum format), the first
+  request regenerates and atomically re-persists it under a per-job
+  single-flight lock — 8 concurrent requests produce exactly one
+  export.
+- evec-vs-evwalk gains a relative bound `|diff| <= 1e-12 * max(1, |ref|)`
+  alongside the absolute 1e-9 (`compare_cells` reports `max_rel_diff`);
+  the river 2.0e-10 residual is ~2.3e-14 relative at |EV| ≈ 57k.
+- `evs.npz` format bumped to v2: one crc32 chained over both arrays
+  replaces the XOR of two crc32s; v1 files are declined and
+  regenerated.
+- Details: `docs/PHASE10_5.md`.

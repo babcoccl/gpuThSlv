@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Summarize Phase 0 iter_bench JSONL logs into benchmark tables."""
+"""Runs in ``.venv-engine`` and ``.venv-api``.
+
+Summarize Phase 0 iter_bench JSONL logs into benchmark tables."""
 
 import argparse
 import json
