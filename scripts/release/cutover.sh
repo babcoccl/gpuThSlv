@@ -121,7 +121,9 @@ if [ "$MODE" = dry ]; then echo "dry run: nothing changed"; exit 0; fi
 STATE="$CUTOVER_ROOT/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$STATE/units"
 chmod 700 "$CUTOVER_ROOT" "$STATE"
-HOLDEM_DATA_DIR="$OLD_DATA" HOLDEM_PREFIX=/nonexistent "$HERE/backup.sh" "$STATE/db" >/dev/null
+# Safety copy while the old API still runs; the migration copy is taken
+# again after the old units stop so late job updates are not lost.
+HOLDEM_DATA_DIR="$OLD_DATA" HOLDEM_PREFIX=/nonexistent "$HERE/backup.sh" "$STATE/db-pre-stop" >/dev/null
 cp -a "$OLD_UNIT_DIR"/holdem-* "$STATE/units/"
 install -m 600 "$OLD_ENV" "$STATE/old.env"
 cat > "$STATE/state.env" <<EOS
@@ -132,7 +134,7 @@ OLD_KEY=$OLD_KEY
 CHECK_JOB=$JOB
 EOS
 chmod 600 "$STATE/state.env"
-log "backup -> $STATE (db, units, env)"
+log "backup -> $STATE (db-pre-stop, units, env)"
 
 # Failures from here on restore the old units.
 trap 'rc=$?; if [ $rc -ne 0 ]; then log "cutover failed (rc=$rc) — rolling back"; rollback "$STATE"; log "rolled back; cutover state in $STATE"; fi' EXIT
@@ -144,6 +146,8 @@ user_ctl "$OLD_USER" stop $OLD_UNITS
 user_ctl "$OLD_USER" disable $OLD_UNITS
 for _ in $(seq 30); do [ -z "$(ss -Hltn "sport = :$OLD_PORT")" ] && break; sleep 1; done
 log "old units stopped + disabled; :$OLD_PORT free"
+HOLDEM_DATA_DIR="$OLD_DATA" HOLDEM_PREFIX=/nonexistent "$HERE/backup.sh" "$STATE/db" >/dev/null
+log "migration copy of $OLD_DB (taken after stop) -> $STATE/db"
 
 # -- 4. install (not started), migrate ------------------------------------------------
 HOLDEM_NO_START=1 "$HERE/install.sh" ${VERSION:+"$VERSION"}
