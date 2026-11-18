@@ -80,10 +80,13 @@ sudo scripts/release/restore.sh /var/lib/holdem/backups/<ts>
 ```
 
 Backups hold `solves.db` (jobs + saved spots). Strategy `*.npz`/`*.evs.npz`
-files are excluded — after a restore onto an empty data dir, rerun
+files are excluded — they are large and regenerable. A restore onto an
+empty data dir brings back job records and saved spots but **not** the
+strategies: jobs whose `strategy-*.npz` is gone must be re-solved. For
+jobs whose strategy file survived (e.g. a DB-only loss), rerun
 `.venv-engine/bin/python -m holdem_solver.api.regen_evs --all` (run from
-`/opt/holdem/current` with `HOLDEM_API_DATA_DIR=/var/lib/holdem`) for jobs
-whose strategy file still exists.
+`/opt/holdem/current` with `HOLDEM_API_DATA_DIR=/var/lib/holdem`) to
+rebuild the `.evs.npz` companions.
 
 ## TLS / reverse proxy (Caddy)
 
