@@ -94,10 +94,13 @@ def _compat_all(r_opp: np.ndarray) -> np.ndarray:
     """``compat(c, r)`` for all 1326 combos: ``Σ_d r_d·I(no shared card)``."""
     card_mass = _CARD_MASK @ r_opp
     comp = r_opp.sum() - card_mass[_CARD_A] - card_mass[_CARD_B] + r_opp
-    # Cancellation residue: the true value is >= 0; a result within fp
-    # noise of zero means every opponent combo conflicts and must clamp to
-    # 0 — otherwise callers divide by the residue and emit phantom EVs.
-    tol = 1e-12 * max(1.0, float(r_opp.sum()))
+    # Cancellation residue: the true value is >= 0. Each operand is
+    # bounded by the total mass, so the accumulated fp error is at most
+    # ~64·eps·total (matvec partial sums plus the outer adds); 128·eps is
+    # a conservative bound. Anything at or below it means every opponent
+    # combo conflicts — clamp to 0 so callers don't divide by residue.
+    # Real masses above ~3e-14·total are kept.
+    tol = 128.0 * np.finfo(np.float64).eps * max(1.0, float(r_opp.sum()))
     return np.where(comp <= tol, 0.0, comp)
 
 
