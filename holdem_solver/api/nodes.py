@@ -11,6 +11,7 @@ responses for ``GET /v1/solves/{id}/tree`` and ``/node``.
 from __future__ import annotations
 
 import os
+import zlib
 from typing import Any
 
 import numpy as np
@@ -86,14 +87,39 @@ def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
         ev_keys = [key.decode("utf-8") for key in data["keys"].tolist()]
         if ev_keys != keys:
             return None
-        bounds = data["offsets"].tolist()
+        offsets = data["offsets"]
+        bounds = offsets.tolist()
         actions = [
             [name for name in row.decode("utf-8").split(",") if name]
             for row in data["actions"].tolist()
         ]
         ev = data["ev"]
         mass = data["opp_mass"]
-    except (OSError, KeyError, ValueError):
+        crc = data["crc32"]
+    except Exception:
+        # truncated/garbage archives surface as OSError, KeyError,
+        # ValueError, EOFError, BadZipFile, ... — all mean "not usable".
+        return None
+    # Schema + integrity checks: a malformed or corrupted payload declines
+    # to serve rather than feed wrong values to /node.
+    if ev.dtype != np.float64 or mass.dtype != np.float64:
+        return None
+    if len(bounds) != len(keys) + 1 or bounds[0] != 0 or bounds[-1] != len(ev):
+        return None
+    if np.any(np.diff(offsets) < 0):
+        return None
+    if len(mass) != len(keys):
+        return None
+    if not (np.isfinite(ev).all() and np.isfinite(mass).all()):
+        return None
+    if len(actions) != len(keys):
+        return None
+    try:
+        want = int(np.asarray(crc).reshape(-1)[0])
+    except (IndexError, ValueError, TypeError, OverflowError):
+        return None
+    got = zlib.crc32(ev.tobytes()) ^ zlib.crc32(mass.tobytes())
+    if want != got:
         return None
     evs: dict[tuple[str, ...], dict[str, dict[str, float]]] = {}
     masses: dict[tuple[str, ...], dict[str, float]] = {}

@@ -1,0 +1,36 @@
+{
+ "method": "cold GET /v1/solves/<id>/node?history= at root on the persisted strategy, commit 0ef7d5a (Phase 10.1 merge), API restarted per repetition; no /tree first. holdem_solver.api on :8001.",
+ "commit": "0ef7d5a",
+ "runs": {
+  "scale-river-573k": {
+   "id": "9d9b5166b383",
+   "node_ms": [
+    37815.707354,
+    37892.164191,
+    37775.023831
+   ],
+   "mean_ms": 37827.631792,
+   "spread_ms": 117.14036000000488
+  },
+  "scale-turn-chance": {
+   "id": "9eb2cec01565",
+   "node_ms": [
+    8090.921811,
+    7952.593065,
+    7914.564126
+   ],
+   "mean_ms": 7986.026333999999,
+   "spread_ms": 176.35768499999995
+  },
+  "scale-raisecap2": {
+   "id": "4a037014a459",
+   "node_ms": [
+    3295.944585,
+    3309.865114,
+    3270.34264
+   ],
+   "mean_ms": 3292.0507796666666,
+   "spread_ms": 39.52247400000033
+  }
+ }
+}

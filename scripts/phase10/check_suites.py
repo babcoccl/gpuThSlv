@@ -63,9 +63,9 @@ def num_close(doc: Path, cell: str, ref: float, what: str) -> None:
         fail(doc, f"{what}: unparseable number {cell!r}")
         return
     tol = 0.5 * 10 ** (-decimals(cell))
-    # float slack proportional to the tolerance: a fixed 1e-9 would exceed
-    # half the displayed unit for sci-notation cells like 2.07e-07.
-    if abs(v - ref) > tol + max(1e-12, tol * 1e-6):
+    # float slack proportional to the tolerance — a fixed floor (even
+    # 1e-12) would exceed half the displayed unit for cells like 6.4e-14.
+    if abs(v - ref) > tol + tol * 1e-6 + abs(ref) * 1e-15:
         fail(doc, f"{what}: doc {cell} vs artifact {ref!r}")
 
 
@@ -523,6 +523,10 @@ def check_phase10_2(doc: Path) -> None:
     text = doc.read_text()
     scale = load("phase10/logs/scale-10-2.json")
     before = load("phase10/logs/scale-10-1.json")
+    # canonical before-numbers: cold re-measure at the Phase-10.1 merge
+    # commit (scale-10-1.json itself was sampled under load)
+    cold = load("phase10/logs/scale-10-1-cold.json")
+    cold_mean = {n: r["mean_ms"] for n, r in cold["runs"].items()}
     by_name = {r["name"]: r for r in scale}
     before_by_name = {r["name"]: r for r in before}
     rows = req_table(doc, text, "build s", "first /node", exclude=("wall",))
@@ -560,7 +564,8 @@ def check_phase10_2(doc: Path) -> None:
             fail(doc, f"line {ln}: spot {name!r} not in scale-10-1.json")
             continue
         num_close(
-            doc, c[1].replace(" ms", "").replace(",", ""), b["calls"][0]["node_ms"],
+            doc, c[1].replace(" ms", "").replace(",", ""),
+            cold_mean.get(name, b["calls"][0]["node_ms"]),
             f"{name} first /node before",
         )
         if r is not None:
@@ -568,6 +573,51 @@ def check_phase10_2(doc: Path) -> None:
                 doc, c[2].replace(" ms", ""), r["calls"][0]["first_node_ms"],
                 f"{name} first /node after",
             )
+
+
+def check_phase10_3(doc: Path) -> None:
+    """evec_all_nodes table vs committed evec_all_nodes.json — and the
+    artifact's own compared/expected accounting: every check must have
+    compared > 0 cells, compared == expected, and zero unexplained
+    omissions, extras, or ref-side missing cells."""
+    text = doc.read_text()
+    report = load("phase10/logs/evec_all_nodes.json")
+    rows = req_table(doc, text, "histories", "persisted vs live")
+    check_rows(doc, rows, list(report), "evec_all_nodes table")
+    for ln, c in rows:
+        name = c[0].strip("`")
+        r = report.get(name)
+        if r is None:
+            continue
+        num_close(doc, c[1].replace(",", ""), r["hists"], f"{name} hists")
+        agg = r["checks"]["aggregate_edge_value"]
+        split = r["checks"]["parity_split"]
+        pers = r["checks"]["persisted_vs_live_evec"]
+        exact = r["checks"]["exact_per_combo"]
+        num_close(doc, c[2], agg["max_abs_diff"], f"{name} agg")
+        num_close(doc, c[3], split["max_abs_diff"], f"{name} split")
+        m = re.match(r"([\d.eE+-]+)\s+over\s+([\d,]+)\s+cells", c[4])
+        if m is None:
+            fail(doc, f"line {ln}: exact cell not 'X over N cells': {c[4]!r}")
+        else:
+            num_close(doc, m.group(1), exact["max_abs_diff"],
+                      f"{name} exact")
+            num_close(doc, m.group(2).replace(",", ""), exact["compared"],
+                      f"{name} exact cells")
+        num_close(doc, c[5], pers["max_abs_diff"], f"{name} persisted")
+        for label, chk in (("persisted_vs_live_evec", pers),
+                           ("exact_per_combo", exact)):
+            for prob in (
+                chk["compared"] == 0 and "compared zero cells",
+                chk["compared"] != chk["expected_cells"]
+                and f"compared {chk['compared']} != expected "
+                f"{chk['expected_cells']}",
+                chk.get("omitted_count") and "unexplained omissions",
+                chk.get("extras_count") and "extra cells",
+                chk.get("ref_missing") and "reference missing cells",
+            ):
+                if prob:
+                    fail(doc, f"{name} {label}: {prob}")
 
 
 def check_doc_status(doc: Path) -> None:
@@ -621,6 +671,8 @@ def main(argv: list[str]) -> int:
             check_phase10(doc)
         elif name == "PHASE10_2.md":
             check_phase10_2(doc)
+        elif name == "PHASE10_3.md":
+            check_phase10_3(doc)
         elif name == "VALIDATION.md":
             check_validation(
                 doc,

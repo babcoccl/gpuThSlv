@@ -450,3 +450,32 @@
   state in the UI; scale table records export time, exploitability
   with units and the stop reason.
 - Details: `docs/PHASE10_3.md`.
+
+## 2026-11-18 — Phase 10.4: validation-tooling gaps
+
+- Persisted EV integrity: `strategy-*.evs.npz` carries a `crc32` over the
+  `ev`/`opp_mass` payloads; `load_node_evs` rejects truncation, schema
+  violations, wrong dtypes, NaN/inf and bit flips (each → `None`, `/node`
+  falls back to identical live values); export stays temp+fsync+rename
+  and a crashed write unlinks its `.tmp`.
+- Compared-cell accounting: `scripts/compare_cells.py` reports
+  compared/omitted/extras/max per check against an expected count
+  derived from the tree; wired into `evec_all_nodes.py`,
+  `brute_turn_ev.py`, `brute_ev.py` and the api-side validation stage;
+  failures on `compared == 0` or unexplained omissions. Regenerated
+  `evec_all_nodes.json` (compared == expected on all spots: 2,926;
+  33,264; 3,200 cells) and `brute_turn_ev.json` (all six histories).
+- Import boundary enforced: `validate_node_evs.py` split into an engine
+  stage (solve + dump checks) and `validate_node_evs_api.py` (evec /
+  persisted / served paths in `.venv-api`); the lazy `api/__init__.py`
+  workaround reverted; `test_import_boundary.py` statically proves no
+  engine-venv module or script reaches `holdem_solver.api`.
+- Baseline reconciled: re-measured cold `/node` at Phase-10.1 commit
+  `0ef7d5a`, 3 reps — river 37.83 s, turn 7.99 s, raisecap2 3.29 s
+  (`scale-10-1-cold.json`); the 39.2/32.3/14.9 s figures were sampled
+  under concurrent load; docs now carry one before-number per spot
+  with method.
+- River 2.0e-10 aggregate residual explained: float64 summation-order
+  noise scaled by |EV| ≈ 57k chips (~4·eps·|EV|); no float32 path;
+  tolerance unchanged at 1e-9.
+- Details: `docs/PHASE10_4.md`.

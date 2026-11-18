@@ -288,13 +288,13 @@ _PHASE10_2_MUTATIONS = {
     ),
     "before_cell": (
         _P10_2,
-        "| scale-river-573k | 39,246 ms |",
-        "| scale-river-573k | 39,247 ms |",
+        "| scale-river-573k | 37,828 ms |",
+        "| scale-river-573k | 37,829 ms |",
     ),
     "after_cell": (
         _P10_2,
-        "| scale-river-573k | 39,246 ms | 64 ms |",
-        "| scale-river-573k | 39,246 ms | 65 ms |",
+        "| scale-river-573k | 37,828 ms | 64 ms |",
+        "| scale-river-573k | 37,828 ms | 65 ms |",
     ),
     "delete_main_row": (
         _P10_2,
@@ -303,7 +303,7 @@ _PHASE10_2_MUTATIONS = {
     ),
     "delete_before_after_row": (
         _P10_2,
-        "\n| scale-raisecap2 | 14,916 ms | 23 ms |",
+        "\n| scale-raisecap2 | 3,292 ms | 23 ms |",
         "",
     ),
     "add_bogus_row": (
@@ -318,6 +318,41 @@ _PHASE10_2_MUTATIONS = {
 @pytest.mark.parametrize("case", sorted(_PHASE10_2_MUTATIONS))
 def test_check_phase10_2_fails_on_mutated_doc(tmp_path, case):
     doc_name, old, new = _PHASE10_2_MUTATIONS[case]
+    source = (ROOT / "docs" / doc_name).read_text()
+    mutated = tmp_path / doc_name
+    mutated.write_text(source.replace(old, new))
+    assert mutated.read_text() != source, "mutation %s did not change the doc" % case
+    proc = _suites_guard(mutated)
+    assert proc.returncode == 1, (
+        "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+    )
+
+
+# Phase 10.4: check_phase10_3 must fail on a changed cell or a
+# deleted row in the evec_all_nodes table.
+_P10_3 = "PHASE10_3.md"
+_PHASE10_3_MUTATIONS = {
+    "agg_cell": (
+        _P10_3,
+        "| scale-river-573k | 15 | 2.0e-10 |",
+        "| scale-river-573k | 15 | 2.1e-10 |",
+    ),
+    "count_cell": (
+        _P10_3,
+        "| 7.5e-13 over 33,264 cells |",
+        "| 7.5e-13 over 33,265 cells |",
+    ),
+    "delete_row": (
+        _P10_3,
+        "\n| scale-raisecap2 | 81 | 4.1e-12 | 9.7e-13 | 1.8e-13 over 3,200 cells | 0.0 |",
+        "",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_PHASE10_3_MUTATIONS))
+def test_check_phase10_3_fails_on_mutated_doc(tmp_path, case):
+    doc_name, old, new = _PHASE10_3_MUTATIONS[case]
     source = (ROOT / "docs" / doc_name).read_text()
     mutated = tmp_path / doc_name
     mutated.write_text(source.replace(old, new))

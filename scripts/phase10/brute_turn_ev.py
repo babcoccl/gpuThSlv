@@ -11,7 +11,10 @@ Checked histories on the scale-turn-chance job: the root, one mid-turn node,
 and one node behind each of two different ``river:`` chance edges.
 
 Runs in ``.venv-api``. Writes ``runs/brute_turn_ev.json``; exits 1 if any
-hand EV differs from the served values by more than TOL.
+hand EV differs from the served values by more than TOL, if a history
+compares zero cells, or if any combo is omitted without an explained
+reason (recorded reasons: ``zero own reach``, ``no compatible opponent
+reach``; anything else fails).
 """
 from __future__ import annotations
 
@@ -147,7 +150,7 @@ def main():
     pot = float(spot.get("pot", 20.0))
     board = spot.get("board") or ()
 
-    persisted, _masses = load_node_evs(evs_path, keys)
+    persisted, _masses = load_node_evs(evs_path, keys) or ({}, {})
 
     from holdem_solver.protocol.evwalk import initial_reaches
     blocked = parse_cards(board) + parse_cards(spot.get("dead_cards") or ())
@@ -184,14 +187,25 @@ def main():
         reach_own = r0 if player == 0 else r1
         rows = index.rows_at[hist]
         compared = 0
+        expected = len(rows)
         max_d = 0.0
         worst_combo = None
+        omitted = []
         for combo_key in sorted(rows):
             if reach_own.get(combo_key, 0.0) <= 0.0:
+                omitted.append("%s: zero own reach" % combo_key)
                 continue
             brute = brute_hand_ev(index, hist, combo_key, reach_opp,
                                   board, pot, player)
             if brute is None:
+                omitted.append("%s: no compatible opponent reach"
+                               % combo_key)
+                continue
+            prow = persisted.get(hist, {}).get(combo_key)
+            if not prow:
+                # the persisted table has no values for this combo —
+                # served_hand_ev would silently return 0.0
+                omitted.append("%s: served row missing" % combo_key)
                 continue
             served = served_hand_ev(index, hist, persisted, combo_key)
             d = abs(brute - served)
@@ -199,10 +213,19 @@ def main():
             if d > max_d:
                 max_d = d
                 worst_combo = combo_key
+        unexplained = [
+            o for o in omitted
+            if not (o.endswith("zero own reach")
+                    or o.endswith("no compatible opponent reach"))
+        ]
         label = ",".join(hist) or "root"
-        results[label] = {"player": player, "compared": compared,
+        results[label] = {"player": player,
+                          "expected": expected, "compared": compared,
+                          "omitted": omitted[:50],
+                          "omitted_count": len(omitted),
                           "max_abs_diff": max_d, "worst_combo": worst_combo,
-                          "ok": max_d <= TOL}
+                          "ok": (max_d <= TOL and compared > 0
+                                 and not unexplained)}
         worst = max(worst, max_d)
         print("  %s: %d combos, max |d|=%r worst=%s"
               % (label, compared, max_d, worst_combo), flush=True)

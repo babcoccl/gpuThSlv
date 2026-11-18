@@ -96,17 +96,34 @@ def test_all_node_evs_covers_every_node_and_matches():
             assert masses[(player, hist)][combo] > 0.0
 
 
-def test_load_node_evs_roundtrip_and_stale_keys(tmp_path):
-    index = fake_index()
-    spot = RIVER_SPOT.to_dict()
+def _write_evs_npz(path, keys, acts, offsets, ev_flat, mass):
+    """The ``strategy-<id>.evs.npz`` layout as ``_export_node_evs`` writes
+    it, including the payload checksum."""
+    import zlib
+
+    ev = np.asarray(ev_flat, dtype=np.float64)
+    mass_a = np.asarray(mass, dtype=np.float64)
+    np.savez(
+        path,
+        keys=np.array([k.encode() for k in keys], dtype=np.bytes_),
+        actions=np.array([a.encode() for a in acts], dtype=np.bytes_),
+        offsets=np.array(offsets, dtype=np.int64),
+        ev=ev,
+        opp_mass=mass_a,
+        crc32=np.int64(zlib.crc32(ev.tobytes()) ^ zlib.crc32(mass_a.tobytes())),
+        iteration=np.int64(7),
+    )
+
+
+def _evs_fixture(index, spot):
+    """``(keys, acts, offsets, ev_flat, mass, evs, masses)`` for a valid
+    evs.npz matching ``index``."""
     blocked = tuple(parse_cards(RIVER_SPOT.board))
     ranges = spot_ranges(spot)
     evs, masses = evec.all_node_evs(
         index, tuple(parse_cards(RIVER_SPOT.board)), float(spot["pot"]),
         ranges[0], ranges[1], blocked,
     )
-    # fabricate the npz layout the scheduler writes: one key per
-    # (player, hand, hist), values = freqs flattened, ev aligned.
     keys, acts, offsets, values, ev_flat, mass = [], [], [0], [], [], []
     for (player, hist), rows in sorted(index.by_node.items()):
         for hand, freqs in sorted(rows.items()):
@@ -118,16 +135,63 @@ def test_load_node_evs_roundtrip_and_stale_keys(tmp_path):
             ev_flat.extend(row.get(a, 0.0) for a in actions)
             mass.append(masses.get((player, hist), {}).get(hand, 0.0))
             offsets.append(len(values))
-    path = tmp_path / "x.evs.npz"
+    return keys, acts, offsets, ev_flat, mass, evs, masses
+
+
+def test_export_node_evs_atomic_write(tmp_path):
+    """The evs export is temp+fsync+rename: a mid-write crash must leave
+    neither a truncated evs.npz nor a lingering .tmp file."""
+    import types
+
+    from holdem_solver.api.scheduler import Scheduler
+    from holdem_solver.api.store import JobStore
+
+    keys = ["p0|AsKd|c|x:c"]
+    acts = ["c"]
+    offsets = [0, 1]
+    values = np.array([1.0], dtype=np.float64)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    store = JobStore(str(tmp_path / "jobs.db"))
+    job, _ = store.create(RIVER_SPOT.to_dict(), {})
+    job_id = job["id"]
+    strat_path = data_dir / ("strategy-%s.npz" % job_id)
     np.savez(
-        path,
+        strat_path,
         keys=np.array([k.encode() for k in keys], dtype=np.bytes_),
         actions=np.array([a.encode() for a in acts], dtype=np.bytes_),
         offsets=np.array(offsets, dtype=np.int64),
-        ev=np.array(ev_flat),
-        opp_mass=np.array(mass),
-        iteration=np.int64(7),
+        values=values,
+        iteration=np.int64(3),
     )
+    evs_path = data_dir / ("strategy-%s.evs.npz" % job_id)
+    tmp_path_name = evs_path.parent / (evs_path.name + ".tmp")
+    strategy = types.SimpleNamespace(
+        offsets=np.array(offsets, dtype=np.int64),
+        keys=keys,
+        actions=acts,
+        values=values,
+        iteration=3,
+    )
+    sched = Scheduler([None], store, str(data_dir), engine="external")
+    sched._export_node_evs(job_id, strat_path, strategy)
+    assert evs_path.exists()
+    loaded = api_nodes.load_node_evs(str(evs_path), keys)
+    assert loaded is not None and "c" in loaded[0][("c", "x:c")]["AsKd"]
+    # mid-write failure: nothing lands under the final name, no orphan .tmp
+    evs_path.unlink()
+    sched._open_for_write = lambda path: open("/dev/full", "wb")
+    sched._export_node_evs(job_id, strat_path, strategy)
+    assert not evs_path.exists()
+    assert not tmp_path_name.exists()
+
+
+def test_load_node_evs_roundtrip_and_stale_keys(tmp_path):
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    keys, acts, offsets, ev_flat, mass, evs, masses = _evs_fixture(index, spot)
+    path = tmp_path / "x.evs.npz"
+    _write_evs_npz(path, keys, acts, offsets, ev_flat, mass)
     loaded = api_nodes.load_node_evs(str(path), keys)
     assert loaded is not None
     got_evs, got_mass = loaded
@@ -219,3 +283,104 @@ def test_node_values_uses_persisted_evs():
     ref = api_nodes.node_values(index, spot, ("check",), node_evs=None)
     got = api_nodes.node_values(index, spot, ("check",), node_evs=flat)
     assert ref["hands"] == got["hands"]
+
+
+def _mutate_evs_bytes(tmp_path, valid_path, name, mutate_bytes=None, mutate_members=None):
+    """Copy a valid evs.npz, apply a byte-level or member-level mutation,
+    return the mutated path."""
+    src = tmp_path / name
+    if mutate_bytes is not None:
+        raw = valid_path.read_bytes()
+        src.write_bytes(mutate_bytes(raw))
+        return src
+    data = dict(np.load(valid_path).items())
+    mutate_members(data)
+    np.savez(src, **data)
+    return src
+
+
+def test_load_node_evs_truncated_bytes(tmp_path):
+    """A file cut at 10/50/90% or to one byte must decline, never crash."""
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    keys, acts, offsets, ev_flat, mass, _e, _m = _evs_fixture(index, spot)
+    valid = tmp_path / "ok.evs.npz"
+    _write_evs_npz(valid, keys, acts, offsets, ev_flat, mass)
+    n = len(valid.read_bytes())
+    for frac in (0.10, 0.50, 0.90):
+        cut = _mutate_evs_bytes(tmp_path, valid, "cut%d.evs.npz" % int(frac * 100),
+                                lambda b, f=frac: b[: int(n * f)])
+        assert api_nodes.load_node_evs(str(cut), keys) is None
+    one = _mutate_evs_bytes(tmp_path, valid, "one.evs.npz", lambda b: b[:1])
+    assert api_nodes.load_node_evs(str(one), keys) is None
+
+
+def test_load_node_evs_schema_and_payload_mutations(tmp_path):
+    """Every payload/schema corruption declines; none raises."""
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    keys, acts, offsets, ev_flat, mass, _e, _m = _evs_fixture(index, spot)
+    valid = tmp_path / "ok.evs.npz"
+    _write_evs_npz(valid, keys, acts, offsets, ev_flat, mass)
+    assert api_nodes.load_node_evs(str(valid), keys) is not None
+
+    def shorten_ev(d):
+        d["ev"] = d["ev"][:-1]  # one element short of offsets[-1]
+
+    def wrong_dtype(d):
+        d["ev"] = d["ev"].astype(np.float32)
+
+    def nan_ev(d):
+        d["ev"][0] = np.nan
+
+    def inf_ev(d):
+        d["ev"][1] = np.inf
+
+    def bit_flip(d):
+        # valid zip, matching keys — only the checksum catches this
+        d["ev"][0] = float(d["ev"][0]) + 1e-9
+
+    def short_mass(d):
+        d["opp_mass"] = d["opp_mass"][:-1]
+
+    def dropped_member(d):
+        del d["opp_mass"]
+
+    def bad_offsets(d):
+        d["offsets"][-1] = len(d["ev"]) + 1
+
+    for name, mut in (
+        ("short_ev", shorten_ev), ("dtype", wrong_dtype), ("nan", nan_ev),
+        ("inf", inf_ev), ("bitflip", bit_flip), ("short_mass", short_mass),
+        ("no_mass", dropped_member), ("bad_offsets", bad_offsets),
+    ):
+        p = _mutate_evs_bytes(tmp_path, valid, "%s.evs.npz" % name,
+                              mutate_members=mut)
+        assert api_nodes.load_node_evs(str(p), keys) is None, name
+
+
+def test_node_values_fallback_identical_for_every_corruption(tmp_path):
+    """/node falls back to the live walk and serves identical hands for
+    every corruption path."""
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    keys, acts, offsets, ev_flat, mass, evs, _m = _evs_fixture(index, spot)
+    valid = tmp_path / "ok.evs.npz"
+    _write_evs_npz(valid, keys, acts, offsets, ev_flat, mass)
+    persisted = api_nodes.load_node_evs(str(valid), keys)
+    served = api_nodes.node_values(index, spot, ("check",), node_evs=persisted[0])
+    live = api_nodes.node_values(index, spot, ("check",), node_evs=None)
+    assert served["hands"] == live["hands"]
+
+    n = len(valid.read_bytes())
+    variants = [
+        _mutate_evs_bytes(tmp_path, valid, "v_cut.evs.npz", lambda b: b[: n // 2]),
+        _mutate_evs_bytes(tmp_path, valid, "v_flip.evs.npz",
+                          mutate_members=lambda d: d["ev"].__setitem__(0, 1e9)),
+    ]
+    for p in variants:
+        declined = api_nodes.load_node_evs(str(p), keys)
+        assert declined is None
+        # caller fallback pattern: node_evs=None -> live compute
+        assert api_nodes.node_values(index, spot, ("check",), node_evs=None)[
+            "hands"] == live["hands"]
