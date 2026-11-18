@@ -536,3 +536,56 @@ def test_no_in_progress_status_with_recorded_gate(tmp_path):
     )
     proc = _suites_guard(good)
     assert proc.returncode == 0, proc.stdout
+
+
+# Phase 11.1: release-doc guard (check_suites.py::check_release_docs) —
+# cited files must be committed, smoke logs named <ts>-<tier>-<engine>.log
+# with a matching header, and suite counts equal to the cited gate log.
+_RELEASE_MUTATIONS = {
+    "runbook_location": ("PHASE11.md", "`RUNBOOK.md` (repo root)", "`docs/RUNBOOK.md`"),
+    "smoke_log_name": (
+        "PHASE11.md",
+        "`scripts/release/smoke-results/<ts>-<tier>-<engine>.log`",
+        "`scripts/release/smoke-results/<ts>.log`",
+    ),
+    "test_file": (
+        "PHASE11.md",
+        "`tests/test_api_phase11.py::test_no_vendored_binaries`",
+        "`tests/test_phase11.py::test_no_vendored_binaries`",
+    ),
+    "test_function": (
+        "PHASE11_1.md",
+        "`tests/test_api_phase11_1.py::test_port_in_use`",
+        "`tests/test_api_phase11_1.py::test_check_port_in_use`",
+    ),
+    "acceptance_log_tier": ("PHASE11_1.md", "-T1-fake.log`", "-T2-fake.log`"),
+}
+
+
+def _counts_mutation():
+    text = (ROOT / "docs" / "PHASE11_1.md").read_text()
+    m = re.search(r"api suite (\d+) passed", text)
+    if not m:
+        pytest.skip("PHASE11_1.md states no suite count yet")
+    return m.group(0), "api suite %d passed" % (int(m.group(1)) + 1)
+
+
+@pytest.mark.parametrize("case", sorted(_RELEASE_MUTATIONS) + ["suite_count"])
+def test_check_release_docs_fails_on_mutated_doc(tmp_path, case):
+    if case == "suite_count":
+        doc_name, (old, new) = "PHASE11_1.md", _counts_mutation()
+    else:
+        doc_name, old, new = _RELEASE_MUTATIONS[case]
+    source = (ROOT / "docs" / doc_name).read_text()
+    mutated = tmp_path / doc_name
+    mutated.write_text(source.replace(old, new))
+    assert mutated.read_text() != source, "mutation %s did not change the doc" % case
+    proc = _suites_guard(mutated)
+    assert proc.returncode == 1, "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+
+
+def test_phase11_1_lists_operator_verifies():
+    text = (ROOT / "docs" / "PHASE11_1.md").read_text()
+    section = text.split("## Operator verifies", 1)[1]
+    for item in ("NVML", "nvidia-smi", "gpu_cfr", "/dev/nvidia", "GPU 0 and GPU 1", "cutover on the outpost"):
+        assert item in section, item

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -641,6 +642,69 @@ def check_phase10_3(doc: Path) -> None:
                     fail(doc, f"{name} {label}: worst_rel_cell.rel != max_rel_diff")
 
 
+SMOKE_LOG_RE = re.compile(
+    r"^scripts/release/smoke-results/"
+    r"(?:\d{8}-\d{6}|<ts>)-(?:T[1-4]|nosys|<tier>)-(?:fake|real|<engine>)(?:-cutover)?\.log$"
+)
+GATE_LOG_RE = re.compile(r"^scripts/release/smoke-results/\d{8}-\d{6}-run_all_tests\.log$")
+REPO_PATH_RE = re.compile(
+    r"^(?:docs|scripts|tests|deploy|requirements|holdem_solver|ui|third_party)/[\w./@<>-]+(?:::\w+)?$"
+    r"|^(?:RUNBOOK|README|AGENTS)\.md$"
+)
+SUITE_RE = re.compile(r"(engine|api) suite (\d+) passed / (\d+) skipped")
+
+
+def _tracked() -> set[str]:
+    out = subprocess.run(["git", "-C", str(ROOT), "ls-files"], capture_output=True, text=True)
+    return set(out.stdout.split())
+
+
+def check_release_docs(doc: Path, tracked: set[str] | None = None) -> None:
+    """PHASE11*.md: cited paths exist and are committed, smoke logs follow
+    <ts>-<tier>-<engine>.log and their header matches the name, and every
+    suite count equals the cited run_all_tests gate log."""
+    tracked = _tracked() if tracked is None else tracked
+    text = doc.read_text()
+    gate_counts: dict[str, tuple[int, int]] = {}
+    for tok in re.findall(r"`([^`\s]+)`", text):
+        if not REPO_PATH_RE.match(tok) or not re.search(r"\.\w+(?:::\w+)?$", tok):
+            continue  # only files (build-output dirs like ui/dist are not committed)
+        path, _, func = tok.partition("::")
+        if "smoke-results/" in path and not GATE_LOG_RE.match(path) and not SMOKE_LOG_RE.match(path):
+            fail(doc, f"smoke log {path} not named <ts>-<tier>-<engine>.log")
+            continue
+        if "<" in path or "*" in path:
+            continue
+        if path not in tracked and not any(t.startswith(path.rstrip("/") + "/") for t in tracked):
+            fail(doc, f"cites {path}, which is not a committed file")
+            continue
+        full = ROOT / path
+        if func and (f"def {func}(" if path.endswith(".py") else f"{func}()") not in full.read_text():
+            fail(doc, f"cites {tok}, but {path} has no {func}()")
+        m = re.search(r"-(T[1-4]|nosys)-(fake|real)(?:-cutover)?\.log$", path)
+        if m and "smoke-results/" in path:
+            log = full.read_text()
+            if f"# tier:   {m.group(1)}" not in log or f"# engine: {m.group(2)}" not in log:
+                fail(doc, f"{path}: header tier/engine do not match the file name")
+            if "=== PASS ===" not in log:
+                fail(doc, f"{path}: no PASS recorded")
+        if GATE_LOG_RE.match(path):
+            log = full.read_text()
+            for label, marker in (("engine", "=== engine suite"), ("api", "=== api suite")):
+                start = log.find(marker)
+                seg = log[start:] if start >= 0 else ""
+                nm = re.search(r"(\d+) passed(?:, (\d+) skipped)?", seg)
+                if nm:
+                    gate_counts[label] = (int(nm.group(1)), int(nm.group(2) or 0))
+    claims = SUITE_RE.findall(text)
+    if claims and not gate_counts:
+        fail(doc, "states suite counts but cites no committed *-run_all_tests.log")
+    for label, passed, skipped in claims:
+        got = gate_counts.get(label)
+        if got and got != (int(passed), int(skipped)):
+            fail(doc, f"{label} suite {passed} passed / {skipped} skipped != gate log {got[0]}/{got[1]}")
+
+
 def check_doc_status(doc: Path) -> None:
     """'Status: in progress' + a recorded gate result is contradictory."""
     text = doc.read_text()
@@ -694,6 +758,8 @@ def main(argv: list[str]) -> int:
             check_phase10_2(doc)
         elif name == "PHASE10_3.md":
             check_phase10_3(doc)
+        elif name.startswith("PHASE11"):
+            check_release_docs(doc)
         elif name == "VALIDATION.md":
             check_validation(
                 doc,

@@ -58,6 +58,11 @@ V1="smoke-$(date +%s)"
 "$HERE/install.sh" "$V1"
 "$HERE/service.sh" start
 smoke_health
+for p in "$RUN_DIR"/pids/*.pid; do
+    [ "$(readlink -f "/proc/$(cat "$p")/cwd")" = "$(readlink -f "$CURRENT_LINK")" ] \
+        || die "$(basename "$p" .pid) not running from the release ($(readlink -f "/proc/$(cat "$p")/cwd"))"
+done
+echo "API + workers run from $(readlink -f "$CURRENT_LINK")"
 smoke_login
 smoke_estimate_solves
 smoke_node

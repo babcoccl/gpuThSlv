@@ -592,3 +592,37 @@
   syntax, stub install idempotency, backup/restore roundtrip, login
   rate limit, Secure cookie attributes).
   Details: `docs/PHASE11.md`.
+
+## Phase 11.1 — real install path verified on the systemd path (2026-11-18)
+
+- Capability probe on Devin's VM: root via passwordless sudo, systemd PID 1
+  on a KVM guest (not a container), no NVIDIA driver → tier **T1**, engine
+  **fake** for every run. GPU behaviour is not verified; the operator runs
+  `acceptance-root.sh --engine real` on the outpost (list in
+  `docs/PHASE11_1.md`).
+- Interpreters: the `$HOME/.local/bin/python3.9` and unverified
+  `/usr/bin/python3.15` defaults are gone. Discovery: explicit
+  `HOLDEM_*_PYTHON`, then `/opt/holdem/python/**` (uv layout), then
+  `/usr/local/bin`, `/usr/bin`; never `$HOME`/`/root`/`/run/user`. Exact
+  versions (3.9.x / 3.15.2), home-prefix rejection under systemd, and
+  service-user traversal of every path component; errors name the variable
+  and the `uv python install` command.
+- `install.sh --check` (`scripts/release/preflight.sh`): PASS/FAIL/SKIP per
+  item, no root, changes nothing; `install.sh` runs it first and aborts.
+- Fake engine on the real path: worker unit `--engine ${HOLDEM_SOLVER_ENGINE}`,
+  `HOLDEM_INSTALL_ENGINE=real|fake`; decision: the fake venv installs
+  `requirements/engine-fake.txt` (numpy only — torch/triton are CUDA wheels
+  the fake worker never imports).
+- Bugs the first real systemd run found: as root, `rsync -a` copied the
+  checkout owner's uid into the release tree (now `--no-owner --no-group`,
+  root-owned); a crash-looping bad release hit `StartLimitBurst`, so the
+  rollback's restart was refused (`upgrade.sh` now `reset-failed`s first);
+  `smoke-results/` was gitignored, so the Phase 11 smoke log was never
+  committed (now committed, named `<ts>-<tier>-<engine>.log`).
+- `cutover.sh` (+ `--dry-run`, `--rollback`) moves the user-unit deployment
+  on :8000 to the release layout; rehearsed on the VM against a simulated
+  old deployment (`cutover-rehearsal.sh`), not run on the outpost.
+- Tests: `tests/test_api_phase11_1.py` (preflight items, discovery,
+  fake-engine path), release-doc guard mutations in
+  `tests/test_doc_evidence.py`.
+  Details: `docs/PHASE11_1.md`.

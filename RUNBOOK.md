@@ -9,6 +9,103 @@ Single-host release operations. Layout:
 - services: `holdem-api.service`, `holdem-worker@0.service`,
   `holdem-worker@1.service`, all under `holdem-solver.target`
 
+## Prerequisites
+
+The units run with `ProtectHome=yes`, so both interpreters must live on a
+system path — never under `$HOME`, `/root` or `/run/user`. Engine Python is
+exactly 3.9.x (GPU-CFR ships cpython-39 `.so` files); API Python is exactly
+3.15.2.
+
+```bash
+# 1. interpreters under /opt/holdem/python (uv layout; --no-bin: no links in /root)
+command -v uv || curl -LsSf https://astral.sh/uv/install.sh | sh
+sudo env UV_PYTHON_INSTALL_DIR=/opt/holdem/python "$(command -v uv)" python install --no-bin 3.9 3.15.2
+
+# 2. GPU-CFR submodule (real engine), readable by the service user
+git submodule update --init third_party/GPU-CFR
+chmod -R o+rX third_party/GPU-CFR/gpu_cfr
+
+# 3. optional: pin the interpreters (otherwise discovered in /opt/holdem/python,
+#    then /usr/local/bin, /usr/bin)
+export HOLDEM_API_PYTHON=/opt/holdem/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15
+export HOLDEM_ENGINE_PYTHON="$(ls -d /opt/holdem/python/cpython-3.9.*-linux-x86_64-gnu | sort -V | tail -1)/bin/python3.9"
+
+# 4. preflight: no root needed, changes nothing, PASS/FAIL per item
+scripts/release/install.sh --check
+# as root it also checks traversal as the real `holdem` user (runuser)
+sudo env PATH="$PATH" HOLDEM_API_PYTHON="$HOLDEM_API_PYTHON" \
+    HOLDEM_ENGINE_PYTHON="$HOLDEM_ENGINE_PYTHON" scripts/release/install.sh --check
+```
+
+`--check` items: interpreters (found, exact version, not under a home dir,
+`holdem` can traverse every path component), `rsync`/`npm`/`node`/`curl`,
+GPU-CFR present/initialized/readable and `nvidia-smi` sees every
+`HOLDEM_GPUS` GPU (real engine only), port free, conflicting existing units
+or processes (listed), disk space, systemd as PID 1, `video`/`render`
+groups (created by `install.sh` as root). `install.sh` runs the same checks
+first and aborts on any FAIL. Under `sudo`, root's `PATH` lacks nvm's
+`node`: pass `sudo env PATH="$PATH"`.
+
+`HOLDEM_INSTALL_ENGINE=real|fake` (default `real`) sets
+`HOLDEM_SOLVER_ENGINE` in the env file; `fake` needs no GPU and installs
+`requirements/engine-fake.txt` (acceptance on GPU-less machines only).
+
+## First install
+
+```bash
+scripts/release/install.sh --check                      # all PASS
+sudo env PATH="$PATH" scripts/release/install.sh v1.0.0 # build, units, start
+sudo systemctl status 'holdem-*'
+curl -fsS http://127.0.0.1:8000/healthz                 # "status":"ok", gpus 0+1 true
+sudo grep '^HOLDEM_API_KEY=' /etc/holdem/holdem.env     # key for /v1/auth/login
+```
+
+Full acceptance on a fresh host (installs, exercises, then **purges** the
+install; refuses to run over an existing one):
+
+```bash
+sudo env PATH="$PATH" scripts/release/acceptance-root.sh --engine real
+# log: scripts/release/smoke-results/<ts>-<tier>-real.log
+```
+
+If the old user-unit deployment is still on `:8000`, run it beside it with
+`HOLDEM_API_PORT=8100 HOLDEM_ALLOW_COEXIST=1` (both share the GPUs; run in a
+quiet window), or do the cutover first.
+
+## Cutover from the user-unit deployment
+
+The pre-release deployment runs `deploy/install-user-units.sh` user units
+(`holdem-api.service`, `holdem-worker@0/1.service`, `holdem-solver.target`
+in `~<user>/.config/systemd/user`), data in
+`~<user>/.local/share/holdem-solver`, env in
+`~<user>/.config/holdem-solver/holdem.env`, API on `:8000`.
+
+```bash
+sudo scripts/release/cutover.sh --dry-run                # identify units, data dir, port, check job
+sudo env PATH="$PATH" scripts/release/cutover.sh v1.0.0  # [--old-user U] [--job ID]
+```
+
+`cutover.sh`: backs up the old DB (online SQLite), unit files and env to
+`/var/backups/holdem-cutover/<ts>/`; stops and disables the old units;
+installs the release without starting it; copies strategy files to
+`/var/lib/holdem`, rewrites `strategy_path`, migrates the DB with
+`restore.sh`; keeps the old API key; starts `holdem-solver.target`; verifies
+`/healthz` and `/node` of the newest pre-cutover job. Any failure after the
+old units stopped rolls back automatically. The old data dir is only read.
+
+Rollback (exact):
+
+```bash
+sudo scripts/release/cutover.sh --rollback
+# = systemctl stop/disable holdem-solver.target holdem-api holdem-worker@{0,1}
+#   then, as the old user: systemctl --user enable + start holdem-solver.target
+#   and verify old /healthz + the same job's /node
+```
+
+Jobs created on the release after the cutover are not in the old DB; they
+stay in `/var/lib/holdem`. Rehearsed on a VM with
+`scripts/release/cutover-rehearsal.sh` (never on the outpost).
+
 ## Start / stop / status
 
 ```bash
@@ -84,7 +181,7 @@ files are excluded — they are large and regenerable. A restore onto an
 empty data dir brings back job records and saved spots but **not** the
 strategies: jobs whose `strategy-*.npz` is gone must be re-solved. For
 jobs whose strategy file survived (e.g. a DB-only loss), rerun
-`.venv-engine/bin/python -m holdem_solver.api.regen_evs --all` (run from
+`.venv-api/bin/python -m holdem_solver.api.regen_evs --all` (run from
 `/opt/holdem/current` with `HOLDEM_API_DATA_DIR=/var/lib/holdem`) to
 rebuild the `.evs.npz` companions.
 

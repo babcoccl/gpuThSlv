@@ -61,11 +61,8 @@ Written before implementation; each names its evidence.
   (`runuser -u holdem -- test -x` when root and the user exists; mode bits
   for "other" when the user does not exist yet).
 - Every failure names the variable to set and the exact install command
-  (`sudo env UV_PYTHON_INSTALL_DIR=/opt/holdem/python uv python install 3.9`).
-- Tests (`tests/test_api_phase11_1.py`): `test_interp_explicit_wins`,
-  `test_interp_wrong_version`, `test_interp_forbidden_prefix`,
-  `test_interp_untraversable`, `test_interp_missing_names_var_and_command`,
-  `test_interp_sudo_home_root_never_used`, `test_interp_discovers_opt_python`.
+  (`sudo env UV_PYTHON_INSTALL_DIR=/opt/holdem/python <uv> python install --no-bin 3.9`).
+- Tests: `tests/test_api_phase11_1.py::test_discovery_explicit_then_root_then_system`, `tests/test_api_phase11_1.py::test_discovery_newest_patch_no_freethreaded`, `tests/test_api_phase11_1.py::test_never_searches_home`, `tests/test_api_phase11_1.py::test_wrong_version_fails_with_fix`, `tests/test_api_phase11_1.py::test_missing_interpreter_fails_with_fix`, `tests/test_api_phase11_1.py::test_home_like_prefix_fails_under_systemd`, `tests/test_api_phase11_1.py::test_untraversable_for_service_user`, `tests/test_api_phase11_1.py::test_sudo_simulation_home_root`.
 
 ### TC2 — fake-engine install
 
@@ -77,8 +74,7 @@ Written before implementation; each names its evidence.
 - The fake worker never imports `gpu_cfr` or `torch`.
 - Preflight checks the `video` and `render` groups; `install.sh` (root)
   creates missing ones with `groupadd --system`.
-- Tests: `test_worker_unit_uses_engine_var`, `test_install_engine_fake_env`,
-  `test_fake_worker_never_imports_gpu_cfr`, `test_groups_missing_fails`.
+- Tests: `tests/test_api_phase11_1.py::test_units_and_service_use_env_engine`, `tests/test_api_phase11_1.py::test_install_engine_written_to_env`, `tests/test_api_phase11_1.py::test_fake_requirements_have_no_cuda`, `tests/test_api_phase11_1.py::test_fake_engine_never_imports_gpu_cfr`, `tests/test_api_phase11_1.py::test_groups`.
 
 ### TC3 — `install.sh --check`
 
@@ -90,11 +86,7 @@ every `HOLDEM_GPUS` id visible (real engine), port free, conflicting
 existing units (listed), disk, systemd present, groups. Exit code non-zero
 on any FAIL; `install.sh` runs it first and aborts on FAIL.
 
-- Tests: `test_check_all_pass_fake`, `test_check_changes_nothing`,
-  `test_check_gpucfr_missing`, `test_check_gpucfr_uninitialized`,
-  `test_check_port_in_use`, `test_check_tool_missing`,
-  `test_check_conflicting_units`, `test_check_disk_low`,
-  `test_check_nvidia_smi_missing`, `test_install_aborts_on_check_fail`.
+- Tests: `tests/test_api_phase11_1.py::test_check_all_pass_and_changes_nothing`, `tests/test_api_phase11_1.py::test_gpucfr_checks_real_engine_only`, `tests/test_api_phase11_1.py::test_gpus_real_engine`, `tests/test_api_phase11_1.py::test_port_in_use`, `tests/test_api_phase11_1.py::test_tools_missing`, `tests/test_api_phase11_1.py::test_conflicting_units`, `tests/test_api_phase11_1.py::test_disk_space`, `tests/test_api_phase11_1.py::test_systemd_item`, `tests/test_api_phase11_1.py::test_install_aborts_on_preflight_fail`, `tests/test_api_phase11_1.py::test_install_rejects_bad_engine`.
 - Each test breaks exactly one condition and asserts that item FAILs and
   the others do not.
 
@@ -103,7 +95,7 @@ on any FAIL; `install.sh` runs it first and aborts on FAIL.
 - `smoke.sh` runs `install.sh --check` (interpreter items included) before
   installing; its log is named `<ts>-nosys-<engine>.log` and starts with
   the tier/engine header.
-- Test: `test_smoke_runs_check` (static: the script invokes `--check`).
+- Tests: `tests/test_api_phase11_1.py::test_smoke_runs_preflight_and_logs_tier_engine`, `tests/test_api_phase11_1.py::test_acceptance_root_refuses_without_root`, `tests/test_api_phase11_1.py::test_detect_tier_t4_without_root`.
 
 ### TC5 — privileged acceptance (`acceptance-root.sh`)
 

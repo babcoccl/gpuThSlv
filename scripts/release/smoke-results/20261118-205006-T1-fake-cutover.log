@@ -1,0 +1,227 @@
+# cutover-rehearsal.sh
+# tier:   T1
+# engine: fake
+# how:    simulated old deployment: user holdemold, systemd user units, API :8000 -> release system units
+# host:   Linux 6.8.0-1060-aws x86_64; Ubuntu 22.04.5 LTS
+# date:   2026-11-18T20:50:06+00:00
+# git:    1f4665d (dirty)
+# NOTE:   fake engine — GPU behaviour (NVML, gpu_cfr, /dev/nvidia*) NOT exercised
+
+=== 1. simulated old deployment ===
+No entry for terminal type "unknown";
+using dumb terminal settings.
+
+[notice] A new release of pip is available: 23.0.1 -> 26.0.1
+[notice] To update, run: /home/holdemold/gpuThSlv/.venv-engine/bin/python3.9 -m pip install --upgrade pip
+{"status":"ok","workers":{"0":{"up":true,"state":"unbuilt"},"1":{"up":true,"state":"unbuilt"}},"gpus":{},"disk":{"path":"/home/holdemold/.local/share/holdem-solver","free_bytes":106230521856,"min_free_bytes":1073741824,"ok":true}}
+active
+active
+active
+old deployment healthy on :8000; job 5759d0e000df done, /node ok (2041 bytes)
+solves.db
+solves.db-shm
+solves.db-wal
+strategy-5759d0e000df.evs.npz
+strategy-5759d0e000df.npz
+
+=== 2. cutover.sh --dry-run ===
+old deployment:
+  user      holdemold (user units in /home/holdemold/.config/systemd/user)
+  units     holdem-solver.target holdem-api.service holdem-worker@0.service holdem-worker@1.service
+  active    active
+  checkout  /home/holdemold/gpuThSlv
+  data      /home/holdemold/.local/share/holdem-solver (solves.db present)
+  env       /home/holdemold/.config/holdem-solver/holdem.env
+  port      8000
+release target: /opt/holdem, /var/lib/holdem, /etc/holdem/holdem.env, port 8000
+  check job 5759d0e000df
+dry run: nothing changed
+
+=== 3. cutover.sh ===
+old deployment:
+  user      holdemold (user units in /home/holdemold/.config/systemd/user)
+  units     holdem-solver.target holdem-api.service holdem-worker@0.service holdem-worker@1.service
+  active    active
+  checkout  /home/holdemold/gpuThSlv
+  data      /home/holdemold/.local/share/holdem-solver (solves.db present)
+  env       /home/holdemold/.config/holdem-solver/holdem.env
+  port      8000
+release target: /opt/holdem, /var/lib/holdem, /etc/holdem/holdem.env, port 8000
+  check job 5759d0e000df
+20:50:29 backup -> /tmp/holdem-cutover.ZPJXeI/20261118-205029/db
+20:50:29 backup -> /tmp/holdem-cutover.ZPJXeI/20261118-205029 (db, units, env)
+Removed /home/holdemold/.config/systemd/user/default.target.wants/holdem-solver.target.
+Removed /home/holdemold/.config/systemd/user/holdem-solver.target.wants/holdem-worker@0.service.
+Removed /home/holdemold/.config/systemd/user/holdem-solver.target.wants/holdem-worker@1.service.
+Removed /home/holdemold/.config/systemd/user/holdem-solver.target.wants/holdem-api.service.
+20:50:29 old units stopped + disabled; :8000 free
+preflight: engine=fake user=holdem prefix=/opt/holdem port=8000 systemd=yes
+PASS  interp.api             /opt/holdem/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15 -> /opt/holdem/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15
+PASS  version.api            3.15.2
+PASS  prefix.api             system path
+PASS  traverse.api           holdem can execute /opt/holdem/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15
+PASS  interp.engine          /opt/holdem/python/cpython-3.9.25-linux-x86_64-gnu/bin/python3.9 -> /opt/holdem/python/cpython-3.9.25-linux-x86_64-gnu/bin/python3.9
+PASS  version.engine         3.9.25
+PASS  prefix.engine          system path
+PASS  traverse.engine        holdem can execute /opt/holdem/python/cpython-3.9.25-linux-x86_64-gnu/bin/python3.9
+PASS  tools                  rsync npm node curl
+SKIP  gpucfr                 engine=fake (real engine only)
+SKIP  gpus                   engine=fake (real engine only)
+PASS  port                   127.0.0.1:8000 free
+PASS  units                  no conflicting holdem units or processes
+PASS  disk                   /opt/holdem: 101309 MiB free (need 2048 MiB)
+PASS  disk                   /var/lib: 101309 MiB free (need 2048 MiB)
+PASS  systemd                PID 1 systemd (running)
+PASS  groups                 video render exist
+preflight: PASS
+20:50:30 installing version cutover-1795035029 into /opt/holdem/releases/cutover-1795035029
+20:50:30 building .venv-api (/opt/holdem/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15)
+Collecting fastapi==0.163.1 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 2))
+  Using cached fastapi-0.163.1-py3-none-any.whl.metadata (27 kB)
+Collecting starlette==1.10.0 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 3))
+  Using cached starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting uvicorn==0.54.0 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 4))
+  Using cached uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting pydantic==2.14.3 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 5))
+  Using cached pydantic-2.14.3-py3-none-any.whl.metadata (141 kB)
+Collecting pydantic_core==2.50.4 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 6))
+  Using cached pydantic_core-2.50.4-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.6 kB)
+Collecting numpy==2.5.5 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 7))
+  Using cached numpy-2.5.5-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+Collecting nvidia-ml-py==13.615.71 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 8))
+  Using cached nvidia_ml_py-13.615.71-py3-none-any.whl.metadata (9.7 kB)
+Collecting prometheus-client==0.26.0 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 9))
+  Using cached prometheus_client-0.26.0-py3-none-any.whl.metadata (2.1 kB)
+Collecting httpx==0.28.1 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 10))
+  Using cached httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Collecting pytest==9.2.0 (from -r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 11))
+  Using cached pytest-9.2.0-py3-none-any.whl.metadata (7.9 kB)
+Collecting anyio>=4.1.0 (from fastapi==0.163.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 2))
+  Using cached anyio-4.16.0-py3-none-any.whl.metadata (4.7 kB)
+Collecting typing-extensions>=4.8.0 (from fastapi==0.163.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 2))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting typing-inspection>=0.4.2 (from fastapi==0.163.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 2))
+  Using cached typing_inspection-0.4.5-py3-none-any.whl.metadata (2.6 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi==0.163.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 2))
+  Using cached annotated_doc-0.0.7-py3-none-any.whl.metadata (6.4 kB)
+Collecting opentelemetry-api>=1.44.0 (from fastapi==0.163.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 2))
+  Using cached opentelemetry_api-1.45.2-py3-none-any.whl.metadata (1.4 kB)
+Collecting click>=7.0 (from uvicorn==0.54.0->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 4))
+  Using cached click-8.5.1-py3-none-any.whl.metadata (2.6 kB)
+Collecting h11>=0.8 (from uvicorn==0.54.0->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 4))
+  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting annotated-types>=0.6.0 (from pydantic==2.14.3->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 5))
+  Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting certifi (from httpx==0.28.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 10))
+  Using cached certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+Collecting httpcore==1.* (from httpx==0.28.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 10))
+  Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Collecting idna (from httpx==0.28.1->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 10))
+  Using cached idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+Collecting iniconfig>=2 (from pytest==9.2.0->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 11))
+  Using cached iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)
+Collecting packaging>=24 (from pytest==9.2.0->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 11))
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pluggy<2,>=1.6 (from pytest==9.2.0->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 11))
+  Using cached pluggy-1.7.0-py3-none-any.whl.metadata (5.0 kB)
+Collecting pygments>=2.15 (from pytest==9.2.0->-r /opt/holdem/releases/cutover-1795035029/requirements/api.txt (line 11))
+  Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+Using cached fastapi-0.163.1-py3-none-any.whl (154 kB)
+Using cached starlette-1.10.0-py3-none-any.whl (80 kB)
+Using cached uvicorn-0.54.0-py3-none-any.whl (87 kB)
+Using cached pydantic-2.14.3-py3-none-any.whl (494 kB)
+Using cached pydantic_core-2.50.4-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (2.3 MB)
+Using cached numpy-2.5.5-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (15.7 MB)
+Using cached nvidia_ml_py-13.615.71-py3-none-any.whl (58 kB)
+Using cached prometheus_client-0.26.0-py3-none-any.whl (64 kB)
+Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Using cached pytest-9.2.0-py3-none-any.whl (411 kB)
+Using cached anyio-4.16.0-py3-none-any.whl (134 kB)
+Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+Using cached pluggy-1.7.0-py3-none-any.whl (27 kB)
+Using cached annotated_doc-0.0.7-py3-none-any.whl (5.3 kB)
+Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Using cached click-8.5.1-py3-none-any.whl (126 kB)
+Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached idna-3.20-py3-none-any.whl (69 kB)
+Using cached iniconfig-2.3.1-py3-none-any.whl (7.6 kB)
+Using cached opentelemetry_api-1.45.2-py3-none-any.whl (60 kB)
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Using cached typing_inspection-0.4.5-py3-none-any.whl (14 kB)
+Using cached certifi-2026.10.23-py3-none-any.whl (135 kB)
+No entry for terminal type "unknown";
+using dumb terminal settings.
+Installing collected packages: nvidia-ml-py, typing-extensions, pygments, prometheus-client, pluggy, packaging, numpy, iniconfig, idna, h11, click, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, pytest, pydantic_core, opentelemetry-api, httpcore, anyio, starlette, pydantic, httpx, fastapi
+
+Successfully installed annotated-doc-0.0.7 annotated-types-0.8.0 anyio-4.16.0 certifi-2026.10.23 click-8.5.1 fastapi-0.163.1 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.20 iniconfig-2.3.1 numpy-2.5.5 nvidia-ml-py-13.615.71 opentelemetry-api-1.45.2 packaging-26.3 pluggy-1.7.0 prometheus-client-0.26.0 pydantic-2.14.3 pydantic_core-2.50.4 pygments-2.21.0 pytest-9.2.0 starlette-1.10.0 typing-extensions-4.16.0 typing-inspection-0.4.5 uvicorn-0.54.0
+20:50:37 building .venv-engine (/opt/holdem/python/cpython-3.9.25-linux-x86_64-gnu/bin/python3.9)
+Collecting numpy==2.0.2
+  Using cached numpy-2.0.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (19.5 MB)
+Installing collected packages: numpy
+Successfully installed numpy-2.0.2
+
+[notice] A new release of pip is available: 23.0.1 -> 26.0.1
+[notice] To update, run: /opt/holdem/releases/cutover-1795035029/.venv-engine/bin/python3.9 -m pip install --upgrade pip
+20:50:43 building ui/dist (npm ci && npm run build)
+
+added 207 packages, and audited 208 packages in 2s
+
+46 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> holdem-solver-ui@0.1.0 build
+> tsc -b && vite build
+
+vite v7.3.8 building client environment for production...
+transforming...
+✓ 102 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:   0.27 kB
+dist/assets/index-BbcXRS83.css    4.96 kB │ gzip:   1.66 kB
+dist/assets/index-CdMctxYb.js   352.79 kB │ gzip: 109.48 kB
+✓ built in 2.55s
+20:50:51 wrote /etc/holdem/holdem.env (new API key + session secret)
+20:50:51 current -> /opt/holdem/releases/cutover-1795035029
+Created symlink /etc/systemd/system/multi-user.target.wants/holdem-solver.target → /etc/systemd/system/holdem-solver.target.
+Created symlink /etc/systemd/system/holdem-solver.target.wants/holdem-api.service → /etc/systemd/system/holdem-api.service.
+Created symlink /etc/systemd/system/holdem-solver.target.wants/holdem-worker@0.service → /etc/systemd/system/holdem-worker@.service.
+Created symlink /etc/systemd/system/holdem-solver.target.wants/holdem-worker@1.service → /etc/systemd/system/holdem-worker@.service.
+20:50:51 units installed + enabled (HOLDEM_NO_START=1: not started)
+20:50:51 installed cutover-1795035029
+cutover-1795035029
+20:50:51 kept the old API key in /etc/holdem/holdem.env
+rewrote strategy_path for 1 job(s): /home/holdemold/.local/share/holdem-solver -> /var/lib/holdem
+20:50:53 restored /tmp/holdem-cutover.ZPJXeI/20261118-205029/db -> /var/lib/holdem/solves.db
+{"status":"ok","workers":{"0":{"up":true,"state":"unbuilt"},"1":{"up":true,"state":"unbuilt"}},"gpus":{},"disk":{"path":"/var/lib/holdem","free_bytes":105805639680,"min_free_bytes":1073741824,"ok":true}}
+20:50:54 release serves /node for pre-cutover job 5759d0e000df
+20:50:54 cutover complete. Rollback: sudo /home/ubuntu/repos/gpuThSlv/scripts/release/cutover.sh --rollback   (state: /tmp/holdem-cutover.ZPJXeI/20261118-205029)
+active
+active
+active
+strategy_path now: /var/lib/holdem/strategy-5759d0e000df.npz
+release healthy as holdem; old units disabled+inactive; old key kept; pre-cutover /node identical
+
+=== 4. cutover.sh --rollback ===
+20:50:54 rollback: stopping release units, restoring holdemold's user units (/tmp/holdem-cutover.ZPJXeI/20261118-205029)
+Created symlink /home/holdemold/.config/systemd/user/default.target.wants/holdem-solver.target → /home/holdemold/.config/systemd/user/holdem-solver.target.
+Created symlink /home/holdemold/.config/systemd/user/holdem-solver.target.wants/holdem-api.service → /home/holdemold/.config/systemd/user/holdem-api.service.
+Created symlink /home/holdemold/.config/systemd/user/holdem-solver.target.wants/holdem-worker@0.service → /home/holdemold/.config/systemd/user/holdem-worker@.service.
+Created symlink /home/holdemold/.config/systemd/user/holdem-solver.target.wants/holdem-worker@1.service → /home/holdemold/.config/systemd/user/holdem-worker@.service.
+20:50:56 old API healthy on :8000
+20:50:56 old API serves /node for pre-cutover job 5759d0e000df
+20:50:56 rollback complete; release left installed at /opt/holdem/current (disabled), data at /var/lib/holdem
+active
+active
+active
+old units enabled+active as holdemold; release units disabled; /node identical
+
+=== PASS ===
+tier=T1 engine=fake; results recorded in /home/ubuntu/repos/gpuThSlv/scripts/release/smoke-results/20261118-205006-T1-fake-cutover.log
+
+=== teardown ===
+removed holdemold, release install and cutover state
