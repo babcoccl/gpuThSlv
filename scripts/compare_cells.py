@@ -26,22 +26,36 @@ def flatten(table):
     }
 
 
+REL_TOL = 1e-12
+
+
+def rel_diff(got, ref):
+    """The single per-cell tolerance rule: ``|diff| / max(1, |ref|)``;
+    a cell passes iff this is <= ``REL_TOL``."""
+    return abs(got - ref) / max(1.0, abs(ref))
+
+
 def compare_cells(ref, got):
     """Compare ``got`` (evaluator output) cell-by-cell against ``ref``.
 
     ``ref`` and ``got`` are nested ``{combo: {action: float}}`` tables.
 
-    Returns ``(compared, omitted, extras, max_abs_diff)``:
-    - ``compared``: cells present in both maps (the only cells contributing
-      to ``max_abs_diff``).
-    - ``omitted``: ``["combo/action: reason", ...]`` for every ref cell the
-      evaluator did not produce ("combo missing" / "action missing").
-    - ``extras``: ``["combo/action", ...]`` cells ``got`` produced that ref
-      has no expectation for.
+    Returns ``(compared, omitted, extras, worst_abs, worst_rel)``:
+    - ``compared``: cells present in both maps (the only cells
+      contributing to the worst-cell records).
+    - ``omitted``: ``["combo/action: reason", ...]`` for every ref cell
+      the evaluator did not produce ("combo missing" / "action missing").
+    - ``extras``: ``["combo/action", ...]`` cells ``got`` produced that
+      ref has no expectation for.
+    - ``worst_abs`` / ``worst_rel``: the compared cells with the largest
+      absolute diff and the largest relative diff respectively (they are
+      usually different cells), each
+      ``{"combo", "action", "got", "ref", "diff", "rel"}`` or ``None``
+      when nothing was compared.
     """
     compared = 0
-    max_diff = 0.0
-    max_rel = 0.0
+    worst_abs = None
+    worst_rel = None
     omitted = []
     extras = []
     for combo, row in ref.items():
@@ -58,17 +72,22 @@ def compare_cells(ref, got):
                 continue
             compared += 1
             d = abs(got_row[action] - rv)
-            if d > max_diff:
-                max_diff = d
             rel = d / max(1.0, abs(rv))
-            if rel > max_rel:
-                max_rel = rel
+            cell = {
+                "combo": combo, "action": action,
+                "got": got_row[action], "ref": rv,
+                "diff": d, "rel": rel,
+            }
+            if worst_abs is None or d > worst_abs["diff"]:
+                worst_abs = cell
+            if worst_rel is None or rel > worst_rel["rel"]:
+                worst_rel = cell
     for combo, row in got.items():
         ref_row = ref.get(combo)
         for action in row:
             if ref_row is None or action not in ref_row:
                 extras.append("%s/%s" % (combo, action))
-    return compared, omitted, extras, max_diff, max_rel
+    return compared, omitted, extras, worst_abs, worst_rel
 
 
 def expected_cells(index):

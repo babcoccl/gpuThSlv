@@ -235,9 +235,10 @@ def _assert_crash_leaves_nothing(evs_path, tmp_seen, prior_bytes=None):
     assert tmp_seen, "the real temp file never existed during the write"
     assert not api_nodes.tmp_path_for(evs_path).exists()
     if prior_bytes is None:
-        assert not evs_path.exists()
+        assert not evs_path.exists(), "crash left an empty/partial destination file"
     else:
         assert evs_path.read_bytes() == prior_bytes
+        assert len(prior_bytes) > 0, "crash left a zero-byte destination file"
 
 
 @pytest.mark.parametrize("with_prior", (False, True))
@@ -364,7 +365,12 @@ def test_export_node_evs_atomic_write(tmp_path):
     sched._export_node_evs(job_id, strat_path, strategy)
     assert evs_path.exists()
     loaded = api_nodes.load_node_evs(str(evs_path), keys)
-    assert loaded is not None and "c" in loaded[0][("c", "x:c")]["AsKd"]
+    # the file must load; a combo with zero opponent mass (this synthetic
+    # index has no real reaches) is dropped per the null-parity rule, so
+    # its hist key may be absent — presence of the action when present
+    hist = ("c", "x:c")
+    assert loaded is not None
+    assert hist not in loaded[0] or "c" in loaded[0][hist]["AsKd"]
     # mid-write failure: nothing lands under the final name, no orphan .tmp
     evs_path.unlink()
     sched._open_for_write = lambda path: open("/dev/full", "wb")
@@ -571,3 +577,105 @@ def test_node_values_fallback_identical_for_every_corruption(tmp_path):
         # caller fallback pattern: node_evs=None -> live compute
         assert api_nodes.node_values(index, spot, ("check",), node_evs=None)[
             "hands"] == live["hands"]
+
+
+def _spot_index(spot):
+    """TreeIndex for an arbitrary spot, via the FakeEngine's real keys."""
+    from holdem_solver.engine_worker.fake import FakeEngine
+
+    engine = FakeEngine().build(spot, fake_real_keys=True)
+    by_node = {}
+    for key, freqs in engine.get_strategy().items():
+        player_s, hand, hist_text = key.split("|", 2)
+        hist = tuple(h for h in hist_text.split("|") if h)
+        row = {name: float(freqs[i]) for i, name in enumerate(engine.strategy_action_names()[key])}
+        by_node.setdefault((int(player_s[1]), hist), {})[hand] = row
+    return TreeIndex(by_node)
+
+
+def _parity_accounting(index, spot_dict, tmp_path, tag):
+    """Persisted vs live node EVs including nulls, over every served
+    cell. Returns ``(expected, compared, null_pairs)``."""
+    keys, acts, offsets = [], [], [0]
+    for (player, hist), rows in sorted(index.by_node.items()):
+        for hand, freqs in sorted(rows.items()):
+            keys.append("p%d|%s|%s" % (player, hand, "|".join(hist)))
+            acts.append(sorted(freqs))
+            offsets.append(offsets[-1] + len(freqs))
+    evs, masses = api_nodes.export_node_evs(index, spot_dict)
+    flat, mass = api_nodes.pack_node_evs(evs, masses, keys, acts, offsets)
+    evs_path = tmp_path / f"{tag}.evs.npz"
+    api_nodes.write_node_evs(evs_path, keys, acts, offsets, flat, mass, 0)
+    persisted, _pm = api_nodes.load_node_evs(str(evs_path), keys)
+    assert persisted is not None
+
+    expected = compared = null_pairs = 0
+    for hist, rows in index.rows_at.items():
+        player, actions = index.node_at[hist]
+        live_hist = evs.get((player, hist), {})
+        p_hist = persisted.get(hist, {})
+        for hand in rows:
+            live_row = live_hist.get(hand)
+            p_row = p_hist.get(hand)
+            for action in actions:
+                expected += 1
+                live_v = None if live_row is None else live_row.get(action)
+                p_v = None if p_row is None else p_row.get(action)
+                if live_v is None and p_v is None:
+                    null_pairs += 1  # both paths serve null
+                else:
+                    assert live_v is not None and p_v is not None, (
+                        f"{tag} {hist} {hand}/{action}: live={live_v} persisted={p_v}")
+                    compared += 1
+                    assert abs(live_v - p_v) <= 1e-12
+    return expected, compared, null_pairs
+
+
+def test_persisted_live_null_parity_blocker_spot(tmp_path):
+    """Blocker spot: p0 ace combos leave p1 (AA-only) with zero
+    compatible reach — persisted must serve the same nulls as live."""
+    from holdem_solver.protocol import SpotConfig
+
+    spot = SpotConfig(
+        "KsJsTh7d2c", "AA,AKs", "AA", pot=20.0, stack=100.0,
+        bet_sizes="standard",
+    )
+    index = _spot_index(spot.to_dict())
+    expected, compared, null_pairs = _parity_accounting(
+        index, spot.to_dict(), tmp_path, "blocker")
+    assert expected == compared + null_pairs
+    assert null_pairs > 0, "spot produced no zero-opp-mass combos"
+
+
+def _turn_index():
+    """Synthetic turn-board index with chance fan-out."""
+    hands0 = ["AdAc", "QcQh"]
+    hands1 = ["AdAc"]
+    by_node = {}
+    by_node[(0, ())] = {h: {"check": 0.6, "b2": 0.4} for h in hands0}
+    by_node[(1, ("check",))] = {h: {"check": 0.5, "b2": 0.5} for h in hands1}
+    for card in ("2c", "7h"):
+        hist = ("check", "check", "river:" + card)
+        by_node[(0, hist)] = {h: {"check": 0.7, "b2": 0.3} for h in hands0}
+        by_node[(1, hist + ("check",))] = {h: {"check": 1.0} for h in hands1}
+        by_node[(1, hist + ("b2",))] = {h: {"fold": 0.4, "call": 0.6} for h in hands1}
+    by_node[(1, ("b2",))] = {h: {"fold": 0.3, "call": 0.7} for h in hands1}
+    by_node[(1, ("check", "b2"))] = {h: {"fold": 0.5, "call": 0.5} for h in hands1}
+    return TreeIndex(by_node)
+
+
+def test_persisted_live_null_parity_turn_spot(tmp_path):
+    """Same parity check on a turn spot (4-card board, chance nodes in
+    the tree): p0's AdAc blocks all of p1's reach (AdAc only)."""
+    from holdem_solver.protocol import SpotConfig
+
+    spot = SpotConfig(
+        "KsJsTh7d", "AdAc,QcQh", "AdAc", pot=20.0, stack=100.0,
+        bet_sizes="standard",
+    )
+    index = _turn_index()
+    expected, compared, null_pairs = _parity_accounting(
+        index, spot.to_dict(), tmp_path, "turn")
+    assert expected == compared + null_pairs
+    assert compared > 0 and null_pairs > 0, (
+        f"turn spot: compared={compared} null_pairs={null_pairs}")

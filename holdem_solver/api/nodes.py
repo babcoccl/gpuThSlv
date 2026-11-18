@@ -226,12 +226,18 @@ def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
         if parsed is None:
             continue
         hist = tuple(parsed["history"])
+        masses.setdefault(hist, {})[parsed["hand"]] = float(mass[i])
+        # Combos with zero compatible opponent mass (or no own reach) carry
+        # zeros on disk; the live walk reports them as omitted cells (null
+        # action EVs). Drop them here so the persisted path serves the same
+        # nulls as live compute.
+        if mass[i] <= 0.0:
+            continue
         names = actions[i]
         row = ev[bounds[i] : bounds[i + 1]]
         evs.setdefault(hist, {})[parsed["hand"]] = {
             names[j]: float(v) for j, v in enumerate(row.tolist()) if j < len(names)
         }
-        masses.setdefault(hist, {})[parsed["hand"]] = float(mass[i])
     return evs, masses
 
 

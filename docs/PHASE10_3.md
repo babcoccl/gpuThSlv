@@ -174,10 +174,12 @@ histories:
 | scale-turn-chance | 2,175 | 8.6e-13 | 4.0e-13 | 7.5e-13 over 33,264 cells | 0.0 |
 | scale-raisecap2 | 81 | 4.1e-12 | 9.7e-13 | 1.8e-13 over 3,200 cells | 0.0 |
 
-The river aggregate's 2.0e-10 worst diff is summation-order noise
-scaled by magnitude (PHASE10_4 §5): at |EV| ≈ 57k it is ~2.3e-14
-relative, well under the Phase-10.5 relative bound of 1e-12 that now
-sits alongside the absolute 1e-9. The per-combo exact check covers
+The river aggregate's worst-absolute diff is 2.0e-10 summation-order
+noise (PHASE10_4 §5) on the root own-1 cell (|ref| ≈ 2.0e4, rel
+≈ 9.9e-15); the worst-relative diff is 2.3e-14 on a different cell
+(`check,b20,fold`). Since Phase 10.6 both are held to the single
+per-cell rule `|diff| <= 1e-12 * max(1, |ref|)` and reported
+separately as `worst_abs_cell` / `worst_rel_cell`. The per-combo exact check covers
 nodes with at most 400 descendants
 (964 of 966 turn nodes; the two skipped roots are still covered by the
 aggregate and parity-split checks). Persisted `evs.npz` equals the

@@ -620,20 +620,25 @@ def check_phase10_3(doc: Path) -> None:
             ):
                 if prob:
                     fail(doc, f"{name} {label}: {prob}")
-        # Phase 10.5: a check passes on the absolute 1e-9 bound OR the
-        # relative bound |diff| <= 1e-12 * max(1, |ref|) — assert the JSON
-        # reports max_rel_diff and that at least one bound holds.
+        # Phase 10.6: one per-cell rule |diff| <= 1e-12 * max(1, |ref|)
+        # <=> max_rel_diff <= 1e-12. The JSON also reports the
+        # worst-absolute and worst-relative cells separately; assert both
+        # are present and consistent with the maxima.
         for label, chk in r["checks"].items():
-            abs_d = chk["max_abs_diff"]
             rel = chk.get("max_rel_diff")
             if rel is None:
                 fail(doc, f"{name} {label}: max_rel_diff missing")
-            elif abs_d > 1e-9 and rel > 1e-12:
-                fail(
-                    doc,
-                    f"{name} {label}: abs {abs_d} > 1e-9 and "
-                    f"rel {rel} > 1e-12",
-                )
+            elif rel > 1e-12:
+                fail(doc, f"{name} {label}: rel {rel} > 1e-12")
+            wa = chk.get("worst_abs_cell")
+            wr = chk.get("worst_rel_cell")
+            if wa is None or wr is None:
+                fail(doc, f"{name} {label}: worst_abs_cell/worst_rel_cell missing")
+            else:
+                if wa.get("diff") != chk["max_abs_diff"]:
+                    fail(doc, f"{name} {label}: worst_abs_cell.diff != max_abs_diff")
+                if wr.get("rel") != rel:
+                    fail(doc, f"{name} {label}: worst_rel_cell.rel != max_rel_diff")
 
 
 def check_doc_status(doc: Path) -> None:

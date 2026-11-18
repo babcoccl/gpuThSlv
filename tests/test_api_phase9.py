@@ -135,7 +135,8 @@ def test_node_values(tmp_path):
 
         node = client.get(f"/v1/solves/{job_id}/node?history=check,b20").json()
         assert [a["name"] for a in node["actions"]] == ["fold", "call"]
-        assert client.get(f"/v1/solves/{job_id}/node?history=check,b20,fold").status_code == 404
+        # terminal histories are rejected before any table work: 422
+        assert client.get(f"/v1/solves/{job_id}/node?history=check,b20,fold").status_code == 422
 
 
 def test_events_sse(tmp_path):
@@ -375,33 +376,17 @@ def _evs_file(tmp_path, job_id):
     return tmp_path / "api" / f"strategy-{job_id}.evs.npz"
 
 
-def _check_self_heal(tmp_path, job_id, mutate):
-    """Decline the evs.npz via ``mutate``, then assert the first /node
-    regenerates and persists a loadable format-v2 file."""
-    import numpy as np
-
-    from holdem_solver.api import nodes as api_nodes
-
-    evs_path = _evs_file(tmp_path, job_id)
-    strat = tmp_path / "api" / f"strategy-{job_id}.npz"
-    keys = api_nodes.load_index(str(strat))[0].keys_list
-    mutate(evs_path)
-    assert api_nodes.load_node_evs(str(evs_path), keys) is None
-
-    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
-    with client:
-        body = client.get(f"/v1/solves/{job_id}/node")
-        assert body.status_code == 200, body.text
-    assert evs_path.exists(), "regenerated file not persisted"
-    pair = api_nodes.load_node_evs(str(evs_path), keys)
-    assert pair is not None, "regenerated file does not load"
-    assert dict(np.load(evs_path))["format"] == api_nodes.EVS_FORMAT
+def _live_node(client, job_id):
+    body = client.get(f"/v1/solves/{job_id}/node")
+    assert body.status_code == 200, body.text
+    return body.json()
 
 
 @pytest.mark.parametrize("kind", ("missing", "corrupt", "stale", "v1"))
-def test_node_evs_self_heal_on_first_node_request(tmp_path, kind):
+def test_node_declined_file_not_rewritten(tmp_path, kind):
     """A declined evs.npz (missing, pre-checksum/format, corrupt, stale)
-    is regenerated + persisted by the first /node request."""
+    is served from a live-computed in-memory table — the request path
+    never writes the file back."""
     import numpy as np
 
     from holdem_solver.api import nodes as api_nodes
@@ -411,6 +396,7 @@ def test_node_evs_self_heal_on_first_node_request(tmp_path, kind):
     _app0, client0 = make_client(tmp_path, gpus=[0], engine="fake")
     with client0:
         job_id = solved_job(client0)
+        live = _live_node(client0, job_id)
     evs_path = _evs_file(tmp_path, job_id)
     strat = tmp_path / "api" / f"strategy-{job_id}.npz"
     keys = api_nodes.load_index(str(strat))[0].keys_list
@@ -444,19 +430,54 @@ def test_node_evs_self_heal_on_first_node_request(tmp_path, kind):
         "stale": make_stale,
         "v1": make_v1,
     }
-    _check_self_heal(tmp_path, job_id, mutators[kind])
+    mutators[kind](evs_path)
+    assert api_nodes.load_node_evs(str(evs_path), keys) is None
+    after = None if not evs_path.exists() else evs_path.read_bytes()
+
+    calls = {"n": 0}
+    orig = api_nodes.export_node_evs
+
+    def counted(index, spot):
+        calls["n"] += 1
+        return orig(index, spot)
+
+    api_nodes.export_node_evs = counted
+
+    def no_write(*a, **kw):
+        raise AssertionError("write_node_evs called from the request path")
+
+    orig_write = api_nodes.write_node_evs
+    api_nodes.write_node_evs = no_write
+    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
+    try:
+        with client:
+            body = _live_node(client, job_id)
+            assert body["hands"] == live["hands"]
+            # a second request serves the cached in-memory table
+            assert _live_node(client, job_id)["hands"] == live["hands"]
+            assert calls["n"] == 1  # one in-memory build, reused
+    finally:
+        api_nodes.export_node_evs = orig
+        api_nodes.write_node_evs = orig_write
+    # nothing was written: missing stays missing, declined bytes untouched
+    if after is None:
+        assert not evs_path.exists()
+    else:
+        assert evs_path.read_bytes() == after
 
 
-def test_node_evs_self_heal_single_flight(tmp_path):
-    """Concurrent first /node requests after a declined file trigger
-    exactly one regeneration (single-flight per job)."""
+def test_node_first_requests_single_flight_in_memory(tmp_path):
+    """N concurrent first /node requests after a declined file produce
+    exactly one table build and zero file writes."""
     import threading
 
     from holdem_solver.api import nodes as api_nodes
 
     _app, client = make_client(tmp_path, gpus=[0], engine="fake")
     calls = {"n": 0}
+    writes = {"n": 0}
     orig = api_nodes.export_node_evs
+    orig_write = api_nodes.write_node_evs
 
     def counted(index, spot):
         calls["n"] += 1
@@ -464,11 +485,16 @@ def test_node_evs_self_heal_single_flight(tmp_path):
         time.sleep(0.3)  # widen the race window
         return orig(index, spot)
 
+    def counted_write(*a, **kw):
+        writes["n"] += 1
+        return orig_write(*a, **kw)
+
     with client:
         job_id = solved_job(client)
         evs_path = _evs_file(tmp_path, job_id)
         evs_path.unlink()
         api_nodes.export_node_evs = counted
+        api_nodes.write_node_evs = counted_write
         try:
             results = []
 
@@ -482,6 +508,111 @@ def test_node_evs_self_heal_single_flight(tmp_path):
                 t.join()
         finally:
             api_nodes.export_node_evs = orig
+            api_nodes.write_node_evs = orig_write
         assert results == [200] * 8
         assert calls["n"] == 1, calls
-        assert evs_path.exists()
+        assert writes["n"] == 0, writes
+        assert not evs_path.exists()
+
+
+def test_node_chance_terminal_no_table_build(tmp_path):
+    """Chance and terminal histories 422 BEFORE any table work — zero
+    builds even when the job has no usable evs file."""
+    import time
+
+    import numpy as np
+
+    from holdem_solver.api import nodes as api_nodes
+    from holdem_solver.api.store import JobStore
+    from holdem_solver.protocol import SpotConfig
+
+    # Hand-built turn-board strategy: ("check", "check") is a chance node
+    # (its children carry "river:" elements); ("b2", "fold") is terminal.
+    spot = SpotConfig(
+        "KsJsTh7d", "AdAc,QcQh", "AdAc", pot=20.0, stack=100.0,
+        bet_sizes="standard",
+    ).to_dict()
+    keys = [
+        "p0|AdAc|", "p0|QcQh|",
+        "p1|AdAc|check",
+        "p0|AdAc|check|check|river:2c", "p0|AdAc|check|check|river:7h",
+        "p1|AdAc|b2",
+    ]
+    acts = [["check", "b2"], ["check", "b2"], ["check", "b2"],
+            ["check", "b2"], ["check", "b2"], ["fold", "call"]]
+    offsets = [0]
+    values = []
+    for names in acts:
+        values.extend([0.5] * len(names))
+        offsets.append(len(values))
+    data_dir = tmp_path / "api"
+    data_dir.mkdir()
+    store = JobStore(str(data_dir / "solves.db"))
+    job, _ = store.create(spot, {})
+    job_id = job["id"]
+    strat_path = data_dir / f"strategy-{job_id}.npz"
+    np.savez(
+        strat_path,
+        keys=np.array([k.encode() for k in keys], dtype=np.bytes_),
+        actions=np.array([",".join(a).encode() for a in acts], dtype=np.bytes_),
+        offsets=np.array(offsets, dtype=np.int64),
+        values=np.array(values, dtype=np.float64),
+        iteration=np.int64(1),
+    )
+    store.set_fields(
+        job_id, status="done", strategy_path=str(strat_path),
+        finished_at=time.time(),
+    )
+    store.close()
+    assert not _evs_file(tmp_path, job_id).exists()  # no usable file
+
+    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
+    calls = {"n": 0}
+
+    def counted(index, spot_):
+        calls["n"] += 1
+        return orig(index, spot_)
+
+    orig = api_nodes.export_node_evs
+    with client:
+        api_nodes.export_node_evs = counted
+        try:
+            assert client.get(
+                f"/v1/solves/{job_id}/node?history=check,check"
+            ).status_code == 422
+            assert client.get(
+                f"/v1/solves/{job_id}/node?history=b2,fold"
+            ).status_code == 422
+        finally:
+            api_nodes.export_node_evs = orig
+        assert calls["n"] == 0, calls
+
+
+def test_node_cache_hit_no_table_build_readonly_dir(tmp_path):
+    """A payload-cache hit performs zero table builds even when the data
+    directory is read-only."""
+    import os
+    import stat
+
+    from holdem_solver.api import nodes as api_nodes
+
+    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
+    calls = {"n": 0}
+    orig = api_nodes.export_node_evs
+
+    def counted(index, spot):
+        calls["n"] += 1
+        return orig(index, spot)
+
+    with client:
+        job_id = solved_job(client)
+        first = _live_node(client, job_id)  # warms payload + table caches
+        data_dir = tmp_path / "api"
+        os.chmod(data_dir, stat.S_IRUSR | stat.S_IXUSR)  # read-only
+        api_nodes.export_node_evs = counted
+        try:
+            assert _live_node(client, job_id) == first
+            assert calls["n"] == 0
+        finally:
+            api_nodes.export_node_evs = orig
+            os.chmod(data_dir, stat.S_IRWXU)

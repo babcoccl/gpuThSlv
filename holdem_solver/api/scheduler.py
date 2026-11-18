@@ -483,6 +483,17 @@ class Scheduler:
         for path in self._data_dir.glob("strategy-*.npz*"):
             if str(path) in known:
                 continue
+            # A companion .evs.npz whose strategy file no longer exists is
+            # dead data regardless of age — delete it unconditionally.
+            if path.name.endswith(".evs.npz") and not Path(
+                str(path)[: -len(".evs.npz")] + ".npz"
+            ).exists():
+                try:
+                    path.unlink()
+                    orphans += 1
+                except FileNotFoundError:
+                    pass
+                continue
             try:
                 if path.stat().st_mtime < cutoff or path.name.endswith(".tmp") and path.stat().st_mtime < now - 3600:
                     path.unlink()

@@ -2,6 +2,15 @@
 
 Date: 2026-11-18. Status: done (gate below).
 
+> Phase 10.6 superseded two pieces of this phase: §3 self-healing was
+> removed (the request path never writes; `regen_evs` is the offline
+> migration), and §4's either-bound tolerance became a single per-cell
+> rule `|diff| <= 1e-12 * max(1, |ref|)` with separate
+> `worst_abs_cell`/`worst_rel_cell` reporting. Also corrected: the
+> river's 2.0e-10 worst-absolute diff is ~9.9e-15 relative on its own
+> cell (|ref| ≈ 2.0e4) — the ≈2.3e-14 figure quoted below is the
+> worst-relative cell, a different cell, not "2.0e-10 / 57,000".
+
 Everything in the test-case section below was written **before**
 implementation and is not revised after seeing results.
 
@@ -41,10 +50,10 @@ implementation and is not revised after seeing results.
    concurrent first requests trigger exactly one compute+write.
 4. The evec-vs-evwalk comparison gains a relative tolerance
    `|diff| <= 1e-12 * max(1, |ref|)` alongside the absolute 1e-9: a
-   cell passes when either bound holds. `max_rel_diff` is reported per
-   check; the river aggregate's 2.0e-10 worst abs diff is
-   ≈2.3e-14 relative (root |EV| ≈ 5.7e4) — the doc and the guard now
-   carry the relative number.
+   cell passes when either bound holds (superseded in 10.6 by the
+   single per-cell rule). `max_rel_diff` is reported per check; the
+   river aggregate's worst-relative diff is ≈2.3e-14 and its 2.0e-10
+   worst-absolute diff is ≈9.9e-15 relative — both inside the rule.
 5. `*.evs.npz` format v2: one chained `crc32` over both payload arrays
    (`crc32(mass.tobytes(), crc32(ev.tobytes()))`) replaces the XOR of
    two crc32s, plus a `format` member; the loader declines files
@@ -106,6 +115,12 @@ In `tests/test_api_evec.py`, driving the real
 
 ### 3 — self-healing /node
 
+> Removed in Phase 10.6: the request path never writes. Declined
+> files are served from a per-job in-memory table built under a
+> single-flight lock; re-persisting is the `regen_evs` migration
+> command's job. The tests below were replaced by the no-write
+> semantics tests in PHASE10_6.md.
+
 - `test_node_evs_regenerates_on_first_node_request`: job with a valid
   strategy but missing/corrupt `evs.npz`; first `/node` returns the
   same values as live compute AND rewrites the file (format v2,
@@ -120,11 +135,14 @@ In `tests/test_api_evec.py`, driving the real
 `compare_cells` gains `max_rel_diff = max(|got-ref| / max(1, |ref|))`
 over compared cells; `evec_all_nodes.py` reports it for
 `aggregate_edge_value`, `parity_split` and `exact_per_combo` and
-passes when `max_abs_diff <= 1e-9 or max_rel_diff <= 1e-12`. The
+passes when `max_abs_diff <= 1e-9 or max_rel_diff <= 1e-12` (the
+either-bound form; replaced in Phase 10.6 by the single per-cell
+rule `|diff| <= 1e-12 * max(1, |ref|)` with per-check
+`worst_abs_cell`/`worst_rel_cell` reporting). The
 PHASE10_3 table keeps its abs columns; the guard asserts the same
-either-bound on the evec-vs-evwalk checks (all measured rels land
+bound on the evec-vs-evwalk checks (all measured rels land
 below 1e-12 anyway). PHASE10_4 §5's
-river note records the relative error ≈2.3e-14.
+river note records the worst-relative error ≈2.3e-14.
 
 ### 5 — format v2
 
@@ -140,13 +158,14 @@ v1 file (old XOR checksum, no `format` member) returns `None`.
   tests file carries a venv declaration.
 - Crash tests: 6 crash cases (3 injection points × with/without prior
   file) pass; the mutation test detects the removed cleanup.
-- Self-heal: 4 decline kinds regenerate on first `/node`; the
-  single-flight test observes exactly 1 `export_node_evs` call across
-  8 concurrent requests.
+- Self-heal (removed in 10.6): 4 decline kinds regenerate on first
+  `/node`; the single-flight test observes exactly 1
+  `export_node_evs` call across 8 concurrent requests.
 - `evec_all_nodes.json` regenerated with `max_rel_diff`: river agg
-  2.29e-14, split 3.09e-14, exact 3.12e-14; all ≤ 1e-12.
-- Format v2: v1 evs.npz files decline (`load_node_evs` → None) and the
-  on-disk scale-job files were regenerated in v2.
+  worst-relative 2.29e-14, split 3.09e-14, exact 3.12e-14; all
+  ≤ 1e-12.
+- Format v2: format-v1 companion files decline (`load_node_evs` →
+  None) and the on-disk scale-job files were regenerated in v2.
 
 ## Gate
 

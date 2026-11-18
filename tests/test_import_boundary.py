@@ -13,10 +13,20 @@ at any level. Their transitive import closure (``holdem_solver.*``,
 ``holdem_solver.api``. A runtime ``sys.meta_path`` hook in
 ``tests/conftest.py`` raises on the same import during engine-venv runs.
 
+Resolution mirrors what the interpreter does for this repo: repo package
+roots first, then — like pytest's rootdir/conftest handling — bare
+sibling imports (``from evs_fixture import ...``) resolve against the
+importing file's own directory, plus any ``sys.path`` entries configured
+by ``conftest.py``/``pytest.ini`` (``pythonpath``). Every import is
+classified stdlib / installed third-party / local; an unresolved import
+fails the suite.
+
 Runs in ``.venv-engine`` and ``.venv-api`` (pure ``ast``, no imports of the
 checked code).
 """
 import ast
+import importlib.util
+import os
 import re
 import sys
 from pathlib import Path
@@ -32,17 +42,110 @@ _PKG_DIRS = {
     "scripts": REPO / "scripts",
     "tests": REPO / "tests",
 }
-# module name -> file
-_MODULE_FILES = {}
-for pkg, base in _PKG_DIRS.items():
-    for f in base.rglob("*.py"):
-        rel = f.relative_to(base).with_suffix("")
-        parts = [pkg] + [p for p in rel.parts if p != "__init__"]
-        _MODULE_FILES[".".join(parts)] = f
+
+
+def build_module_files(roots=None):
+    """module name -> file for every ``*.py`` under ``roots`` — the
+    indexer the boundary checks use (also what the negative test adds a
+    temp tree through, with no injected aliases)."""
+    roots = _PKG_DIRS if roots is None else roots
+    module_files = {}
+    for pkg, base in roots.items():
+        for f in Path(base).rglob("*.py"):
+            rel = f.relative_to(base).with_suffix("")
+            parts = [pkg] + [p for p in rel.parts if p != "__init__"]
+            module_files[".".join(parts)] = f
+    return module_files
+
+
+_MODULE_FILES = build_module_files()
 
 _SCRIPTS_AND_TESTS = sorted(
     list(REPO.glob("scripts/**/*.py")) + list(REPO.glob("tests/**/*.py"))
 )
+
+
+def _conftest_sys_path_roots():
+    """Extra module roots configured by conftest.py / pytest.ini:
+    ``pythonpath = ...`` entries and literal ``sys.path.insert`` /
+    ``sys.path.append`` arguments in conftest files — the places pytest
+    makes importable besides the rootdir."""
+    roots = []
+    ini = REPO / "pytest.ini"
+    if ini.exists():
+        for line in ini.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("pythonpath"):
+                for p in line.split("=", 1)[1].split():
+                    roots.append(REPO / p)
+    for conftest in sorted(REPO.glob("**/conftest.py")):
+        try:
+            tree = ast.parse(conftest.read_text())
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("insert", "append")
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr == "path"
+                and isinstance(node.func.value.value, ast.Name)
+                and node.func.value.value.id == "sys"
+            ):
+                continue
+            for a in node.args:
+                if isinstance(a, ast.Constant) and isinstance(a.value, str):
+                    p = Path(a.value)
+                    roots.append(p if p.is_absolute() else conftest.parent / p)
+    return roots
+
+
+_EXTRA_ROOTS = _conftest_sys_path_roots()
+
+
+def resolve_import(name, importer, module_files=None):
+    """Resolve ``name`` to a local file ``Path``, or ``None``.
+
+    Order: the repo index, then the importing file's own directory
+    (bare sibling imports, pytest rootdir/conftest style), then the
+    configured ``sys.path`` roots. Both ``pkg/mod.py`` and
+    ``pkg/mod/__init__.py`` layouts count.
+    """
+    module_files = _MODULE_FILES if module_files is None else module_files
+    f = module_files.get(name)
+    if f is not None:
+        return f
+    parts = Path(*name.split("."))
+    for base in (Path(importer).parent, *_EXTRA_ROOTS):
+        cand = base / parts.with_suffix(".py")
+        if cand.exists():
+            return cand
+        cand = base / parts / "__init__.py"
+        if cand.exists():
+            return cand
+    return None
+
+
+def classify_import(name, importer, module_files=None):
+    """``"local"`` | ``"stdlib"`` | ``"thirdparty"`` | ``None`` for a
+    single import name in file ``importer``; ``None`` = unresolved."""
+    if resolve_import(name, importer, module_files) is not None:
+        return "local"
+    top = name.split(".")[0]
+    try:
+        spec = importlib.util.find_spec(top)
+    except Exception:
+        return None
+    if spec is None:
+        return None
+    origin = spec.origin or ""
+    if origin in ("built-in", "frozen", "namespace"):
+        return "stdlib"
+    stdlib_dir = os.path.dirname(os.__file__)
+    if os.path.abspath(origin).startswith(os.path.abspath(stdlib_dir)):
+        return "stdlib"
+    return "thirdparty"
 
 
 def _imports(path):
@@ -117,17 +220,22 @@ def _declared_venvs(path):
     return set(re.findall(r"\.venv-(engine|api)", doc))
 
 
+def _running_venv():
+    return "engine" if sys.version_info < (3, 10) else "api"
+
+
 def _is_api_module(name):
     return name == FORBIDDEN_PREFIX or name.startswith(FORBIDDEN_PREFIX + ".")
 
 
-def _closure(seeds, module_files):
+def _closure(seeds, module_files=None):
     """Transitive local-import closure over ``seeds``.
 
     Returns ``(api_edges, seen)``: ``api_edges`` is a list of
     ``(file, imported_name)`` where the name is a ``holdem_solver.api``
     module; ``seen`` is the set of repo files walked.
     """
+    module_files = _MODULE_FILES if module_files is None else module_files
     frontier = set(seeds)
     seen = set()
     api_edges = []
@@ -140,7 +248,7 @@ def _closure(seeds, module_files):
             if _is_api_module(name):
                 api_edges.append((f, name))
                 continue
-            target = module_files.get(name)
+            target = resolve_import(name, f, module_files)
             if target is not None and target not in seen:
                 frontier.add(target)
     return api_edges, seen
@@ -150,18 +258,23 @@ def _engine_seeds():
     seeds = {f for d in ENGINE_DIRS for f in sorted(d.glob("*.py"))}
     for f in _SCRIPTS_AND_TESTS:
         imports = _imports(f)
-        if "engine" in _declared_venvs(f) or any(
-            n == "gpu_cfr" or n.startswith("gpu_cfr.")
-            or n.startswith("holdem_solver.engine_worker")
-            for n in imports
+        declared = _declared_venvs(f)
+        if "engine" in declared or (
+            "api" not in declared
+            and any(
+                n == "gpu_cfr" or n.startswith("gpu_cfr.")
+                or n.startswith("holdem_solver.engine_worker")
+                for n in imports
+            )
         ):
             seeds.add(f)
     return seeds
 
 
-def _declared_venv_violations(files, module_files):
+def _declared_venv_violations(files, module_files=None):
     """``[(file, problem), ...]`` for files whose declared venvs contradict
     their import closure."""
+    module_files = _MODULE_FILES if module_files is None else module_files
     problems = []
     for f in files:
         declared = _declared_venvs(f)
@@ -192,7 +305,7 @@ def test_every_script_and_test_declares_venv():
 
 
 def test_engine_venv_never_imports_api():
-    api_edges, seen = _closure(_engine_seeds(), _MODULE_FILES)
+    api_edges, seen = _closure(_engine_seeds())
     assert seen  # the walk actually covered files
     assert not api_edges, (
         "engine-venv code must never import holdem_solver.api:\n"
@@ -200,8 +313,42 @@ def test_engine_venv_never_imports_api():
     )
 
 
+def test_every_import_classifies():
+    """Every import in every file declaring the running venv resolves as
+    stdlib, installed third-party, or local — nothing unresolved."""
+    unresolved = []
+    counts = {"local": 0, "stdlib": 0, "thirdparty": 0}
+    for f in _SCRIPTS_AND_TESTS:
+        if _running_venv() not in _declared_venvs(f):
+            continue
+        for name in sorted(_imports(f)):
+            if not name:
+                continue
+            kind = classify_import(name, f)
+            if kind is None:
+                unresolved.append((f, name))
+            else:
+                counts[kind] += 1
+    assert counts["local"] and counts["stdlib"], counts
+    assert not unresolved, (
+        "unresolved imports:\n"
+        + "\n".join("  %s imports %s" % (f.relative_to(REPO), n)
+                    for f, n in unresolved)
+    )
+
+
+def test_bare_sibling_imports_resolve():
+    """``from test_evwalk import ...`` inside tests/ resolves to the
+    sibling file — no aliases injected."""
+    self_file = REPO / "tests" / "test_compare_cells.py"
+    assert (
+        resolve_import("test_evwalk", self_file)
+        == REPO / "tests" / "test_evwalk.py"
+    )
+
+
 def test_declared_venv_matches_imports():
-    problems = _declared_venv_violations(_SCRIPTS_AND_TESTS, _MODULE_FILES)
+    problems = _declared_venv_violations(_SCRIPTS_AND_TESTS)
     assert not problems, (
         "declared venv contradicts imports:\n"
         + "\n".join("  %s: %s" % (f.relative_to(REPO), p) for f, p in problems)
@@ -209,19 +356,33 @@ def test_declared_venv_matches_imports():
 
 
 def test_declared_venv_matches_imports_negative(tmp_path):
-    """A .venv-engine script reaching holdem_solver.api through a helper
-    must be flagged — the checker must not pass the case it exists for."""
+    """A .venv-engine script reaching holdem_solver.api through a bare
+    sibling import chain must be flagged — the checker must not pass the
+    case it exists for. Built through the same indexer production uses:
+    the tmp tree is an extra resolution root, no injected aliases."""
     (tmp_path / "helper.py").write_text(
         "from holdem_solver.api import evec\n"
     )
     (tmp_path / "mid.py").write_text("import helper\n")
     script = tmp_path / "script.py"
     script.write_text('"""Runs in .venv-engine."""\nimport mid\n')
-    module_files = dict(_MODULE_FILES)
-    module_files["helper"] = tmp_path / "helper.py"
-    module_files["mid"] = tmp_path / "mid.py"
-    problems = _declared_venv_violations([script], module_files)
+    # Bare sibling resolution finds mid/helper through the importing
+    # file's own directory — the production indexer runs unmodified.
+    problems = _declared_venv_violations([script])
     assert problems and problems[0][0] == script
+    assert "holdem_solver.api" in problems[0][1]
+
+
+def test_unresolved_import_fails(tmp_path):
+    """An import that is neither stdlib, installed, nor local is
+    unresolved — classify_import returns None for it."""
+    f = tmp_path / "x.py"
+    f.write_text("import no_such_module_xyz_123\n")
+    assert classify_import("no_such_module_xyz_123", f) is None
+    # and the real imports classify correctly
+    assert classify_import("os", f) == "stdlib"
+    assert classify_import("pytest", f) == "thirdparty"
+    assert classify_import("holdem_solver.api.nodes", f) == "local"
 
 
 def test_engine_runs_install_api_import_hook():

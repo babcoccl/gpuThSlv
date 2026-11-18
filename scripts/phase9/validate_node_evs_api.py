@@ -211,20 +211,20 @@ def main(names=None, via="all"):
                 live_ref_missing += node_exp - len(flatten(ref))
                 got = evec.node_action_evs(own_index, hist, reach0, reach1,
                                            board_now, pot)
-                c, o, e, m, rel = compare_cells(ref, got)
+                c, o, e, wa, _wr = compare_cells(ref, got)
                 live_compared += c
                 live_omitted += o
                 live_extras += e
-                live_max = max(live_max, m)
+                live_max = max(live_max, wa["diff"] if wa else 0.0)
             if via in ("persisted", "all"):
                 persist_expected += node_exp
                 persist_ref_missing += node_exp - len(flatten(ref))
                 prow = evs_persisted.get(hist, {})
-                c, o, e, m, rel = compare_cells(ref, prow)
+                c, o, e, wa, _wr = compare_cells(ref, prow)
                 persist_compared += c
                 persist_omitted += o
                 persist_extras += e
-                persist_max = max(persist_max, m)
+                persist_max = max(persist_max, wa["diff"] if wa else 0.0)
                 served = served_hand_evs(own_index, spot.to_dict(), hist,
                                          evs_persisted)
                 for combo, rh in ref_hand.items():

@@ -2,7 +2,6 @@
  "scale-river-573k": {
   "id": "9d9b5166b383",
   "pot": 20.0,
-  "tol": 1e-09,
   "rel_tol": 1e-12,
   "hists": 15,
   "player_nodes": 6,
@@ -11,12 +10,50 @@
    "aggregate_edge_value": {
     "hists_checked": 15,
     "max_abs_diff": 1.964508555829525e-10,
-    "max_rel_diff": 2.2891596779373465e-14
+    "max_rel_diff": 2.2891596779373465e-14,
+    "worst_abs_cell": {
+     "hist": [],
+     "own": 1,
+     "got": -19939.082433191397,
+     "ref": -19939.082433191594,
+     "diff": 1.964508555829525e-10,
+     "rel": 9.852552455268983e-15
+    },
+    "worst_rel_cell": {
+     "hist": [
+      "check",
+      "b20",
+      "fold"
+     ],
+     "own": 0,
+     "got": 1509.7591924436292,
+     "ref": 1509.7591924435947,
+     "diff": 3.456079866737127e-11,
+     "rel": 2.2891596779373465e-14
+    }
    },
    "parity_split": {
     "hists_checked": 15,
     "max_abs_diff": 1.3642420526593924e-10,
-    "max_rel_diff": 3.090184708420731e-14
+    "max_rel_diff": 3.090184708420731e-14,
+    "worst_abs_cell": {
+     "hist": [],
+     "own": 1,
+     "got": -10155.472346052085,
+     "ref": -10155.472346052222,
+     "diff": 1.3642420526593924e-10,
+     "rel": 1.3433565728626298e-14
+    },
+    "worst_rel_cell": {
+     "hist": [
+      "b10"
+     ],
+     "own": 1,
+     "got": -4120.441664902253,
+     "ref": -4120.441664902381,
+     "diff": 1.2732925824820995e-10,
+     "rel": 3.090184708420731e-14
+    }
    },
    "persisted_vs_live_evec": {
     "player_nodes_checked": 6,
@@ -28,7 +65,23 @@
     "extras": [],
     "extras_count": 0,
     "max_abs_diff": 0.0,
-    "max_rel_diff": 0.0
+    "max_rel_diff": 0.0,
+    "worst_abs_cell": {
+     "combo": "2d2h",
+     "action": "check",
+     "got": 8.98595632303071,
+     "ref": 8.98595632303071,
+     "diff": 0.0,
+     "rel": 0.0
+    },
+    "worst_rel_cell": {
+     "combo": "2d2h",
+     "action": "check",
+     "got": 8.98595632303071,
+     "ref": 8.98595632303071,
+     "diff": 0.0,
+     "rel": 0.0
+    }
    },
    "exact_per_combo": {
     "player_nodes_checked": 6,
@@ -41,16 +94,31 @@
     "extras_count": 0,
     "max_abs_diff": 6.394884621840902e-14,
     "max_rel_diff": 3.1189290488079266e-14,
+    "worst_abs_cell": {
+     "combo": "3c3h",
+     "action": "call",
+     "got": -21.88894562111634,
+     "ref": -21.888945621116402,
+     "diff": 6.394884621840902e-14,
+     "rel": 2.9215133211677936e-15
+    },
+    "worst_rel_cell": {
+     "combo": "JcJh",
+     "action": "call",
+     "got": -1.1533197913431974,
+     "ref": -1.1533197913432334,
+     "diff": 3.597122599785507e-14,
+     "rel": 3.1189290488079266e-14
+    },
     "skipped_hists_over_budget": 0
    }
   },
   "ok": true,
-  "seconds": 43.2
+  "seconds": 43.4
  },
  "scale-turn-chance": {
   "id": "9eb2cec01565",
   "pot": 20.0,
-  "tol": 1e-09,
   "rel_tol": 1e-12,
   "hists": 2175,
   "player_nodes": 966,
@@ -59,12 +127,66 @@
    "aggregate_edge_value": {
     "hists_checked": 2175,
     "max_abs_diff": 8.597567102697212e-13,
-    "max_rel_diff": 4.566347300283269e-13
+    "max_rel_diff": 4.566347300283269e-13,
+    "worst_abs_cell": {
+     "hist": [
+      "b20",
+      "call",
+      "river:Jh"
+     ],
+     "own": 1,
+     "got": 8.720277710233468,
+     "ref": 8.720277710232608,
+     "diff": 8.597567102697212e-13,
+     "rel": 9.859281307759953e-14
+    },
+    "worst_rel_cell": {
+     "hist": [
+      "b10",
+      "call",
+      "river:Qh",
+      "check",
+      "b40",
+      "call"
+     ],
+     "own": 0,
+     "got": 0.5810449274346202,
+     "ref": 0.5810449274341636,
+     "diff": 4.566347300283269e-13,
+     "rel": 4.566347300283269e-13
+    }
    },
    "parity_split": {
     "hists_checked": 2175,
     "max_abs_diff": 3.979039320256561e-13,
-    "max_rel_diff": 1.860456233515606e-13
+    "max_rel_diff": 1.860456233515606e-13,
+    "worst_abs_cell": {
+     "hist": [
+      "b10",
+      "call",
+      "river:3c"
+     ],
+     "own": 0,
+     "got": -276.96076732038273,
+     "ref": -276.96076732038233,
+     "diff": 3.979039320256561e-13,
+     "rel": 1.4366797719236866e-15
+    },
+    "worst_rel_cell": {
+     "hist": [
+      "b10",
+      "call",
+      "river:Qd",
+      "check",
+      "b40",
+      "call"
+     ],
+     "own": 1,
+     "got": 0.19138882418799727,
+     "ref": 0.19138882418781122,
+     "diff": 1.860456233515606e-13,
+     "rel": 1.860456233515606e-13
+    }
    },
    "persisted_vs_live_evec": {
     "player_nodes_checked": 966,
@@ -76,7 +198,23 @@
     "extras": [],
     "extras_count": 0,
     "max_abs_diff": 0.0,
-    "max_rel_diff": 0.0
+    "max_rel_diff": 0.0,
+    "worst_abs_cell": {
+     "combo": "AcAh",
+     "action": "check",
+     "got": -2.1064554819858063,
+     "ref": -2.1064554819858063,
+     "diff": 0.0,
+     "rel": 0.0
+    },
+    "worst_rel_cell": {
+     "combo": "AcAh",
+     "action": "check",
+     "got": -2.1064554819858063,
+     "ref": -2.1064554819858063,
+     "diff": 0.0,
+     "rel": 0.0
+    }
    },
    "exact_per_combo": {
     "player_nodes_checked": 964,
@@ -89,16 +227,31 @@
     "extras_count": 0,
     "max_abs_diff": 7.531752999057062e-13,
     "max_rel_diff": 1.0624834345662748e-13,
+    "worst_abs_cell": {
+     "combo": "AcAh",
+     "action": "call",
+     "got": 78.1521395392625,
+     "ref": 78.15213953926326,
+     "diff": 7.531752999057062e-13,
+     "rel": 9.637295976104589e-15
+    },
+    "worst_rel_cell": {
+     "combo": "AdAc",
+     "action": "call",
+     "got": 0.043070764138405375,
+     "ref": 0.04307076413829913,
+     "diff": 1.0624834345662748e-13,
+     "rel": 1.0624834345662748e-13
+    },
     "skipped_hists_over_budget": 2
    }
   },
   "ok": true,
-  "seconds": 164.24
+  "seconds": 165.57
  },
  "scale-raisecap2": {
   "id": "4a037014a459",
   "pot": 20.0,
-  "tol": 1e-09,
   "rel_tol": 1e-12,
   "hists": 81,
   "player_nodes": 28,
@@ -107,12 +260,55 @@
    "aggregate_edge_value": {
     "hists_checked": 81,
     "max_abs_diff": 4.092726157978177e-12,
-    "max_rel_diff": 1.1712466395451613e-13
+    "max_rel_diff": 1.1712466395451613e-13,
+    "worst_abs_cell": {
+     "hist": [
+      "check"
+     ],
+     "own": 0,
+     "got": -1606.6275440547652,
+     "ref": -1606.6275440547693,
+     "diff": 4.092726157978177e-12,
+     "rel": 2.5474019620310068e-15
+    },
+    "worst_rel_cell": {
+     "hist": [
+      "b20",
+      "fold"
+     ],
+     "own": 0,
+     "got": -3.7612615592424703,
+     "ref": -3.7612615592420298,
+     "diff": 4.405364961712621e-13,
+     "rel": 1.1712466395451613e-13
+    }
    },
    "parity_split": {
     "hists_checked": 81,
     "max_abs_diff": 9.663381206337363e-13,
-    "max_rel_diff": 9.331469685883843e-14
+    "max_rel_diff": 9.331469685883843e-14,
+    "worst_abs_cell": {
+     "hist": [
+      "check",
+      "check"
+     ],
+     "own": 1,
+     "got": 409.457820446909,
+     "ref": 409.45782044690804,
+     "diff": 9.663381206337363e-13,
+     "rel": 2.3600431409003595e-15
+    },
+    "worst_rel_cell": {
+     "hist": [
+      "b20",
+      "fold"
+     ],
+     "own": 1,
+     "got": 1.6180766420686918,
+     "ref": 1.6180766420688428,
+     "diff": 1.509903313490213e-13,
+     "rel": 9.331469685883843e-14
+    }
    },
    "persisted_vs_live_evec": {
     "player_nodes_checked": 28,
@@ -124,7 +320,23 @@
     "extras": [],
     "extras_count": 0,
     "max_abs_diff": 0.0,
-    "max_rel_diff": 0.0
+    "max_rel_diff": 0.0,
+    "worst_abs_cell": {
+     "combo": "AcAh",
+     "action": "check",
+     "got": -1.3478698823545334,
+     "ref": -1.3478698823545334,
+     "diff": 0.0,
+     "rel": 0.0
+    },
+    "worst_rel_cell": {
+     "combo": "AcAh",
+     "action": "check",
+     "got": -1.3478698823545334,
+     "ref": -1.3478698823545334,
+     "diff": 0.0,
+     "rel": 0.0
+    }
    },
    "exact_per_combo": {
     "player_nodes_checked": 28,
@@ -137,10 +349,26 @@
     "extras_count": 0,
     "max_abs_diff": 1.8474111129762605e-13,
     "max_rel_diff": 2.671033338456543e-14,
+    "worst_abs_cell": {
+     "combo": "QcQh",
+     "action": "call",
+     "got": -109.32592897619463,
+     "ref": -109.32592897619445,
+     "diff": 1.8474111129762605e-13,
+     "rel": 1.6898197255461067e-15
+    },
+    "worst_rel_cell": {
+     "combo": "AdQd",
+     "action": "call",
+     "got": 2.294404569084119,
+     "ref": 2.2944045690841803,
+     "diff": 6.128431095930864e-14,
+     "rel": 2.671033338456543e-14
+    },
     "skipped_hists_over_budget": 0
    }
   },
   "ok": true,
-  "seconds": 13.01
+  "seconds": 13.06
  }
 }

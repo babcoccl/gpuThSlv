@@ -500,11 +500,50 @@
   file (missing, corrupt, stale keys, pre-checksum format), the first
   request regenerates and atomically re-persists it under a per-job
   single-flight lock — 8 concurrent requests produce exactly one
-  export.
+  export. (Removed in Phase 10.6: the request path never writes.)
 - evec-vs-evwalk gains a relative bound `|diff| <= 1e-12 * max(1, |ref|)`
   alongside the absolute 1e-9 (`compare_cells` reports `max_rel_diff`);
-  the river 2.0e-10 residual is ~2.3e-14 relative at |EV| ≈ 57k.
+  the river's worst-relative residual is ~2.3e-14 (the 2.0e-10
+  worst-absolute cell is ~9.9e-15 relative at |ref| ≈ 2.0e4).
 - `evs.npz` format bumped to v2: one crc32 chained over both arrays
   replaces the XOR of two crc32s; v1 files are declined and
   regenerated.
 - Details: `docs/PHASE10_5.md`.
+
+## Phase 10.6 — request-path writes removed, review warnings closed
+(2026-11-18)
+
+- `get_node` no longer self-heals: order is validate history
+  (chance/terminal → 422 before any table work) → payload cache →
+  table (persisted, else an in-memory table computed once per job
+  under a single-flight lock, kept in the bounded index/table LRU).
+  `regen_locks` and the request-path `write_node_evs` are gone;
+  `Scheduler._export_node_evs` at job completion is the only
+  `evs.npz` writer.
+- Crash tests gained the zero-byte destination assertions (no empty
+  or partial file at the final path on ENOSPC/fsync/replace
+  failures, with or without a prior file).
+- New offline migration `python -m holdem_solver.api.regen_evs
+  [--job ID | --all]`: regenerates companions for jobs whose
+  strategy file still exists, skips expired jobs, idempotent,
+  re-checks the store before the atomic write (a concurrent
+  retention cleanup loses the race — nothing written). The orphan
+  sweep now deletes `.evs.npz` companions whose strategy file is
+  gone regardless of mtime.
+- Null parity: `load_node_evs` drops combos with `opp_mass <= 0`
+  (they persist as zeros), so persisted and live `node_values` agree
+  including nulls; parity tests cover a blocker spot and a turn spot
+  with compared/expected accounting.
+- Tolerance is now a single per-cell rule
+  `|diff| <= 1e-12 * max(1, |ref|)` in `compare_cells`, scope text,
+  tests and guard (either-bound form dropped); `evec_all_nodes.json`
+  reports `worst_abs_cell` and `worst_rel_cell` separately, and the
+  "2.0e-10 / 57,000 = 3.5e-15" misstatement was corrected (the
+  2.0e-10 cell's rel is ≈9.9e-15 at |ref| ≈ 2.0e4; the ≈2.3e-14
+  figure is the worst-relative cell).
+- Import boundary walker resolves bare sibling imports against the
+  importing file's directory plus conftest/pytest.ini sys.path
+  entries, classifies every import stdlib/third-party/local, fails
+  on unresolved, and the negative test goes through the production
+  indexer with a bare-sibling edge reaching `holdem_solver.api`.
+- Details: `docs/PHASE10_6.md`.
