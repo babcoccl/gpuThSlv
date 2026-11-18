@@ -116,7 +116,7 @@ def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
         return None
     try:
         want = int(np.asarray(crc).reshape(-1)[0])
-    except (IndexError, ValueError, TypeError):
+    except (IndexError, ValueError, TypeError, OverflowError):
         return None
     got = zlib.crc32(ev.tobytes()) ^ zlib.crc32(mass.tobytes())
     if want != got:
