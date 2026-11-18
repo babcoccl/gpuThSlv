@@ -506,10 +506,49 @@
       },
       "HealthResponse": {
         "properties": {
+          "disk": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk"
+          },
+          "gpus": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpus"
+          },
           "status": {
-            "const": "ok",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
             "title": "Status",
             "type": "string"
+          },
+          "workers": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workers"
           }
         },
         "required": [
@@ -2256,6 +2295,7 @@
   "paths": {
     "/healthz": {
       "get": {
+        "description": "Readiness: every configured worker answers ping, NVML sees each\nGPU (real engine), and the data dir has ``min_free_bytes`` free.\n503 when degraded so supervisors (and upgrade.sh) can gate on it.",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {

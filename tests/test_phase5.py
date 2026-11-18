@@ -388,7 +388,9 @@ def test_missing_external_worker_does_not_block_startup(tmp_path):
     t0 = time.monotonic()
     with make_client(tmp_path, config=EXTERNAL, client_kwargs=sup.kwargs()) as client:
         assert time.monotonic() - t0 < 5.0
-        assert client.get("/healthz").status_code == 200
+        # worker missing -> readiness 503 with degraded payload (liveness ok)
+        resp = client.get("/healthz")
+        assert resp.status_code == 503 and resp.json()["status"] == "degraded"
         assert client.app.state.scheduler.gpu_metrics()[0]["healthy"] is False
         with sup:  # the worker unit comes up after the API
             wait_for(lambda: client.app.state.scheduler.gpu_metrics()[0]["healthy"], timeout=30, message="attached")

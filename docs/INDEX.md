@@ -16,6 +16,10 @@
 | [PHASE8.md](PHASE8.md) | Reach-weighted aggregation, cross-evaluation, weighted suite |
 | [PHASE8_5.md](PHASE8_5.md) | Cleanup + validation closure (this phase) |
 
+| [LICENSES.md](LICENSES.md) | Third-party license inventory (private-use statement) |
+| [PHASE11.md](PHASE11.md) | Native single-host release: install, systemd, TLS, backups, smoke |
+
 Root docs: [README.md](../README.md) (architecture diagram, game rules,
-API usage), [CHANGELOG.md](../CHANGELOG.md), [AGENTS.md](../AGENTS.md)
+API usage), [RUNBOOK.md](../RUNBOOK.md) (release operations),
+[CHANGELOG.md](../CHANGELOG.md), [AGENTS.md](../AGENTS.md)
 (engineering rules).

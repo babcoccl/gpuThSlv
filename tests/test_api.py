@@ -41,7 +41,7 @@ def poll_until(client, job_id, statuses=("done", "cancelled", "failed"), timeout
 
 def test_healthz_no_auth(tmp_path):
     with make_client(tmp_path, gpus=[], api_key="secret") as client:
-        assert client.get("/healthz").json() == {"status": "ok"}
+        assert client.get("/healthz").json()["status"] == "ok"
         assert client.get("/v1/gpus").status_code == 401
         assert client.get("/v1/gpus", headers={"Authorization": "Bearer secret"}).json() == []
         assert client.get("/v1/gpus", headers={"X-API-Key": "secret"}).status_code == 200

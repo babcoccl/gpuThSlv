@@ -11,7 +11,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Healthz */
+        /**
+         * Healthz
+         * @description Readiness: every configured worker answers ping, NVML sees each
+         *     GPU (real engine), and the data dir has ``min_free_bytes`` free.
+         *     503 when degraded so supervisors (and upgrade.sh) can gate on it.
+         */
         get: operations["healthz_healthz_get"];
         put?: never;
         post?: never;
@@ -497,11 +502,23 @@ export interface components {
         };
         /** HealthResponse */
         HealthResponse: {
+            /** Disk */
+            disk?: {
+                [key: string]: unknown;
+            } | null;
+            /** Gpus */
+            gpus?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Status
-             * @constant
+             * @enum {string}
              */
-            status: "ok";
+            status: "ok" | "degraded";
+            /** Workers */
+            workers?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** InfosetStrategy */
         InfosetStrategy: {

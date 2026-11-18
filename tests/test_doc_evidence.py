@@ -285,8 +285,8 @@ _P10_2 = "PHASE10_2.md"
 _PHASE10_2_MUTATIONS = {
     "main_cell": (
         _P10_2,
-        "| scale-river-573k | 573,031 | 5.9 | 8.1 | 0.23 | 200 | 0.400 |",
-        "| scale-river-573k | 573,031 | 5.9 | 8.1 | 0.23 | 200 | 0.401 |",
+        "| scale-river-573k | 573,031 | 5.5 | 6.8 | 0.18 | 200 | 0.406 |",
+        "| scale-river-573k | 573,031 | 5.5 | 6.8 | 0.18 | 200 | 0.407 |",
     ),
     "before_cell": (
         _P10_2,
@@ -295,12 +295,12 @@ _PHASE10_2_MUTATIONS = {
     ),
     "after_cell": (
         _P10_2,
-        "| scale-river-573k | 37,828 ms | 64 ms |",
-        "| scale-river-573k | 37,828 ms | 65 ms |",
+        "| scale-river-573k | 37,828 ms | 79 ms |",
+        "| scale-river-573k | 37,828 ms | 80 ms |",
     ),
     "delete_main_row": (
         _P10_2,
-        "\n| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |",
+        "\n| scale-raisecap2 | 95,743 | 0.9 | 2.6 | 0.65 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 80 |",
         "",
     ),
     "delete_before_after_row": (
@@ -310,8 +310,8 @@ _PHASE10_2_MUTATIONS = {
     ),
     "add_bogus_row": (
         _P10_2,
-        "| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |",
-        "| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |\n"
+        "| scale-raisecap2 | 95,743 | 0.9 | 2.6 | 0.65 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 80 |",
+        "| scale-raisecap2 | 95,743 | 0.9 | 2.6 | 0.65 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 80 |\n"
         "| scale-bogus | 1 | 1 | 1 | 1 | 1 | 1 | none | 1 | 1 | 1 | 1 |",
     ),
 }

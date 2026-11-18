@@ -140,9 +140,9 @@ touches the job, `warm /node` the identical call repeated.
 
 | spot | nodes | build s | solve s | export s | iters | expl (% pot) | stop | first /node ms | warm /node ms | /tree ms | TTFR ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
-| scale-river-573k | 573,031 | 5.9 | 8.1 | 0.23 | 200 | 0.400 | iteration cap | 64 | 3 | 5 | 253 |
-| scale-turn-chance | 442,891 | 6.1 | 24.6 | 16.44 | 200 | 1.271 | iteration cap | 168 | 3 | 3 | 94 |
-| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |
+| scale-river-573k | 573,031 | 5.5 | 6.8 | 0.18 | 200 | 0.406 | iteration cap | 79 | 4 | 3 | 261 |
+| scale-turn-chance | 442,891 | 5.6 | 23.5 | 16.82 | 200 | 1.272 | iteration cap | 190 | 3 | 3 | 95 |
+| scale-raisecap2 | 95,743 | 0.9 | 2.6 | 0.65 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 80 |
 
 UI errors: 0 on all three spots. `/node` still returns 422 on chance
 histories by design (`check/check` on the turn spot).
@@ -152,8 +152,8 @@ Before/after `/node` at root (Phase 10.1 baseline `scale-10-1.json`
 
 | spot | first /node before | first /node after |
 | --- | ---: | ---: |
-| scale-river-573k | 37,828 ms | 64 ms |
-| scale-turn-chance | 7,986 ms | 168 ms |
+| scale-river-573k | 37,828 ms | 79 ms |
+| scale-turn-chance | 7,986 ms | 190 ms |
 | scale-raisecap2 | 3,292 ms | 23 ms |
 
 The `before` column is the cold `/node` re-measured on the Phase-10.1
@@ -167,8 +167,8 @@ measurement — so the re-measured numbers above are the single
 before-number per spot (method: cold `GET /v1/solves/<id>/node` at
 root, persisted strategy, `0ef7d5a`).
 
-All targets met: first `/node` ≤ 2 s on all three spots (64 / 168 /
-23 ms), warm `/node` ≤ 500 ms (≤ 3 ms), and the 573k river is 64 ms on
+All targets met: first `/node` ≤ 2 s on all three spots (79 / 190 /
+23 ms), warm `/node` ≤ 500 ms (≤ 3 ms), and the 573k river is 79 ms on
 the first hit after the job finishes (≤ 1 s).
 
 `check_phase10_2` verifies the table above against the artifact.
