@@ -467,6 +467,10 @@ class Scheduler:
                 removed += 1
             except FileNotFoundError:
                 pass
+            try:
+                Path(job["strategy_path"]).with_suffix(".evs.npz").unlink()
+            except (FileNotFoundError, OSError):
+                pass
             self._store.set_fields(job["id"], strategy_path=None, strategy_expired_at=now)
             expired += 1
         known = self._store.strategy_paths()
@@ -761,7 +765,62 @@ class Scheduler:
                     "the solve finished but its strategy was discarded; free space and resubmit",
                 ) from exc
             raise StrategySaveError("storage_error", f"could not write the strategy: {exc}") from exc
+        self._export_node_evs(job_id, path, strategy)
         return path
+
+    def _export_node_evs(self, job_id: str, strategy_path: Path, strategy: Any) -> None:
+        """Write ``strategy-<id>.evs.npz``: per-node conditional action EVs
+        aligned with the strategy npz's keys/offsets/actions.
+
+        ``/node`` serves these directly — the vectorized evaluator walks the
+        whole tree once here at job completion instead of on first request.
+        Failure is logged and skipped: the endpoint still computes on demand.
+        """
+        try:
+            from . import nodes as api_nodes
+            from .strategy import parse_infoset_key
+
+            job = self._store.get(job_id)
+            if job is None:
+                return
+            index, _ = api_nodes.load_index(str(strategy_path))
+            evs, masses = api_nodes.export_node_evs(index, job["spot"])
+            bounds = strategy.offsets.tolist()
+            flat = np.zeros(len(strategy.values), dtype=np.float64)
+            mass = np.zeros(len(strategy.keys), dtype=np.float64)
+            for i, key in enumerate(strategy.keys):
+                parsed = parse_infoset_key(key)
+                if parsed is None:
+                    continue
+                hist = tuple(parsed["history"])
+                names = strategy.actions[i] if i < len(strategy.actions) else ()
+                row = evs.get((parsed["player"], hist), {}).get(parsed["hand"]) or {}
+                for j, name in enumerate(names):
+                    if bounds[i] + j < len(flat):
+                        flat[bounds[i] + j] = row.get(name, 0.0)
+                mass[i] = masses.get((parsed["player"], hist), {}).get(parsed["hand"], 0.0)
+            evs_path = strategy_path.with_suffix(".evs.npz")
+            tmp = evs_path.with_suffix(".evs.npz.tmp")
+            with self._open_for_write(str(tmp)) as handle:
+                np.savez(
+                    handle,
+                    keys=np.array(
+                        [key.encode("utf-8") for key in strategy.keys], dtype=np.bytes_
+                    ),
+                    actions=np.array(
+                        [",".join(names).encode("utf-8") for names in strategy.actions],
+                        dtype=np.bytes_,
+                    ),
+                    offsets=strategy.offsets,
+                    ev=flat,
+                    opp_mass=mass,
+                    iteration=np.int64(strategy.iteration),
+                )
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, evs_path)
+        except Exception:
+            LOG.warning("job %s: node-EV export failed", job_id, exc_info=True)
 
     def _release(self, client: EngineClient) -> None:
         try:

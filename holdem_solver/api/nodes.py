@@ -10,6 +10,7 @@ responses for ``GET /v1/solves/{id}/tree`` and ``/node``.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import numpy as np
@@ -17,14 +18,14 @@ import numpy as np
 from holdem_solver.protocol.cards import card_str, parse_cards
 from holdem_solver.protocol.evwalk import (
     TreeIndex,
-    combo_tuple,
     dealt_board,
     equity,
-    node_action_evs,
     parse_history,
     reach_at,
     replay_chips,
 )
+
+from . import evec
 
 from .strategy import (
     _CLASS_COMBOS,
@@ -64,7 +65,67 @@ def load_index(path: str) -> tuple[TreeIndex, int]:
         by_node.setdefault((parsed["player"], hist), {})[parsed["hand"]] = freqs
     index = TreeIndex(by_node)
     index.unmapped_keys = unmapped  # type: ignore[attr-defined]
+    index.keys_list = keys  # type: ignore[attr-defined]
     return index, int(data["iteration"])
+
+
+def load_node_evs(path: str, keys: list[str]) -> tuple[dict, dict] | None:
+    """``(evs, opp_mass)`` maps from a ``strategy-<id>.evs.npz`` companion
+    file, or ``None`` when it is absent/stale.
+
+    ``evs[hist][combo][action]`` holds the conditional EVs ``node_values``
+    reports; ``opp_mass[hist][combo]`` is the opponent's compatible reach
+    mass at that node. ``keys`` is the strategy npz's key list — the file is
+    ignored when it does not match, so a stale companion can never serve
+    values for the wrong strategy.
+    """
+    if not os.path.exists(path):
+        return None
+    try:
+        data = np.load(path, allow_pickle=False)
+        ev_keys = [key.decode("utf-8") for key in data["keys"].tolist()]
+        if ev_keys != keys:
+            return None
+        bounds = data["offsets"].tolist()
+        actions = [
+            [name for name in row.decode("utf-8").split(",") if name]
+            for row in data["actions"].tolist()
+        ]
+        ev = data["ev"]
+        mass = data["opp_mass"]
+    except (OSError, KeyError, ValueError):
+        return None
+    evs: dict[tuple[str, ...], dict[str, dict[str, float]]] = {}
+    masses: dict[tuple[str, ...], dict[str, float]] = {}
+    for i, key in enumerate(keys):
+        parsed = parse_infoset_key(key)
+        if parsed is None:
+            continue
+        hist = tuple(parsed["history"])
+        names = actions[i]
+        row = ev[bounds[i] : bounds[i + 1]]
+        evs.setdefault(hist, {})[parsed["hand"]] = {
+            names[j]: float(v) for j, v in enumerate(row.tolist()) if j < len(names)
+        }
+        masses.setdefault(hist, {})[parsed["hand"]] = float(mass[i])
+    return evs, masses
+
+
+def export_node_evs(
+    index: TreeIndex,
+    spot: dict[str, Any],
+) -> tuple[dict, dict]:
+    """``(evs, opp_mass)`` for every node — the values persisted at job
+    completion as ``strategy-<id>.evs.npz``."""
+    ranges = spot_ranges(spot)
+    if ranges is None:
+        return {}, {}
+    blocked_ids = tuple(
+        parse_cards(spot.get("board") or ()) + parse_cards(spot.get("dead_cards") or ())
+    )
+    pot = float(spot.get("pot", 20.0))
+    board0 = tuple(parse_cards(spot.get("board") or ()))
+    return evec.all_node_evs(index, board0, pot, ranges[0], ranges[1], blocked_ids)
 
 
 def _street(spot: dict[str, Any], hist: tuple[str, ...]) -> str:
@@ -132,6 +193,7 @@ def node_values(
     *,
     combos: bool = False,
     max_work: int = DEFAULT_MAX_EVAL_WORK,
+    node_evs: dict[tuple[str, ...], dict[str, dict[str, float]]] | None = None,
 ) -> dict[str, Any]:
     """The ``/node`` response: frequencies, per-action EVs, hand EV, equity,
     and both players' reaches at ``hist``.
@@ -156,18 +218,21 @@ def node_values(
         parse_cards(spot.get("board") or ()) + parse_cards(spot.get("dead_cards") or ())
     )
     reach0, reach1 = reach_at(index, hist, w0, w1, blocked_ids)
-    opp_combos = len(reach1) if player == 0 else len(reach0)
-    # per (combo, action): a subtree walk whose terminals pair the combo
-    # against every opponent combo still reaching
-    work = index.descendants(hist) * len(rows) * max(1, opp_combos)
-    if work > max_work:
-        raise ValueError(
-            "node evaluation needs %d combo-node visits (limit %d); narrow the spot or raise HOLDEM_NODE_EVAL_MAX_WORK"
-            % (work, max_work)
-        )
     board_now = dealt_board(spot.get("board") or (), hist)
     pot = float(spot.get("pot", 20.0))
-    evs = node_action_evs(index, hist, reach0, reach1, board_now, pot)
+    if node_evs is not None and hist in node_evs:
+        evs = node_evs[hist]
+    else:
+        # per (combo, action): a subtree walk whose terminals pair the combo
+        # against every opponent combo still reaching
+        opp_combos = len(reach1) if player == 0 else len(reach0)
+        work = index.descendants(hist) * len(rows) * max(1, opp_combos)
+        if work > max_work:
+            raise ValueError(
+                "node evaluation needs %d combo-node visits (limit %d); narrow the spot or raise HOLDEM_NODE_EVAL_MAX_WORK"
+                % (work, max_work)
+            )
+        evs = evec.node_action_evs(index, hist, reach0, reach1, board_now, pot)
 
     blocked_strs = spot_blocked(spot) | {elem[6:] for elem in hist if elem.startswith("river:")}
     weights = _node_weights(index.by_node, player, hist, w0 if player == 0 else w1,

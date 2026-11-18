@@ -27,8 +27,8 @@
    "w-blocker-cap0",
    "w-full-cap0"
   ],
-  "git_commit": "7b5f250d7ccc842a6e67e870f51001c1c8d716a8",
-  "generated_at": "2026-11-17T18:30:32.464587+00:00",
+  "git_commit": "0ef7d5a72a4816fdae895952c7024e0bc61b2790",
+  "generated_at": "2026-11-18T00:56:02.078030+00:00",
   "comparisons": {
    "w-toy-check": {
     "node_evs_compared": 84,
@@ -79,8 +79,8 @@
    },
    "root_ev_own_tree": {
     "evwalk": 10.012043746335033,
-    "profile_value_p0": 10.012043746335038,
-    "abs_diff": 5.329070518200751e-15,
+    "profile_value_p0": 10.012043746335024,
+    "abs_diff": 8.881784197001252e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -106,9 +106,9 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": 8.456054258367729,
-    "profile_value_p0": 8.456054258367747,
-    "abs_diff": 1.7763568394002505e-14,
+    "evwalk": 8.45605425836773,
+    "profile_value_p0": 8.456054258367734,
+    "abs_diff": 3.552713678800501e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -134,9 +134,9 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": -8.847019809150343,
-    "profile_value_p0": -8.847019809150353,
-    "abs_diff": 1.0658141036401503e-14,
+    "evwalk": -8.84701980915034,
+    "profile_value_p0": -8.847019809150352,
+    "abs_diff": 1.2434497875801753e-14,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -162,9 +162,9 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": -5.692547638814184,
-    "profile_value_p0": -5.692547638814183,
-    "abs_diff": 8.881784197001252e-16,
+    "evwalk": -5.692547638814183,
+    "profile_value_p0": -5.692547638814176,
+    "abs_diff": 7.105427357601002e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -190,9 +190,9 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": -10.083615534035715,
-    "profile_value_p0": -10.083615534035712,
-    "abs_diff": 3.552713678800501e-15,
+    "evwalk": -10.084149243747659,
+    "profile_value_p0": -10.084149243747667,
+    "abs_diff": 8.881784197001252e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -218,9 +218,9 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": 1.3939801881981284,
-    "profile_value_p0": 1.393980188198125,
-    "abs_diff": 3.3306690738754696e-15,
+    "evwalk": 1.3939801881981289,
+    "profile_value_p0": 1.3939801881981262,
+    "abs_diff": 2.6645352591003757e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"

@@ -44,7 +44,7 @@ echo "every tests/test_*.py is collected by at least one venv"
 echo "=== ui contract checks (ui/) ==="
 ui_rc=0
 if [[ "${1:-}" != "--quick" ]]; then
-    (cd ui && npx tsc -b && npx eslint . && node scripts/check-bodies.mjs && node scripts/check-no-fetch.mjs && bash scripts/check-schema.sh) || ui_rc=1
+    (cd ui && npx tsc -b && npx eslint . && node scripts/check-bodies.mjs && node scripts/check-no-fetch.mjs && node scripts/check-mutation.mjs && bash scripts/check-schema.sh) || ui_rc=1
 else
     (cd ui && npx tsc -b && npx eslint .) || ui_rc=1
 fi

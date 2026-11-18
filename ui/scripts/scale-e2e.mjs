@@ -94,8 +94,20 @@ try {
     const measures = [];
     const edge = async (hist) => `history=${encodeURIComponent(hist.join(","))}`;
     const treeOf = async (hist) => JSON.parse(await (await fetch(`${BASE}/v1/solves/${acc.id}/tree?${await edge(hist)}`, { headers: H })).text());
+    // Cold /node FIRST: the per-job index + persisted EVs load on the
+    // first request for this job; a /tree call first would warm the cache
+    // and understate first-hit latency.
+    const q0 = await edge([]);
+    try {
+      const firstNode = await getTimed(`/v1/solves/${acc.id}/node?${q0}`);
+      const warmNode = await getTimed(`/v1/solves/${acc.id}/node?${q0}`);
+      const rootTree = await getTimed(`/v1/solves/${acc.id}/tree?${q0}`);
+      measures.push({ history: "root", first_node_ms: firstNode.ms, warm_node_ms: warmNode.ms, tree_ms: rootTree.ms, node_bytes: firstNode.bytes, tree_bytes: rootTree.bytes });
+    } catch (e) {
+      measures.push({ history: "root", first_node_ms: null, warm_node_ms: null, tree_ms: null, node_error: String(e).slice(0, 120) });
+    }
     // Discover real paths: root -> first non-terminal child -> grandchild.
-    const paths = [[]];
+    const paths = [];
     let cur = await treeOf([]);
     for (let depth = 0; depth < 2 && cur.children?.length; depth++) {
       const next = cur.children.find((c) => c.kind !== "terminal" && c.history);
@@ -108,9 +120,9 @@ try {
       const tree = await getTimed(`/v1/solves/${acc.id}/tree?${q}`);
       try {
         const node = await getTimed(`/v1/solves/${acc.id}/node?${q}`);
-        measures.push({ history: h.join("/") || "root", tree_ms: tree.ms, tree_bytes: tree.bytes, node_ms: node.ms, node_bytes: node.bytes });
+        measures.push({ history: h.join("/"), tree_ms: tree.ms, tree_bytes: tree.bytes, node_ms: node.ms, node_bytes: node.bytes });
       } catch (e) {
-        measures.push({ history: h.join("/") || "root", tree_ms: tree.ms, tree_bytes: tree.bytes, node_ms: null, node_bytes: null, node_error: String(e).slice(0, 120) });
+        measures.push({ history: h.join("/"), tree_ms: tree.ms, tree_bytes: tree.bytes, node_ms: null, node_bytes: null, node_error: String(e).slice(0, 120) });
       }
     }
 
@@ -121,7 +133,13 @@ try {
     await page.getByTestId("tree-node").waitFor({ timeout: 60_000 });
     const ttfr = performance.now() - t0;
     await shot(page, `scale-${s.name}`);
-    results.push({ name: s.name, id: acc.id, nodes: job.num_nodes, solve_s: (Date.now() - tSubmit) / 1000, ttfr_ms: ttfr, calls: measures, ui_errors: [...uiErrors] });
+    results.push({
+      name: s.name, id: acc.id, nodes: job.num_nodes,
+      build_s: job.build_seconds, solve_s: job.elapsed_seconds,
+      scenario_wall_s: (Date.now() - tSubmit) / 1000,
+      iterations: job.iterations_run, exploitability: job.exploitability,
+      ttfr_ms: ttfr, calls: measures, ui_errors: [...uiErrors],
+    });
     console.log(`${s.name}: ttfr=${ttfr.toFixed(0)}ms uiErrors=${uiErrors.length}`);
   }
 } finally {
@@ -130,11 +148,15 @@ try {
 async function shot(p, name) {
   await p.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
 }
-fs.writeFileSync(path.join(OUT, "scale-10-1.json"), JSON.stringify(results, null, 2));
+fs.writeFileSync(path.join(OUT, "scale-10-2.json"), JSON.stringify(results, null, 2));
 for (const r of results) {
-  console.log(`\n== ${r.name} (nodes=${r.nodes}, solve=${r.solve_s.toFixed(0)}s, ttfr=${r.ttfr_ms.toFixed(0)}ms, ui_errors=${r.ui_errors.length})`);
-  for (const m of r.calls)
-    console.log(`  ${m.history}: tree ${m.tree_ms.toFixed(0)}ms/${(m.tree_bytes / 1024).toFixed(1)}KiB node ${m.node_ms === null ? `ERR ${m.node_error}` : `${m.node_ms.toFixed(0)}ms/${(m.node_bytes / 1024).toFixed(1)}KiB`}`);
+  console.log(`\n== ${r.name} (nodes=${r.nodes}, build=${r.build_s?.toFixed(1)}s, solve=${r.solve_s?.toFixed(1)}s, iters=${r.iterations}, expl=${r.exploitability}, ttfr=${r.ttfr_ms.toFixed(0)}ms, ui_errors=${r.ui_errors.length})`);
+  for (const m of r.calls) {
+    const nodeTxt = m.first_node_ms !== undefined
+      ? `first ${m.first_node_ms === null ? `ERR ${m.node_error}` : `${m.first_node_ms.toFixed(0)}ms`} warm ${m.warm_node_ms?.toFixed(0)}ms`
+      : `node ${m.node_ms === null ? `ERR ${m.node_error}` : `${m.node_ms.toFixed(0)}ms`}`;
+    console.log(`  ${m.history}: tree ${m.tree_ms === null ? "-" : `${m.tree_ms.toFixed(0)}ms/${(m.tree_bytes / 1024).toFixed(1)}KiB`} ${nodeTxt}${m.node_bytes ? `/${(m.node_bytes / 1024).toFixed(1)}KiB` : ""}`);
+  }
   for (const e of r.ui_errors) console.log(`  ui-error: ${e}`);
 }
 console.log("\nscale run complete");

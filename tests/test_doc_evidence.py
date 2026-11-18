@@ -219,6 +219,63 @@ def test_check_suites_fails_on_mutated_doc(tmp_path, case):
     )
 
 
+# Phase 10.2: run_all_tests.sh must wire all four UI contract checks, and
+# check-mutation must actually fail when the schema pipeline is broken.
+RUN_ALL = ROOT / "scripts" / "run_all_tests.sh"
+UI_DIR = ROOT / "ui"
+
+
+def test_run_all_tests_wires_all_contract_checks():
+    text = RUN_ALL.read_text()
+    for check in (
+        "check-mutation.mjs",
+        "check-schema.sh",
+        "check-no-fetch.mjs",
+        "check-bodies.mjs",
+    ):
+        assert check in text, "run_all_tests.sh does not run %s" % check
+
+
+def test_check_mutation_fails_when_schema_regen_is_noop(tmp_path):
+    """check-mutation's whole job is detecting that a mutated openapi.json
+    breaks tsc. If schema regeneration silently no-ops (schema.d.ts never
+    rewritten), tsc passes and the check MUST exit non-zero."""
+    import shutil
+
+    npx = shutil.which("npx")
+    if npx is None:
+        pytest.skip("npx not on PATH")
+    shim = tmp_path / "npx"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$1" == "openapi-typescript" ]]; then exit 0; fi\n'
+        'exec "%s" "$@"\n' % npx
+    )
+    shim.chmod(0o755)
+    import os
+
+    env = dict(os.environ, PATH="%s:%s" % (tmp_path, os.environ["PATH"]))
+    proc = subprocess.run(
+        ["node", "scripts/check-mutation.mjs"],
+        cwd=UI_DIR, env=env, capture_output=True, text=True,
+    )
+    assert proc.returncode == 1, (
+        "check-mutation passed with a no-op schema regeneration:\n"
+        + proc.stdout + proc.stderr
+    )
+
+
+def test_every_phase_doc_linked_in_progress():
+    """Every docs/PHASE*.md must have a PROGRESS.md entry linking to it."""
+    progress = (ROOT / "docs" / "PROGRESS.md").read_text()
+    missing = [
+        doc.name
+        for doc in sorted(ROOT.glob("docs/PHASE*.md"))
+        if doc.name not in progress
+    ]
+    assert not missing, "PHASE docs not linked from PROGRESS.md: %s" % missing
+
+
 def test_no_in_progress_status_with_recorded_gate(tmp_path):
     """A doc may not carry 'Status: in progress' next to a recorded gate
     result — the recorded outcome means the phase is done."""

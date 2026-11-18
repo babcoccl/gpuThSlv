@@ -125,11 +125,19 @@ Outpost systemd API on :8000, two RTX 5060 Ti workers, f32.
 Committed artifact: `scripts/phase10/logs/scale-10-1.json`
 (produced by `ui/scripts/scale-e2e.mjs`).
 
-| spot | nodes | solve (s) | viewer TTFR (ms) | UI errors |
+| spot | nodes | scenario wall (s) | viewer TTFR (ms) | UI errors |
 | --- | ---: | ---: | ---: | ---: |
 | river, broad weighted ranges | 573,031 | 49.7 | 299 | 0 |
 | turn w/ chance nodes (narrow ranges) | 442,891 | 65.2 | 1,610 | 0 |
 | river, `raise_cap: 2` + raise sizes | 95,743 | 39.4 | 2,042 | 0 |
+
+"Scenario wall" is wall-clock time from `POST /v1/solves` submit to the
+job reaching `done` — it includes the 2-GPU scheduling queue, tree build,
+solve, and strategy export, so it is **not** solve time. Build seconds,
+solve elapsed, iterations and final exploitability live on the job
+status (`GET /v1/solves/<id>`: `build_seconds`, `elapsed_seconds`,
+`iterations_run`, `exploitability`); Phase 10.2 re-measured the table
+with those fields — see `docs/PHASE10_2.md`.
 
 Per-history `/tree` and `/node` measurements (latency ms / response
 bytes):
@@ -149,10 +157,14 @@ bytes):
 Limits recorded, screens usable:
 
 - **Cold `/node` first hit ≈ 8–39 s.** `load_index` rebuilds the
-  strategy index from the exported `.npz` on the first request; later
-  calls on the same job are ~0.2–9 s depending on subtree size. The
-  viewer shows a loading state and stays interactive. A follow-up could
-  cache the index per job.
+  strategy index from the exported `.npz` on the first request. Once the
+  index is warm, `/node` still re-walks the subtree per request: ~0.2 s
+  deep in the river spot, but **8–19 s on turn and raise-cap spots**
+  (wider subtrees) — *not* ms-scale. An earlier draft of this claim and
+  the Phase 10.1 PR body described later calls as ms-scale; that was
+  wrong for the turn and raise spots, whose per-combo subtree walk
+  dominates. Phase 10.2 fixed the bottleneck — see
+  `docs/PHASE10_2.md`.
 - **`/node` 422 on chance histories is by design** (`/tree` carries the
   dealt-card children); the viewer's navigation already treats chance
   children via `/tree`.
@@ -176,7 +188,9 @@ is absolute EV difference in chips. The identical line appears in
 (verified by grep), so every ΔEV %pot column in PHASE7.md … PHASE8_6.md
 uses it. The PHASE8_5 guard fix (0.069→0.034, 0.035→0.018) matches
 this definition: the corrected values divide `ev_diff` by the root pot
-(20.0), e.g. 0.68/20.0 = 0.034 and 0.36/20.0 = 0.018.
+(20.0), e.g. −0.006892/20.0 = −0.03446% and −0.003534/20.0 = −0.01767%
+(`ev_diff_chips` for `turn-narrow-b` and `w-turn-cap0` in
+`scripts/phase8_5/runs/suite8_5.json`; the table reports |ΔEV|).
 
 ## Gate
 
