@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import time
+from pathlib import Path
 
 from holdem_solver.api import nodes as api_nodes
 from holdem_solver.api.regen_evs import main, regen_job
@@ -121,6 +122,64 @@ def test_regen_loses_race_with_retention_cleanup(tmp_path):
     finally:
         api_nodes.export_node_evs = orig_export
     assert not evs.exists()
+    store.close()
+
+
+def test_regen_loses_race_during_publish(tmp_path):
+    """A job expired between the pre-write checks and os.replace must
+    not keep the just-published companion: regen reconciles after the
+    write and removes it."""
+    job_id, strat, evs = _solved(tmp_path)
+    evs.unlink()
+    store = _store(tmp_path)
+
+    orig_write = api_nodes.write_node_evs
+
+    def expire_mid_write(*a, **kw):
+        # concurrent retention cleanup during the write: strategy gone,
+        # job expired — the publication still lands
+        strat.unlink()
+        store.set_fields(job_id, strategy_path=None,
+                         strategy_expired_at=time.time())
+        orig_write(*a, **kw)
+
+    api_nodes.write_node_evs = expire_mid_write
+    try:
+        assert regen_job(store.get(job_id), store) is False
+    finally:
+        api_nodes.write_node_evs = orig_write
+    assert not evs.exists(), "expired job regained a companion file"
+    store.close()
+
+
+def test_regen_writers_do_not_share_tmp_path(tmp_path):
+    """Overlapping migrations on one job write distinct temp files —
+    a shared deterministic .tmp would let one writer truncate the
+    other's file between write and os.replace."""
+    job_id, strat, evs = _solved(tmp_path)
+    evs.unlink()
+    store = _store(tmp_path)
+    tmps = []
+
+    orig_write = api_nodes.write_node_evs
+
+    def spy(*a, **kw):
+        tmps.append(str(kw.get("tmp_path")))
+        orig_write(*a, **kw)
+
+    api_nodes.write_node_evs = spy
+    try:
+        assert regen_job(store.get(job_id), store)
+        evs.unlink()
+        assert regen_job(store.get(job_id), store)
+    finally:
+        api_nodes.write_node_evs = orig_write
+    assert len(tmps) == 2 and tmps[0] != tmps[1]
+    assert all(t.endswith(".tmp") for t in tmps)
+    assert all(not Path(t).exists() for t in tmps)  # cleaned up
+    pair = api_nodes.load_node_evs(str(evs),
+                                   api_nodes.load_index(str(strat))[0].keys_list)
+    assert pair is not None, "final destination is not a valid archive"
     store.close()
 
 

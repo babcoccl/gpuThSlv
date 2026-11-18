@@ -366,11 +366,12 @@ def test_export_node_evs_atomic_write(tmp_path):
     assert evs_path.exists()
     loaded = api_nodes.load_node_evs(str(evs_path), keys)
     # the file must load; a combo with zero opponent mass (this synthetic
-    # index has no real reaches) is dropped per the null-parity rule, so
-    # its hist key may be absent — presence of the action when present
+    # index has no real reaches) is dropped per the null-parity rule —
+    # its hist may survive as an empty dict or be absent; when the combo
+    # is present its action row is intact
     hist = ("c", "x:c")
     assert loaded is not None
-    assert hist not in loaded[0] or "c" in loaded[0][hist]["AsKd"]
+    assert "c" in loaded[0].get(hist, {}).get("AsKd", {"c": None})
     # mid-write failure: nothing lands under the final name, no orphan .tmp
     evs_path.unlink()
     sched._open_for_write = lambda path: open("/dev/full", "wb")
@@ -679,3 +680,55 @@ def test_persisted_live_null_parity_turn_spot(tmp_path):
     assert expected == compared + null_pairs
     assert compared > 0 and null_pairs > 0, (
         f"turn spot: compared={compared} null_pairs={null_pairs}")
+
+
+def test_persisted_empty_history_serves_nulls(tmp_path):
+    """A history whose every combo has zero opp mass must survive
+    ``load_node_evs`` as an empty dict. An absent hist makes
+    ``node_values`` fall back to the live walk (and can hit
+    ``max_work``); an empty hist serves nulls exactly like the
+    in-memory table."""
+    from holdem_solver.api.strategy import parse_infoset_key
+    from holdem_solver.protocol import SpotConfig
+
+    index = _turn_index()
+    spot = SpotConfig(
+        "KsJsTh7d", "AdAc,QcQh", "AdAc", pot=20.0, stack=100.0,
+        bet_sizes="standard",
+    ).to_dict()
+    keys, acts, offsets = [], [], [0]
+    for (player, hist), rows in sorted(index.by_node.items()):
+        for hand, freqs in sorted(rows.items()):
+            keys.append("p%d|%s|%s" % (player, hand, "|".join(hist)))
+            acts.append(sorted(freqs))
+            offsets.append(offsets[-1] + len(freqs))
+    evs, masses = api_nodes.export_node_evs(index, spot)
+    flat, mass = api_nodes.pack_node_evs(
+        evs, masses, keys, acts, offsets)
+    target = ("check", "check", "river:2c")
+    for i, key in enumerate(keys):
+        parsed = parse_infoset_key(key)
+        if parsed is not None and tuple(parsed["history"]) == target:
+            mass[i] = 0.0
+    evs_path = tmp_path / "empty.evs.npz"
+    api_nodes.write_node_evs(evs_path, keys, acts, offsets, flat, mass, 0)
+    persisted, _ = api_nodes.load_node_evs(str(evs_path), keys)
+    assert persisted is not None
+    assert target in persisted and persisted[target] == {}, (
+        "zero-mass history was dropped entirely")
+
+    # served from the persisted table: per-combo null action EVs, no
+    # live-walk fallback even under a zero work limit — the same cells
+    # the in-memory table serves for a zero-opp-mass history
+    got = api_nodes.node_values(index, spot, target,
+                                node_evs=persisted, max_work=0,
+                                combos=True)
+    for hand in got["hands"]:
+        assert all(v is None for v in hand["action_evs"].values())
+        assert hand["ev"] == 0.0
+    # regression guard: dropping the hist makes the node uncached and
+    # trips the work limit instead of serving nulls
+    dropped = {h: t for h, t in persisted.items() if h != target}
+    with pytest.raises(ValueError):
+        api_nodes.node_values(index, spot, target,
+                              node_evs=dropped, max_work=0)

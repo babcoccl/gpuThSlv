@@ -20,6 +20,7 @@ import argparse
 import logging
 import os
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -60,10 +61,33 @@ def regen_job(job: dict[str, Any], store: JobStore | None = None) -> bool:
                 return False
         if not os.path.exists(path):
             return False
+        evs_path = api_nodes.evs_path_for(path)
+        # Unique temp name: two overlapping migrations on one job must not
+        # share write_node_evs' deterministic .tmp file (one writer could
+        # truncate the other's file between write and os.replace).
+        tmp = Path(str(api_nodes.tmp_path_for(evs_path)) + ".%d.%s.tmp"
+                   % (os.getpid(), uuid.uuid4().hex))
         api_nodes.write_node_evs(
-            api_nodes.evs_path_for(path), index.keys_list,
+            evs_path, index.keys_list,
             index.actions_list, index.offsets, flat, mass, iteration,
+            tmp_path=tmp,
         )
+        # Post-publish reconciliation: retention may have expired the job
+        # (deleting the strategy file and its companion) between the
+        # pre-write checks and os.replace. If so the just-published file
+        # is an orphan again — remove it instead of reporting success.
+        if store is not None:
+            current = store.get(job["id"])
+            if (
+                current is None
+                or current.get("strategy_expired_at")
+                or current.get("strategy_path") != path
+            ):
+                evs_path.unlink(missing_ok=True)
+                return False
+        if not os.path.exists(path):
+            evs_path.unlink(missing_ok=True)
+            return False
     except Exception:
         LOG.warning("job %s: evs regeneration failed", job["id"], exc_info=True)
         return False

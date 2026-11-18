@@ -169,13 +169,21 @@ worst-relative cell `2.3e-14`.
   verified (writer leaving a zero-byte dest fails the crash test).
 - `regen_evs`: regenerates live jobs, skips expired and
   missing-strategy jobs, idempotent (byte-identical rewrite), loses
-  the race against a concurrent retention cleanup (nothing written);
-  `--all` reports regenerated/skipped counts.
+  the race against a concurrent retention cleanup — both mid-compute
+  and mid-publish (post-publish reconciliation unlinks a companion
+  published for a job expired during the write); `--all` reports
+  regenerated/skipped counts. Overlapping migrations write distinct
+  per-writer temp files so concurrent processes cannot truncate each
+  other's archive.
 - Orphan sweep: a fresh `.evs.npz` companion with no strategy file
   is deleted; a fresh `.npz` orphan stays protected by age.
 - Null parity: blocker spot and turn spot both reach
   `compared + null_pairs == expected` with `null_pairs > 0` and
-  identical values/nulls on every served cell.
+  identical values/nulls on every served cell. A history whose every
+  combo has zero opponent mass survives the load as an empty dict:
+  the persisted path serves the same nulls as live even under a zero
+  work limit (a dropped hist would fall back to the live walk and hit
+  `max_work`).
 - `evec_all_nodes.json` regenerated under the single per-cell rule
   with `worst_abs_cell` / `worst_rel_cell` per check: river agg
   worst-abs 1.96e-10 (rel 9.9e-15) / worst-rel 2.29e-14; turn-chance

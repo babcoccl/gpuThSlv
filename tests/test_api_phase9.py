@@ -515,6 +515,56 @@ def test_node_first_requests_single_flight_in_memory(tmp_path):
         assert not evs_path.exists()
 
 
+def test_node_concurrent_index_loads_preserve_built_table(tmp_path):
+    """A second index loader that finishes after another request built
+    the in-memory table must reuse that entry — overwriting it with a
+    fresh (table=None) entry would rebuild the whole table."""
+    import threading
+    import time
+
+    from holdem_solver.api import nodes as api_nodes
+
+    _app, client = make_client(tmp_path, gpus=[0], engine="fake")
+    calls = {"n": 0}
+    loads = {"n": 0}
+    orig = api_nodes.export_node_evs
+    orig_load = api_nodes.load_index
+
+    def counted(index, spot):
+        calls["n"] += 1
+        return orig(index, spot)
+
+    def slow_second_load(path):
+        loads["n"] += 1
+        if loads["n"] > 1:
+            time.sleep(0.5)  # lands after the first request's build
+        return orig_load(path)
+
+    with client:
+        job_id = solved_job(client)
+        evs_path = _evs_file(tmp_path, job_id)
+        evs_path.unlink()
+        api_nodes.export_node_evs = counted
+        api_nodes.load_index = slow_second_load
+        try:
+            results = []
+
+            def hit():
+                results.append(client.get(f"/v1/solves/{job_id}/node").status_code)
+
+            threads = [threading.Thread(target=hit) for _ in range(4)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        finally:
+            api_nodes.export_node_evs = orig
+            api_nodes.load_index = orig_load
+        assert results == [200] * 4
+        assert calls["n"] == 1, calls  # no clobbered-table rebuild
+        assert not evs_path.exists()
+
+
 def test_node_chance_terminal_no_table_build(tmp_path):
     """Chance and terminal histories 422 BEFORE any table work — zero
     builds even when the job has no usable evs file."""

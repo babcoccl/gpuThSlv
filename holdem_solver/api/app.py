@@ -739,6 +739,13 @@ def create_app(
                 return hit[1], hit[2], job
         index, iteration = api_nodes.load_index(path)
         with cache_lock:
+            # A concurrent request may have loaded the same index and
+            # already built its table — keep that entry (index + table)
+            # instead of overwriting the completed table with None.
+            hit = index_cache.get(job_id)
+            if hit is not None and hit[0] == path:
+                index_cache.move_to_end(job_id)
+                return hit[1], hit[2], job
             index_cache[job_id] = (path, index, iteration, None)
             index_cache.move_to_end(job_id)
             while len(index_cache) > index_cache_jobs:
