@@ -12,8 +12,15 @@ TIMEOUT="${HOLDEM_UPGRADE_HEALTH_TIMEOUT:-120}"
 PREV="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
 [ -n "$PREV" ] && log "current release: $PREV"
 
-# 1. Backup before touching anything.
+# 1. Backup before touching anything (DB, and the env file: install.sh may
+# switch HOLDEM_SOLVER_ENGINE, which the previous release must not inherit).
 "$REPO/scripts/release/backup.sh"
+ENV_BAK=""
+if [ -f "$ENV_FILE" ]; then
+    ENV_BAK="$(mktemp "$CONF_DIR/.holdem.env.upgrade.XXXXXX")"
+    cp -p "$ENV_FILE" "$ENV_BAK"
+    trap 'rm -f "$ENV_BAK"' EXIT
+fi
 
 # 2. Build + install the new release (units already installed; env kept).
 # The call itself is guarded below: once install.sh has flipped `current`,
@@ -37,6 +44,7 @@ restart_stack() {
 
 rollback_to_prev() {
     log "upgrade to $VERSION failed ($1) — rolling back to ${PREV:-none}"
+    if [ -n "$ENV_BAK" ]; then cp -p "$ENV_BAK" "$ENV_FILE"; log "restored $ENV_FILE"; fi
     if [ -z "$PREV" ] || [ ! -d "$PREV" ]; then
         die "no previous release to roll back to; system left on $VERSION"
     fi
