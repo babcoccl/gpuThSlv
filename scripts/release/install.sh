@@ -42,6 +42,9 @@ rsync -a --delete \
     --exclude='ui/node_modules/' --exclude='ui/dist/' \
     --exclude='__pycache__/' --exclude='*.pyc' \
     "$REPO/" "$RELEASE/"
+# rsync -a applies the checkout's own mode to the release dir; the service
+# user must be able to enter it.
+chmod 0755 "$RELEASE"
 git -C "$REPO" rev-parse HEAD > "$RELEASE/GIT_SHA" 2>/dev/null || true
 # Test hook (smoke.sh only): delete a file from the release to simulate a
 # bad build so the upgrade health check fails and rollback is exercised.

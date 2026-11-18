@@ -36,6 +36,9 @@ rollback_to_prev() {
     if [ -z "$PREV" ] || [ ! -d "$PREV" ]; then
         die "no previous release to roll back to; system left on $VERSION"
     fi
+    if [ "$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)" = "$PREV" ]; then
+        die "failure happened before the release switch; live stack untouched on $(basename "$PREV")"
+    fi
     ln -sfn "$PREV" "$CURRENT_LINK"
     restart_stack || true
     if wait_healthy "$TIMEOUT"; then

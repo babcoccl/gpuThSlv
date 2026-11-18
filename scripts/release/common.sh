@@ -18,7 +18,8 @@ BACKUP_DIR="${HOLDEM_BACKUP_DIR:-$DATA_DIR/backups}"
 # Health-check endpoint: an explicit HOLDEM_API_HOST/PORT in the caller's
 # environment wins; else the persisted env file (what the service actually
 # binds); else the defaults.
-_env_val() { grep "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true; }
+# systemd strips surrounding quotes in EnvironmentFile; do the same.
+_env_val() { grep "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | sed "s/^[\"']//; s/[\"']\$//" || true; }
 API_PORT="${HOLDEM_API_PORT:-$(_env_val HOLDEM_API_PORT)}"
 API_PORT="${API_PORT:-8000}"
 API_HOST="${HOLDEM_API_HOST:-$(_env_val HOLDEM_API_HOST)}"
