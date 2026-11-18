@@ -178,10 +178,18 @@ _check_gpus() {
 }
 
 _check_port() {
-    if [ -z "$(ss -Hltn "sport = :$API_PORT" 2>/dev/null)" ]; then
+    local listen code
+    if ! command -v ss >/dev/null 2>&1; then
+        check_item FAIL port "ss not found (install iproute2); cannot check $API_PORT"; return
+    fi
+    listen="$(ss -Hltn "sport = :$API_PORT")" || { check_item FAIL port "ss failed; cannot check $API_PORT"; return; }
+    # 200 ok or 503 degraded: either way it is the installed API answering
+    # (a degraded release must still be upgradable).
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://$API_HOST:$API_PORT/healthz" 2>/dev/null || true)"
+    if [ -z "$listen" ]; then
         check_item PASS port "$API_HOST:$API_PORT free"
-    elif [ -L "$CURRENT_LINK" ] && health_ok; then
-        check_item PASS port "$API_PORT in use by the installed holdem API (upgrade/reinstall)"
+    elif [ -L "$CURRENT_LINK" ] && { [ "$code" = 200 ] || [ "$code" = 503 ]; }; then
+        check_item PASS port "$API_PORT in use by the installed holdem API (healthz $code; upgrade/reinstall)"
     else
         check_item FAIL port "$API_PORT in use: $(ss -Hltnp "sport = :$API_PORT" 2>/dev/null | head -1 | tr -s ' ')"
     fi
