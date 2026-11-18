@@ -285,5 +285,9 @@ Entries added for 10.3 and 10.4.
 
 ## Gate
 
-`scripts/run_all_tests.sh` on the outpost: results recorded below at
-run time.
+`scripts/run_all_tests.sh` on the outpost: **PASS** — engine suite 207
+passed/7 skipped, api suite 284 passed, every `tests/test_*.py`
+collected by at least one venv, all ui contract checks green
+(check-bodies, check-no-fetch, check-mutation, check-schema). Negative
+tests fail as expected (`test_compare_cells.py` mutations; doc-guard
+mutation tests for PHASE10_2/PHASE10_3 rows and cells).
