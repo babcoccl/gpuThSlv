@@ -196,9 +196,9 @@ short/absent mass, bad offsets → `None`; each corruption served through
 `/node` falls back to live values identical to the persisted table;
 no exception escapes. A scheduler-level test drives
 `_export_node_evs` with `open("/dev/full")` and asserts neither a
-final file nor a `.tmp` survives. Note: pre-10.4 evs.npz files carry no
-checksum and are now declined — the three scale jobs' files were
-regenerated.
+final file nor a `.tmp` survives. Files exported before Phase 10.4
+carry no checksum and are now declined — the three scale jobs' files
+were regenerated.
 
 ### 2 — compared/expected accounting
 

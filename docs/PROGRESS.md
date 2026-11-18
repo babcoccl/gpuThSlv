@@ -463,8 +463,8 @@
   derived from the tree; wired into `evec_all_nodes.py`,
   `brute_turn_ev.py`, `brute_ev.py` and the api-side validation stage;
   failures on `compared == 0` or unexplained omissions. Regenerated
-  `evec_all_nodes.json` (all compared == expected: 2,926 / 33,264 /
-  3,200 cells) and `brute_turn_ev.json` (6/6 histories).
+  `evec_all_nodes.json` (compared == expected on all spots: 2,926;
+  33,264; 3,200 cells) and `brute_turn_ev.json` (all six histories).
 - Import boundary enforced: `validate_node_evs.py` split into an engine
   stage (solve + dump checks) and `validate_node_evs_api.py` (evec /
   persisted / served paths in `.venv-api`); the lazy `api/__init__.py`
