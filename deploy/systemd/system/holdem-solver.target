@@ -1,3 +1,4 @@
+# holdem-release-unit prefix=@PREFIX@ (rendered by scripts/release/install.sh)
 [Unit]
 Description=holdem-solver (API + one engine worker per GPU)
 Wants=holdem-api.service holdem-worker@0.service holdem-worker@1.service

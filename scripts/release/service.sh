@@ -22,7 +22,7 @@ start() {
             continue
         fi
         CUDA_VISIBLE_DEVICES="$g" setsid "$CURRENT_LINK/.venv-engine/bin/python" \
-            -m holdem_solver.engine_worker --engine real --gpu "$g" \
+            -m holdem_solver.engine_worker --engine "${HOLDEM_SOLVER_ENGINE:-real}" --gpu "$g" \
             >>"$LOG_DIR_RUN/worker-$g.log" 2>&1 &
         echo $! > "$PID_DIR/worker-$g.pid"
     done

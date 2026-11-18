@@ -27,13 +27,39 @@ API_HOST="${API_HOST:-127.0.0.1}"
 HOLDEM_USER="${HOLDEM_USER:-holdem}"
 HOLDEM_GROUP="${HOLDEM_GROUP:-$HOLDEM_USER}"
 HOLDEM_GPUS="${HOLDEM_GPUS:-0,1}"
-# Pinned interpreters (full paths; never resolved via PATH at install time).
-API_PYTHON="${HOLDEM_API_PYTHON:-/usr/bin/python3.15}"
-ENGINE_PYTHON="${HOLDEM_ENGINE_PYTHON:-$HOME/.local/bin/python3.9}"
+# Pinned interpreter versions. Interpreters are discovered by
+# discover_python (preflight.sh): explicit HOLDEM_API_PYTHON /
+# HOLDEM_ENGINE_PYTHON, then $PYTHON_ROOT/**, then system paths — never
+# $HOME, /root or /run/user (ProtectHome=yes hides them from the units).
+API_PY_VERSION="3.15.2"
+ENGINE_PY_SERIES="3.9"
+PYTHON_ROOT="${HOLDEM_PYTHON_ROOT:-/opt/holdem/python}"
+SYSTEM_PY_DIRS="${HOLDEM_SYSTEM_PYTHON_DIRS:-/usr/local/bin /usr/bin}"
+FORBIDDEN_PREFIXES="${HOLDEM_FORBIDDEN_PREFIXES:-/home /root /run/user}"
+API_PYTHON="${HOLDEM_API_PYTHON:-}"
+ENGINE_PYTHON="${HOLDEM_ENGINE_PYTHON:-}"
+# Engine for this install: explicit HOLDEM_INSTALL_ENGINE, else what the
+# existing env file runs, else real. fake = no GPU (acceptance on CI/VMs).
+INSTALL_ENGINE="${HOLDEM_INSTALL_ENGINE:-$(_env_val HOLDEM_SOLVER_ENGINE)}"
+INSTALL_ENGINE="${INSTALL_ENGINE:-real}"
+GPUCFR_DIR="${HOLDEM_GPUCFR_DIR:-$REPO/third_party/GPU-CFR}"
+SYSTEMD_UNIT_DIR="${HOLDEM_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+DEVICE_GROUPS="${HOLDEM_DEVICE_GROUPS:-video render}"
 # Test hooks: HOLDEM_NO_SYSTEMD=1 launches processes directly instead of
 # installing units; HOLDEM_STUB_VENVS=1 creates empty venv dirs (tests only).
 NO_SYSTEMD="${HOLDEM_NO_SYSTEMD:-}"
 STUB_VENVS="${HOLDEM_STUB_VENVS:-}"
+
+# T1 root+systemd PID 1 (not a container), T2 same inside a container,
+# T3 root without systemd, T4 no root. See docs/PHASE11_1.md.
+detect_tier() {
+    [ "$(id -u)" -eq 0 ] || { echo T4; return; }
+    if [ "$(ps -p 1 -o comm= 2>/dev/null)" = systemd ]; then
+        if systemd-detect-virt -cq 2>/dev/null; then echo T2; else echo T1; fi
+    else
+        echo T3
+    fi
+}
 
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }

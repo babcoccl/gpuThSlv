@@ -26,6 +26,10 @@ restart_stack() {
         IFS=',' read -ra gpu_ids <<< "$HOLDEM_GPUS"
         units="holdem-api.service"
         for g in "${gpu_ids[@]}"; do units="$units holdem-worker@$g.service"; done
+        # A crash-looping release can exhaust StartLimitBurst; without the
+        # reset, systemd refuses the rollback's restart (found in Phase 11.1).
+        # shellcheck disable=SC2086
+        systemctl reset-failed $units 2>/dev/null || true
         # shellcheck disable=SC2086
         systemctl restart $units
     fi

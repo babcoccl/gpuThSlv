@@ -1,3 +1,4 @@
+# holdem-release-unit prefix=@PREFIX@ (rendered by scripts/release/install.sh)
 # One instance per GPU: `systemctl start holdem-worker@0 holdem-worker@1`.
 # The GPU is chosen by the instance name (%i) via CUDA_VISIBLE_DEVICES.
 [Unit]
@@ -20,7 +21,7 @@ Environment=HOLDEM_SOLVER_RUNTIME_DIR=@RUNDIR@
 RuntimeDirectory=@RUNNAME@
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
-ExecStart=@PREFIX@/current/.venv-engine/bin/python -m holdem_solver.engine_worker --engine real --gpu %i
+ExecStart=@PREFIX@/current/.venv-engine/bin/python -m holdem_solver.engine_worker --engine ${HOLDEM_SOLVER_ENGINE} --gpu %i
 Restart=always
 RestartSec=2
 # Graceful shutdown: the worker finishes the current RPC then exits.
