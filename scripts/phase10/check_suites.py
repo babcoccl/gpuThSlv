@@ -63,9 +63,9 @@ def num_close(doc: Path, cell: str, ref: float, what: str) -> None:
         fail(doc, f"{what}: unparseable number {cell!r}")
         return
     tol = 0.5 * 10 ** (-decimals(cell))
-    # float slack proportional to the tolerance: a fixed 1e-9 would exceed
-    # half the displayed unit for sci-notation cells like 2.07e-07.
-    if abs(v - ref) > tol + max(1e-12, tol * 1e-6):
+    # float slack proportional to the tolerance — a fixed floor (even
+    # 1e-12) would exceed half the displayed unit for cells like 6.4e-14.
+    if abs(v - ref) > tol + tol * 1e-6 + abs(ref) * 1e-15:
         fail(doc, f"{what}: doc {cell} vs artifact {ref!r}")
 
 
