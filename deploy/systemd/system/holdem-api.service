@@ -1,3 +1,4 @@
+# holdem-release-unit prefix=@PREFIX@ (rendered by scripts/release/install.sh)
 # System-wide unit (installed by scripts/release/install.sh; needs root).
 # Assumes: `holdem` user, release tree at @PREFIX@/current with both venvs
 # built, @CONFDIR@/holdem.env (0600, root), @DATADIR@ data dir.

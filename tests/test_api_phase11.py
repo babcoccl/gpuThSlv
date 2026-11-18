@@ -91,6 +91,8 @@ def test_install_idempotent_stub(tmp_path):
         "HOLDEM_NO_SYSTEMD": "1",
         "HOLDEM_STUB_VENVS": "1",
         "HOLDEM_API_PYTHON": "/usr/bin/python3",
+        "HOLDEM_INSTALL_ENGINE": "fake",
+        "HOLDEM_API_PORT": "18799",
     }
     for _ in range(2):
         subprocess.run(

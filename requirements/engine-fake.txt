@@ -1,0 +1,3 @@
+# Fake engine venv (HOLDEM_INSTALL_ENGINE=fake): holdem_solver.engine_worker.fake
+# imports numpy only — no torch/triton/CUDA wheels, no gpu_cfr.
+numpy==2.0.2

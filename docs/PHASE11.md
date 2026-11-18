@@ -51,7 +51,7 @@ Written before implementation; each names its evidence.
   and states plainly: GPU-CFR has no license file upstream (a CC BY-NC-SA
   badge only), this system is private-use and not redistributed, and the
   install expects the user's own GPU-CFR copy at the configured path.
-- Test: `tests/test_phase11.py::test_no_vendored_binaries`,
+- Test: `tests/test_api_phase11.py::test_no_vendored_binaries`,
   `test_licenses_doc_complete` (required strings present).
 
 ### T2 — install
@@ -67,8 +67,8 @@ Written before implementation; each names its evidence.
   keys identical.
 - Unit files render with the install paths; `systemd-analyze verify` passes
   when systemd is available (skipped otherwise).
-- Test: `tests/test_phase11.py::test_install_smoke` (shells out to a
-  scratch prefix with `HOLDEM_NO_VENVS=1` stub pip installs so it runs in
+- Test: `tests/test_api_phase11.py::test_install_idempotent_stub` (shells out to a
+  scratch prefix with `HOLDEM_STUB_VENVS=1` stub pip installs so it runs in
   CI time) + the real run in `smoke.sh` (T6).
 
 ### T3 — systemd + /healthz
@@ -87,12 +87,12 @@ Written before implementation; each names its evidence.
   `status: "degraded"` and the failing checks otherwise.
 - `GET /version` returns `{version, git_sha}`.
 - Test: `test_healthz_degraded_when_worker_down`,
-  `test_healthz_reports_gpus_and_disk`, `test_version_endpoint`,
-  `test_healthz_ok` (existing test updated for the new payload).
+  `test_healthz_ok_reports_workers_gpus_disk`,
+  `test_healthz_degraded_when_disk_full`, `test_version_endpoint`.
 
 ### T4 — TLS/proxy and auth
 
-- `docs/RUNBOOK.md` documents the Caddy config (internal CA via
+- `RUNBOOK.md` (repo root) documents the Caddy config (internal CA via
   `tls internal`), with `flush_interval -1` / `X-Accel-Buffering` handling
   so SSE stays unbuffered, and `HOLDEM_SECURE_COOKIES=1` in the env file so
   cookies are `Secure; HttpOnly; SameSite=Strict` end to end through the
@@ -119,7 +119,8 @@ Written before implementation; each names its evidence.
 ### T6 — acceptance (`smoke.sh`)
 
 Against a throwaway prefix + user, all recorded into
-`scripts/release/smoke-results/<ts>.log`:
+`scripts/release/smoke-results/<ts>-<tier>-<engine>.log` (named so in
+Phase 11.1; see `docs/PHASE11_1.md`):
 
 1. fresh install; `/healthz` ok; `/version` answers;
 2. login → cookie; `POST /v1/solves` estimate+solve on both GPUs
@@ -144,13 +145,16 @@ Against a throwaway prefix + user, all recorded into
 
 ### Results (2026-11-18 run on the outpost)
 
-- `scripts/release/smoke.sh` — PASS; log
-  `scripts/release/smoke-results/20261118-145247.log` (fresh install, login,
+- `scripts/release/smoke.sh` — PASS on the outpost (fresh install, login,
   estimate, two solves on GPUs 0+1, `/node`, SSE reconnect, `/ui/`, restore
   drill, upgrade healthy, forced-failure rollback healthy). Smoke ran with
   `HOLDEM_NO_SYSTEMD=1` (no root in the session): `service.sh` drove the
-  same unit layout; system units are rendered by `install.sh` and
-  syntax-checked in tests.
+  same unit layout; system units were rendered by `install.sh` and
+  syntax-checked in tests, not run. *Reconciled in Phase 11.1:* the log
+  this line originally cited was never committed (`smoke-results/` was
+  gitignored); logs are now committed and named
+  `<ts>-<tier>-<engine>.log`, and the real systemd path was first run in
+  Phase 11.1 (T1, fake engine — `docs/PHASE11_1.md`).
 - `npm run e2e:real` — PASS (login → estimate → solve on both GPUs →
   strategy viewer → spot library).
 - Scale run `node scripts/scale-e2e.mjs` — committed artifact
@@ -162,6 +166,7 @@ Against a throwaway prefix + user, all recorded into
 - First `/node` on a declined `evs.npz` (strategy-c5f4a72a2bd2, 442,891
   nodes; file moved aside, API restarted, in-memory compute): first call
   16.65 s, warm call 2 ms. The evs file was restored afterwards.
-- `scripts/run_all_tests.sh` — engine suite 217 passed / 7 skipped; api
-  suite 329 passed / 1 skipped; ui contract checks green; evidence guard
-  green.
+- `scripts/run_all_tests.sh` — green on the outpost. *Reconciled in
+  Phase 11.1:* the suite counts first written here had no committed gate
+  log behind them and were removed; current counts and their committed log
+  are in `docs/PHASE11_1.md`.

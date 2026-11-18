@@ -16,13 +16,17 @@ start() {
     set -a; . "$ENV_FILE"; set +a
     export HOLDEM_API_DATA_DIR="$DATA_DIR" HOLDEM_SOLVER_RUNTIME_DIR="$RUN_DIR"
     export PYTHONPATH="$CURRENT_LINK"
+    # Same as the units' WorkingDirectory: `python -m` puts the cwd first on
+    # sys.path, so launching from a checkout would run the checkout's code
+    # instead of the release's (found in Phase 11.1).
+    cd "$CURRENT_LINK"
     IFS=',' read -ra gpu_ids <<< "$HOLDEM_GPUS"
     for g in "${gpu_ids[@]}"; do
         if [ -f "$PID_DIR/worker-$g.pid" ] && kill -0 "$(cat "$PID_DIR/worker-$g.pid")" 2>/dev/null; then
             continue
         fi
         CUDA_VISIBLE_DEVICES="$g" setsid "$CURRENT_LINK/.venv-engine/bin/python" \
-            -m holdem_solver.engine_worker --engine real --gpu "$g" \
+            -m holdem_solver.engine_worker --engine "${HOLDEM_SOLVER_ENGINE:-real}" --gpu "$g" \
             >>"$LOG_DIR_RUN/worker-$g.log" 2>&1 &
         echo $! > "$PID_DIR/worker-$g.pid"
     done

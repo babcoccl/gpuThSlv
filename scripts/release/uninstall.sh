@@ -28,8 +28,9 @@ rm -f "$ENV_FILE"
 log "removed $CURRENT_LINK and $ENV_FILE"
 
 if [ -n "$PURGE" ]; then
-    rm -rf "$RELEASES" "$DATA_DIR"
-    log "purged $RELEASES and $DATA_DIR"
+    rm -rf "$RELEASES" "$DATA_DIR" "$RUN_DIR"
+    rmdir "$PREFIX" 2>/dev/null || true
+    log "purged $RELEASES, $DATA_DIR and $RUN_DIR"
 else
     log "kept $RELEASES and $DATA_DIR (pass --purge to remove)"
 fi

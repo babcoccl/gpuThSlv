@@ -18,6 +18,7 @@
 
 | [LICENSES.md](LICENSES.md) | Third-party license inventory (private-use statement) |
 | [PHASE11.md](PHASE11.md) | Native single-host release: install, systemd, TLS, backups, smoke |
+| [PHASE11_1.md](PHASE11_1.md) | Real install path: preflight `--check`, interpreter discovery, fake-engine systemd acceptance (T1), cutover; operator-verifies list |
 
 Root docs: [README.md](../README.md) (architecture diagram, game rules,
 API usage), [RUNBOOK.md](../RUNBOOK.md) (release operations),

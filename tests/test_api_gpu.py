@@ -11,7 +11,21 @@ import pytest
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
-pytestmark = pytest.mark.gpu
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+
+def _cuda_gpu_visible() -> bool:
+    smi = shutil.which("nvidia-smi")
+    return bool(smi) and subprocess.run([smi, "-L"], capture_output=True).returncode == 0
+
+
+# The engine suite skips its CUDA tests without a GPU; do the same here
+# (a GPU-less box would otherwise solve on CPU and report no VRAM).
+pytestmark = [
+    pytest.mark.gpu,
+    pytest.mark.skipif(not _cuda_gpu_visible(), reason="no CUDA GPU (nvidia-smi -L failed)"),
+]
 
 from holdem_solver.api import create_app  # noqa: E402
 
