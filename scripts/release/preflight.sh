@@ -197,7 +197,12 @@ _check_units() {
         [ -f "$f" ] || continue
         case "$(basename "$f")" in
             holdem-api.service|holdem-worker@.service|holdem-solver.target)
-                grep -qx "# holdem-release-unit prefix=$PREFIX .*" "$f" && continue ;;  # ours
+                grep -qx "# holdem-release-unit prefix=$PREFIX .*" "$f" && continue  # ours
+                # Phase 11 rendered the same units without the marker.
+                if [ -L "$CURRENT_LINK" ] && { grep -q "$PREFIX/current/" "$f" \
+                    || grep -qx 'Description=holdem-solver (API + one engine worker per GPU)' "$f"; }; then
+                    continue
+                fi ;;
         esac
         conflicts="$conflicts $f"
     done
