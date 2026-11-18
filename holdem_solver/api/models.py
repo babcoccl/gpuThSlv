@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from holdem_solver.protocol import DEFAULT_MAX_NODES
 
@@ -139,6 +139,17 @@ class SpotSpec(BaseModel):
     board: list[str] | str = Field(max_length=32, description="5 river cards (or 4 for a turn spot)")
     range0: str = Field(max_length=4096)
     range1: str = Field(max_length=4096)
+
+    @field_validator("range0", "range1", mode="before")
+    @classmethod
+    def _coerce_ranges(cls, value: Any) -> Any:
+        """Spots saved before Phase 10.1 may carry list-valued ranges;
+        ``SpotConfig.__post_init__`` joins them — match that coercion."""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (list, tuple)):
+            return ",".join(str(token) for token in value)
+        return value
     pot: float = 20.0
     stack: float = 100.0
     bet_sizes: BetSizes = Field(
