@@ -142,6 +142,21 @@ def test_load_node_evs_roundtrip_and_stale_keys(tmp_path):
     assert api_nodes.load_node_evs(str(tmp_path / "missing.evs.npz"), keys) is None
 
 
+def test_compat_all_clamps_cancellation_residue():
+    """Every opponent combo conflicting must yield exactly 0 — not positive
+    fp residue that callers would divide by."""
+    r_opp = np.zeros(evec._N)
+    # combo AsKd conflicts: AsQh shares As, KdQc shares Kd.
+    # 0.1 + 0.2 - 0.1 - 0.2 leaves ~4e-18 residue without clamping.
+    for combo, w in (("AsQh", 0.1), ("KdQc", 0.2)):
+        r_opp[evec._gid(combo)] = w
+    comp = evec._compat_all(r_opp)
+    assert comp[evec._gid("AsKd")] == 0.0
+    assert comp.min() == 0.0
+    # a genuinely compatible combo keeps its mass
+    assert abs(comp[evec._gid("3h4d")] - 0.3) < 1e-12
+
+
 def test_node_values_uses_persisted_evs():
     index = fake_index()
     spot = RIVER_SPOT.to_dict()

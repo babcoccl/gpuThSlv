@@ -9,12 +9,14 @@ from holdem_solver.protocol import SpotConfig
 from holdem_solver.protocol.cards import card_id, combo_str, parse_cards
 from holdem_solver.protocol.evwalk import (
     TreeIndex,
+    _rank7,
     apply_action,
     initial_reaches,
     node_action_evs,
     parse_history,
     reach_at,
     root_ev,
+    rank7,
     walk,
 )
 
@@ -145,3 +147,13 @@ def test_walk_fold_payoff():
     profit = walk(single, (), (0.0, 0.0), {"AsAh": 1.0}, {"QhQd": 1.0},
                   board_now, 20.0)
     assert abs(profit - 10.0) < 1e-6
+
+
+def test_rank7_cache_is_bounded():
+    """Job export fills the rank cache without viewer requests; it must be
+    bounded, not per-board unbounded growth."""
+    info = _rank7.cache_info()
+    assert info.maxsize is not None and info.maxsize > 0
+    assert rank7(tuple(card_id(c) for c in ("As", "Ks", "Qs", "Js", "Ts"))) == rank7(
+        (card_id("Ts"), card_id("Js"), card_id("Qs"), card_id("Ks"), card_id("As"))
+    )

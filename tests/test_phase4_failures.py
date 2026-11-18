@@ -4,6 +4,7 @@ that fix them. Fake-engine workers; no GPU needed."""
 
 import os
 import signal
+from pathlib import Path  # noqa: E402
 import socket
 import subprocess
 import sys
@@ -343,12 +344,17 @@ def test_strategy_retention_cleanup(tmp_path):
         os.utime(old_orphan, (time.time() - 7200, time.time() - 7200))
         new_orphan = data_dir / "strategy-cafebabe.npz.tmp"
         new_orphan.write_bytes(b"x")
+        # the .evs.npz companion of a live strategy is not an orphan —
+        # deleting it would degrade /node to the slow fallback walk
+        evs = Path(path).with_suffix(".evs.npz")
+        evs.write_bytes(b"x")
+        os.utime(evs, (time.time() - 7200, time.time() - 7200))
         scheduler = client.app.state.scheduler
         assert scheduler.cleanup_strategies(time.time()) == {"expired": 0, "removed": 0, "orphans": 1}
-        assert os.path.exists(path) and new_orphan.exists() and not old_orphan.exists()
+        assert os.path.exists(path) and evs.exists() and new_orphan.exists() and not old_orphan.exists()
         result = scheduler.cleanup_strategies(time.time() + 7200)
         assert result["expired"] == 1 and result["removed"] == 1
-        assert not os.path.exists(path)
+        assert not os.path.exists(path) and not evs.exists()
         assert client.get(f"/v1/solves/{job['id']}/strategy").status_code == 410
         status = client.get(f"/v1/solves/{job['id']}").json()
         assert not status["strategy_available"] and status["strategy_expired_at"]

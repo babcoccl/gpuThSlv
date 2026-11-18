@@ -474,6 +474,10 @@ class Scheduler:
             self._store.set_fields(job["id"], strategy_path=None, strategy_expired_at=now)
             expired += 1
         known = self._store.strategy_paths()
+        # The .evs.npz companions of live strategies are not in the jobs
+        # table — without this the orphan sweep deletes them (including for
+        # pinned jobs), degrading /node to the slow fallback walk.
+        known |= {str(Path(p).with_suffix(".evs.npz")) for p in known}
         orphans = 0
         for path in self._data_dir.glob("strategy-*.npz*"):
             if str(path) in known:
