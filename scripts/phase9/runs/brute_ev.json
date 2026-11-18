@@ -12,6 +12,7 @@
     "worst_combo": null,
     "api_evec_max_abs_diff": 0.0,
     "api_persisted_max_abs_diff": 0.0,
+    "api_served_max_abs_diff": 0.0,
     "ok": true
    },
    "check": {
@@ -23,6 +24,7 @@
     "worst_combo": null,
     "api_evec_max_abs_diff": 0.0,
     "api_persisted_max_abs_diff": 0.0,
+    "api_served_max_abs_diff": 0.0,
     "ok": true
    }
   },
@@ -47,6 +49,7 @@
     "worst_combo": "2c2h",
     "api_evec_max_abs_diff": 0.0,
     "api_persisted_max_abs_diff": 0.0,
+    "api_served_max_abs_diff": 0.0,
     "ok": true
    },
    "check": {
@@ -58,6 +61,7 @@
     "worst_combo": "AcKd",
     "api_evec_max_abs_diff": 5.329070518200751e-15,
     "api_persisted_max_abs_diff": 5.329070518200751e-15,
+    "api_served_max_abs_diff": 5.329070518200751e-15,
     "ok": true
    }
   },

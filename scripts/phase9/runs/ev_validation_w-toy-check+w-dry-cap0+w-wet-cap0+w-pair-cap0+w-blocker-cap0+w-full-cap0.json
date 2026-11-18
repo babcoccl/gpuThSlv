@@ -27,8 +27,8 @@
    "w-blocker-cap0",
    "w-full-cap0"
   ],
-  "git_commit": "5d1c310231cb72c6660f4a511c6da3a80d2391d9",
-  "generated_at": "2026-11-18T02:01:02.516615+00:00",
+  "git_commit": "2f7d5d83796cc6fe102d972aff54d1f8bb8e4fcc",
+  "generated_at": "2026-11-18T02:17:37.953736+00:00",
   "comparisons": {
    "w-toy-check": {
     "node_evs_compared": 84,
@@ -79,8 +79,8 @@
    },
    "root_ev_own_tree": {
     "evwalk": 10.012043746335033,
-    "profile_value_p0": 10.012043746335024,
-    "abs_diff": 8.881784197001252e-15,
+    "profile_value_p0": 10.012043746335038,
+    "abs_diff": 5.329070518200751e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -94,8 +94,9 @@
    "node_evs_api_persisted": {
     "compared": 84,
     "max_abs_diff": 7.105427357601002e-15,
+    "served_max_abs_diff": 7.105427357601002e-15,
     "ok": true,
-    "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"
+    "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"
    },
    "ok": true
   },
@@ -118,24 +119,25 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": 8.456054258367727,
-    "profile_value_p0": 8.456054258367734,
-    "abs_diff": 7.105427357601002e-15,
+    "evwalk": 8.456054258367729,
+    "profile_value_p0": 8.456054258367729,
+    "abs_diff": 0.0,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
    },
    "node_evs_api_evec": {
     "compared": 273,
-    "max_abs_diff": 2.842170943040401e-14,
+    "max_abs_diff": 1.4210854715202004e-14,
     "ok": true,
     "path": "evec.node_action_evs (live vectorized walk)"
    },
    "node_evs_api_persisted": {
     "compared": 273,
-    "max_abs_diff": 2.842170943040401e-14,
+    "max_abs_diff": 1.4210854715202004e-14,
+    "served_max_abs_diff": 1.4210854715202004e-14,
     "ok": true,
-    "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"
+    "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"
    },
    "ok": true
   },
@@ -158,24 +160,25 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": -8.847019809150341,
-    "profile_value_p0": -8.847019809150346,
-    "abs_diff": 5.329070518200751e-15,
+    "evwalk": -8.847019809150343,
+    "profile_value_p0": -8.847019809150353,
+    "abs_diff": 1.0658141036401503e-14,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
    },
    "node_evs_api_evec": {
     "compared": 392,
-    "max_abs_diff": 2.1316282072803006e-14,
+    "max_abs_diff": 1.4210854715202004e-14,
     "ok": true,
     "path": "evec.node_action_evs (live vectorized walk)"
    },
    "node_evs_api_persisted": {
     "compared": 392,
-    "max_abs_diff": 2.1316282072803006e-14,
+    "max_abs_diff": 1.4210854715202004e-14,
+    "served_max_abs_diff": 1.0658141036401503e-14,
     "ok": true,
-    "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"
+    "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"
    },
    "ok": true
   },
@@ -199,23 +202,24 @@
    },
    "root_ev_own_tree": {
     "evwalk": -5.692547638814186,
-    "profile_value_p0": -5.692547638814183,
-    "abs_diff": 2.6645352591003757e-15,
+    "profile_value_p0": -5.692547638814181,
+    "abs_diff": 4.440892098500626e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
    },
    "node_evs_api_evec": {
     "compared": 266,
-    "max_abs_diff": 3.552713678800501e-14,
+    "max_abs_diff": 3.197442310920451e-14,
     "ok": true,
     "path": "evec.node_action_evs (live vectorized walk)"
    },
    "node_evs_api_persisted": {
     "compared": 266,
-    "max_abs_diff": 3.552713678800501e-14,
+    "max_abs_diff": 3.197442310920451e-14,
+    "served_max_abs_diff": 1.4210854715202004e-14,
     "ok": true,
-    "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"
+    "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"
    },
    "ok": true
   },
@@ -238,24 +242,25 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": -10.08364711740907,
-    "profile_value_p0": -10.083647117409079,
-    "abs_diff": 8.881784197001252e-15,
+    "evwalk": -10.084068002946621,
+    "profile_value_p0": -10.08406800294662,
+    "abs_diff": 1.7763568394002505e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
    },
    "node_evs_api_evec": {
     "compared": 259,
-    "max_abs_diff": 3.907985046680551e-14,
+    "max_abs_diff": 2.842170943040401e-14,
     "ok": true,
     "path": "evec.node_action_evs (live vectorized walk)"
    },
    "node_evs_api_persisted": {
     "compared": 259,
-    "max_abs_diff": 3.907985046680551e-14,
+    "max_abs_diff": 2.842170943040401e-14,
+    "served_max_abs_diff": 2.842170943040401e-14,
     "ok": true,
-    "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"
+    "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"
    },
    "ok": true
   },
@@ -278,9 +283,9 @@
     "dtype": "float64 (dump JSON doubles; walk in Python float)"
    },
    "root_ev_own_tree": {
-    "evwalk": 1.3939801881981302,
-    "profile_value_p0": 1.3939801881981295,
-    "abs_diff": 6.661338147750939e-16,
+    "evwalk": 1.3939801881981315,
+    "profile_value_p0": 1.3939801881981275,
+    "abs_diff": 3.9968028886505635e-15,
     "ok": true,
     "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
     "dtype": "float64"
@@ -294,8 +299,9 @@
    "node_evs_api_persisted": {
     "compared": 512,
     "max_abs_diff": 2.1316282072803006e-14,
+    "served_max_abs_diff": 2.1316282072803006e-14,
     "ok": true,
-    "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"
+    "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs -> node_values (as /node serves)"
    },
    "ok": true
   }

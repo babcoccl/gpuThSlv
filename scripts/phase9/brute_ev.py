@@ -561,8 +561,10 @@ def main():
         hmap = HistMap(tree)
 
         from holdem_solver.api import evec  # API-path EVs (numpy vectorized)
-        from holdem_solver.api.nodes import export_node_evs
-        evs_persisted, _ = export_node_evs(index, spot.to_dict())
+        from scripts.phase9.validate_node_evs import (
+            persisted_roundtrip, served_hand_evs,
+        )
+        evs_persisted = persisted_roundtrip(index, spot.to_dict())
 
         spot_out = {"pot": pot, "tol_chips": limit, "nodes": {}}
         # root node (player 0) + one child node: the check child (player 1)
@@ -575,12 +577,15 @@ def main():
             ref = node_action_evs(index, hist, reach0, reach1, board_now, pot)
             api_live = evec.node_action_evs(index, hist, reach0, reach1,
                                             board_now, pot)
-            api_persisted = evs_persisted.get((player, hist), {})
+            api_persisted = evs_persisted.get(hist, {})
+            api_served = served_hand_evs(
+                index, spot.to_dict(), hist, evs_persisted)
             node_rows = index.rows_at[hist]
             compared = 0
             max_diff = 0.0
             api_live_max = 0.0
             api_persisted_max = 0.0
+            api_served_max = 0.0
             worst = None
             skipped = {}
             for combo_key in node_rows:
@@ -597,6 +602,9 @@ def main():
                     float(freqs.get(a, 0.0)) * float(ev_parts[a])
                     for a in ev_parts
                 )
+                sv = api_served.get(combo_key)
+                if sv is not None:
+                    api_served_max = max(api_served_max, abs(sv - hand_ev))
                 # API paths: same hand EV from live evec and from the
                 # persisted evs.npz table (as /node serves it)
                 for table, acc in ((api_live, "live"),
@@ -637,8 +645,10 @@ def main():
                 "worst_combo": worst,
                 "api_evec_max_abs_diff": api_live_max,
                 "api_persisted_max_abs_diff": api_persisted_max,
+                "api_served_max_abs_diff": api_served_max,
                 "ok": max_diff <= limit and compared > 0
-                      and api_live_max <= limit and api_persisted_max <= limit,
+                      and api_live_max <= limit and api_persisted_max <= limit
+                      and api_served_max <= limit,
             }
             worst_overall = max(worst_overall, max_diff)
             print("  %s: %d of %d combos compared, max |d|=%r (tol %.3f) "
