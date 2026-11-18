@@ -33,8 +33,11 @@ case "$TIER" in
     T3) die "T3: root but PID 1 is not systemd — system units cannot run here; use smoke.sh + systemd-analyze verify (docs/PHASE11_1.md)." ;;
 esac
 for t in jq curl ss systemd-analyze; do command -v "$t" >/dev/null || die "$t not on PATH"; done
-if [ -e "$ENV_FILE" ] || [ -L "$CURRENT_LINK" ] || [ -e "$SYSTEMD_UNIT_DIR/holdem-api.service" ]; then
-    die "existing install found ($ENV_FILE / $CURRENT_LINK / holdem-api.service); acceptance ends with uninstall --purge — refusing"
+# Also refuse kept data/releases (a plain uninstall leaves them): the final
+# --purge would delete their jobs and backups.
+if [ -e "$ENV_FILE" ] || [ -L "$CURRENT_LINK" ] || [ -e "$SYSTEMD_UNIT_DIR/holdem-api.service" ] \
+    || [ -e "$DATA_DIR" ] || [ -e "$RELEASES" ]; then
+    die "existing install or data found ($ENV_FILE / $CURRENT_LINK / holdem-api.service / $DATA_DIR / $RELEASES); acceptance ends with uninstall --purge — refusing"
 fi
 source "$HERE/smoke-steps.sh"
 
