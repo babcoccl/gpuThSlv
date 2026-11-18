@@ -290,7 +290,9 @@ def main(names=None, via="all"):
             "path": "export_node_evs -> strategy-*.evs.npz -> load_node_evs"
                     " -> node_values (as /node serves, api venv)"}
         results[name]["ok"] = results[name]["ok"] and evec_ok and persist_ok
-        if not (evec_ok and persist_ok):
+        if not results[name]["ok"]:
+            # engine-stage failures are preserved in the artifact and must
+            # drive the exit status too, not just the api checks above
             failures += 1
 
     manifest = artifact["_manifest"]
