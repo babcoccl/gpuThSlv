@@ -401,13 +401,17 @@ class SolveAccepted(BaseModel):
 
 class SolveStatus(BaseModel):
     id: str
-    status: Literal["queued", "building", "solving", "done", "cancelled", "failed"]
+    status: Literal["queued", "building", "solving", "exporting", "done", "cancelled", "failed"]
     gpu: int | None = None
     created_at: float
     started_at: float | None = None
     finished_at: float | None = None
     elapsed_seconds: float | None = None
     build_seconds: float | None = None
+    export_seconds: float | None = Field(
+        default=None,
+        description="wall time spent exporting the strategy and node-EV npz after the solve finished",
+    )
     iteration: int | None = None
     iterations_run: int | None = None
     exploitability: float | None = Field(

@@ -138,11 +138,11 @@ from the job status (`build_seconds`, `elapsed_seconds`) — *not* the
 viewer; `first /node` is a cold call measured before any `/tree`
 touches the job, `warm /node` the identical call repeated.
 
-| spot | nodes | build s | solve s | iters | expl | first /node ms | warm /node ms | /tree ms | TTFR ms |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| scale-river-573k | 573,031 | 5.1 | 6.3 | 200 | 0.0801 | 95 | 4 | 3 | 259 |
-| scale-turn-chance | 442,891 | 5.5 | 22.7 | 200 | 0.2543 | 163 | 3 | 3 | 93 |
-| scale-raisecap2 | 95,743 | 0.9 | 2.6 | 200 | 0.1154 | 20 | 3 | 3 | 80 |
+| spot | nodes | build s | solve s | export s | iters | expl (% pot) | stop | first /node ms | warm /node ms | /tree ms | TTFR ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| scale-river-573k | 573,031 | 5.9 | 8.1 | 0.23 | 200 | 0.400 | iteration cap | 64 | 3 | 5 | 253 |
+| scale-turn-chance | 442,891 | 6.1 | 24.6 | 16.44 | 200 | 1.271 | iteration cap | 168 | 3 | 3 | 94 |
+| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |
 
 UI errors: 0 on all three spots. `/node` still returns 422 on chance
 histories by design (`check/check` on the turn spot).
@@ -152,12 +152,19 @@ Before/after `/node` at root (Phase 10.1 baseline `scale-10-1.json`
 
 | spot | first /node before | first /node after |
 | --- | ---: | ---: |
-| scale-river-573k | 39,246 ms | 95 ms |
-| scale-turn-chance | 32,309 ms | 163 ms |
-| scale-raisecap2 | 14,916 ms | 20 ms |
+| scale-river-573k | 39,246 ms | 64 ms |
+| scale-turn-chance | 32,309 ms | 168 ms |
+| scale-raisecap2 | 14,916 ms | 23 ms |
 
-All targets met: first `/node` ≤ 2 s on all three spots (95 / 163 /
-20 ms), warm `/node` ≤ 500 ms (≤ 4 ms), and the 573k river is 95 ms on
+The `before` baseline was measured by a different method — its cold
+`/node` ran *after* `/tree` calls on the job (warm index path), so the
+two columns are not like-for-like. Re-measured once with the same
+method as `after` (cold `/node` at root on the persisted strategy,
+no `/tree` first): river 38.42 s, turn 7.98 s, raise-cap-2 3.29 s —
+still two orders of magnitude slower than the warm-index path.
+
+All targets met: first `/node` ≤ 2 s on all three spots (64 / 168 /
+23 ms), warm `/node` ≤ 500 ms (≤ 3 ms), and the 573k river is 64 ms on
 the first hit after the job finishes (≤ 1 s).
 
 `check_phase10_2` verifies the table above against the artifact.

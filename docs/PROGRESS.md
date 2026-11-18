@@ -424,3 +424,29 @@
   (preset/list/per-player/per-street) and both `raise_sizes` kinds;
   the PHASE8_5 worked-example chips corrected in `docs/PHASE10_1.md`.
 - Details: `docs/PHASE10_2.md`.
+
+## 2026-11-17 — Phase 10.3 guard completeness and evec validation
+
+- `check_phase10_2` derives the expected spot set and order from
+  `scale-10-2.json` and requires the main table (and before/after
+  table) to match exactly; every before/after cell is verified against
+  the named artifact (`scale-10-1.json` baseline resolved and
+  committed). Mutation tests cover changed cells, deleted rows and
+  bogus added rows.
+- New shared completeness helper `check_rows` in
+  `scripts/phase10/check_suites.py`; every spot-keyed table check
+  (the PHASE7, PHASE8, PHASE8_5, PHASE8_6, VALIDATION and PHASE10
+  tables) calls it; row-deletion
+  and row-addition mutation tests added per table, plus
+  `check_evidence.py` analogs (slash-list element removal and a bogus
+  claim).
+- `evec` validated end-to-end: `validate_node_evs.py`/`brute_ev.py`
+  gained API-path modes (live `evec` and the persisted `evs.npz`);
+  `evec` compared to `evwalk` on every node of the 573k river,
+  turn-chance (incl. post-chance-edge histories) and raise-cap-2 jobs
+  at 1e-9; brute-force turn enumeration check on served `/node`
+  values; stale/corrupt/missing `evs.npz` fallback tests.
+- `SolveStatus` gained `export_seconds`; jobs show an `exporting`
+  state in the UI; scale table records export time, exploitability
+  with units and the stop reason.
+- Details: `docs/PHASE10_3.md`.

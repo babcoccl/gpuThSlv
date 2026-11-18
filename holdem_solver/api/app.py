@@ -109,7 +109,7 @@ SSE_POLL_SECONDS = 0.5
 SSE_HEARTBEAT_SECONDS = 15.0
 SSE_RETRY_MS = 2000
 
-ACTIVE_STATES = ("queued", "building", "solving")
+ACTIVE_STATES = ("queued", "building", "solving", "exporting")
 TERMINAL_STATES = ("done", "cancelled", "failed")
 
 
@@ -152,6 +152,7 @@ def _status(job: dict[str, Any]) -> SolveStatus:
         finished_at=job["finished_at"],
         elapsed_seconds=job["elapsed_seconds"],
         build_seconds=job["build_seconds"],
+        export_seconds=job.get("export_seconds"),
         iteration=job["iteration"],
         iterations_run=job["iterations_run"],
         exploitability=job["exploitability"],
@@ -547,7 +548,7 @@ def create_app(
         responses=examples.LIST_SOLVES, summary="Every job, newest first",
     )
     def list_solves(
-        status: Literal["queued", "building", "solving", "done", "cancelled", "failed"] | None = Query(
+        status: Literal["queued", "building", "solving", "exporting", "done", "cancelled", "failed"] | None = Query(
             None, description="keep only jobs in this state"
         ),
     ) -> list[SolveStatus]:

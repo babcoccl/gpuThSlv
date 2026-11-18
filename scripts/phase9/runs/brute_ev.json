@@ -10,6 +10,9 @@
     "skipped": {},
     "max_abs_diff": 0.0,
     "worst_combo": null,
+    "api_evec_max_abs_diff": 0.0,
+    "api_persisted_max_abs_diff": 0.0,
+    "api_served_max_abs_diff": 0.0,
     "ok": true
    },
    "check": {
@@ -19,6 +22,9 @@
     "skipped": {},
     "max_abs_diff": 0.0,
     "worst_combo": null,
+    "api_evec_max_abs_diff": 0.0,
+    "api_persisted_max_abs_diff": 0.0,
+    "api_served_max_abs_diff": 0.0,
     "ok": true
    }
   },
@@ -41,6 +47,9 @@
     "skipped": {},
     "max_abs_diff": 1.7763568394002505e-15,
     "worst_combo": "2c2h",
+    "api_evec_max_abs_diff": 0.0,
+    "api_persisted_max_abs_diff": 0.0,
+    "api_served_max_abs_diff": 0.0,
     "ok": true
    },
    "check": {
@@ -50,6 +59,9 @@
     "skipped": {},
     "max_abs_diff": 6.217248937900877e-15,
     "worst_combo": "AcKd",
+    "api_evec_max_abs_diff": 5.329070518200751e-15,
+    "api_persisted_max_abs_diff": 5.329070518200751e-15,
+    "api_served_max_abs_diff": 5.329070518200751e-15,
     "ok": true
    }
   },

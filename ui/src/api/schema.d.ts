@@ -813,6 +813,11 @@ export interface components {
              * @description solver iteration at which `exploitability` was measured
              */
             exploitability_iteration?: number | null;
+            /**
+             * Export Seconds
+             * @description wall time spent exporting the strategy and node-EV npz after the solve finished
+             */
+            export_seconds?: number | null;
             /** Finished At */
             finished_at?: number | null;
             /** Gpu */
@@ -859,7 +864,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "building" | "solving" | "done" | "cancelled" | "failed";
+            status: "queued" | "building" | "solving" | "exporting" | "done" | "cancelled" | "failed";
             /**
              * Strategy Available
              * @default false
@@ -1313,7 +1318,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description keep only jobs in this state */
-                status?: ("queued" | "building" | "solving" | "done" | "cancelled" | "failed") | null;
+                status?: ("queued" | "building" | "solving" | "exporting" | "done" | "cancelled" | "failed") | null;
             };
             header?: never;
             path?: never;

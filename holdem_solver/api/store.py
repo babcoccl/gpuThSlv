@@ -72,10 +72,12 @@ _COLUMNS = {
     "exploitability_iteration": "INTEGER",
     # Phase 9
     "pinned": "INTEGER NOT NULL DEFAULT 0",
+    # Phase 10.3
+    "export_seconds": "REAL",
 }
 
-ACTIVE = ("queued", "building", "solving")
-RUNNING = ("building", "solving")
+ACTIVE = ("queued", "building", "solving", "exporting")
+RUNNING = ("building", "solving", "exporting")
 TERMINAL = ("done", "cancelled", "failed")
 _JSON_FIELDS = ("measured_vram", "exploitability_history")
 

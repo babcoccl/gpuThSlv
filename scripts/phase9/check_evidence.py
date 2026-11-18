@@ -467,8 +467,12 @@ def main():
                         )) if spot_name_re else []
                     is_claim = (
                         ev
-                        and len(numbers) == manifest["spot_count"]
+                        and len(numbers) >= 3
                         and (near or len(names) >= 2)
+                        and (
+                            len(numbers) == manifest["spot_count"]
+                            or len(names) >= 2
+                        )
                     )
                     if not is_claim:
                         continue
@@ -481,6 +485,14 @@ def main():
                         continue
                     if "ev" not in near:
                         flag(mi + 1, "per-spot count list not beside the ev_validation citation", line)
+                        continue
+                    if len(numbers) != manifest["spot_count"]:
+                        flag(
+                            mi + 1,
+                            "per-spot count list has %d entries, artifact spot count %d"
+                            % (len(numbers), manifest["spot_count"]),
+                            line,
+                        )
                         continue
                     if numbers != ev["per_spot"]:
                         flag(
