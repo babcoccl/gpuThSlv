@@ -93,7 +93,7 @@ tr.clickable { cursor: pointer; }
   padding: 0; height: 30px; font-size: 11px; background: var(--panel2);
   border: 1px solid var(--line); color: var(--text);
 }
-.deck button.sel { background: var(--accent2); border-color: var(--accent); }
+.deck button.sel { background: var(--accent2); border-color: var(--accent); color: #fff; }
 .deck button.dead { background: #4a3040; border-color: var(--bad); }
 .deck button:disabled { opacity: 0.25; }
 .card-s { color: #9ecbff; } .card-h { color: #ff9d9d; }

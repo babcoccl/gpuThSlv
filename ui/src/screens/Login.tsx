@@ -26,7 +26,7 @@ export default function Login() {
   };
 
   return (
-    <div className="login-box panel">
+    <main className="login-box panel">
       <h1>Sign in</h1>
       <form onSubmit={submit}>
         <label htmlFor="api-key">API key</label>
@@ -50,6 +50,6 @@ export default function Login() {
       <p className="kbd-hint" style={{ marginTop: 10 }}>
         Exchanges the key for a session cookie; nothing is stored in the browser.
       </p>
-    </div>
+    </main>
   );
 }

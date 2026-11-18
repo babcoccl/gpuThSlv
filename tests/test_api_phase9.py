@@ -194,7 +194,9 @@ def test_spots_crud_and_restart(tmp_path):
         dup = client.post(f"/v1/spots/{spot_id}/duplicate")
         assert dup.status_code == 201
         assert dup.json()["name"] == "dry-river (copy)"
-        assert dup.json()["spot"] == RIVER_SPOT
+        # the response model normalizes the stored spot (defaults filled in);
+        # every submitted field must round-trip unchanged
+        assert RIVER_SPOT.items() <= dup.json()["spot"].items()
 
         # solving a saved spot queues a real job
         accepted = client.post(f"/v1/spots/{spot_id}/solve", json={"iterations": 20})

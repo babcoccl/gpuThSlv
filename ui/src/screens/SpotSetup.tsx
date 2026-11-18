@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, EstimateResponse } from "../api/client";
+import { buildParams, buildSpot } from "../api/payloads";
 import CardPicker from "../components/CardPicker";
 import RangeEditor from "../components/RangeEditor";
 import { BET_SIZE_SETS, parseRange, serializeRange } from "../poker";
@@ -28,7 +29,7 @@ interface FormState {
   raiseCap: number;
   raiseSizes: { kind: "x" | "p"; value: string }[];
   dtype: "float32" | "float64";
-  variant: string;
+  variant: "cfr" | "cfr_plus" | "dcfr" | "pcfr_plus";
   priority: string;
   timeout: string;
   stop: StopMode;
@@ -76,13 +77,6 @@ const DEFAULTS: FormState = {
   notes: "",
 };
 
-function parseFractions(text: string): number[] {
-  const vals = text.split(/[,\s]+/).filter(Boolean).map(Number);
-  if (!vals.length || vals.some((v) => !Number.isFinite(v) || v <= 0))
-    throw new Error("bet sizes must be positive pot fractions");
-  return vals;
-}
-
 function fieldErrors(detail: unknown): { fields: [string, string][]; message: string | null } {
   if (Array.isArray(detail)) {
     const fields: [string, string][] = detail.map((e) => {
@@ -109,27 +103,23 @@ export default function SpotSetup() {
   useEffect(() => {
     if (!id) return;
     api.getSpot(id).then((rec) => {
-      const s = rec.spot as Record<string, unknown>;
+      const s = rec.spot;
       const next = { ...DEFAULTS };
-      setRawRanges([String(s.range0 ?? ""), String(s.range1 ?? "")]);
+      setRawRanges([s.range0, s.range1]);
       next.name = rec.name;
-      next.board = typeof s.board === "string"
-        ? s.board.match(/../g) ?? []
-        : (s.board as string[]) ?? [];
-      next.dead = (s.dead_cards as string[]) ?? [];
+      next.board = typeof s.board === "string" ? s.board.match(/../g) ?? [] : s.board;
+      next.dead = s.dead_cards ?? [];
       try {
-        next.range0 = parseRange(String(s.range0));
-        next.range1 = parseRange(String(s.range1));
+        next.range0 = parseRange(s.range0);
+        next.range1 = parseRange(s.range1);
       } catch { /* keep empty; the editor shows what parsed */ }
-      next.pot = String(s.pot ?? 20);
-      next.stack = String(s.stack ?? 100);
+      next.pot = String(s.pot);
+      next.stack = String(s.stack);
       next.maxNodes = s.max_nodes ? String(s.max_nodes) : "";
-      next.allIn = Boolean(s.all_in);
-      next.raiseCap = Number(s.raise_cap ?? 0);
-      next.raiseSizes = (s.raise_sizes as [string, number][] | undefined)?.map(([k, v]) => ({
-        kind: k as "x" | "p",
-        value: String(v),
-      })) ?? [{ kind: "x", value: "2.0" }];
+      next.allIn = s.all_in;
+      next.raiseCap = s.raise_cap;
+      next.raiseSizes = s.raise_sizes?.map(([k, v]) => ({ kind: k, value: String(v) }))
+        ?? [{ kind: "x", value: "2.0" }];
       next.tags = rec.tags.join(", ");
       next.notes = rec.notes;
       const bs = s.bet_sizes;
@@ -138,17 +128,16 @@ export default function SpotSetup() {
         next.sizeSet = bs;
       } else if (Array.isArray(bs)) {
         next.sizeMode = "custom";
-        next.custom = (bs as number[]).join(", ");
-      } else if (bs && typeof bs === "object") {
-        const keys = Object.keys(bs);
-        if (keys.every((k) => k === "0" || k === "1")) {
-          next.sizeMode = "players";
-          next.p0sizes = ((bs as Record<string, number[] | string>)["0"] ?? []).toString();
-          next.p1sizes = ((bs as Record<string, number[] | string>)["1"] ?? []).toString();
-        } else {
+        next.custom = bs.join(", ");
+      } else if (typeof bs === "object" && bs !== null) {
+        if ("turn" in bs) {
           next.sizeMode = "streets";
-          next.turnSizes = ((bs as Record<string, number[] | string>).turn ?? []).toString();
-          next.riverSizes = ((bs as Record<string, number[] | string>).river ?? []).toString();
+          next.turnSizes = String(bs.turn);
+          next.riverSizes = String(bs.river);
+        } else {
+          next.sizeMode = "players";
+          next.p0sizes = String(bs["0"] ?? "");
+          next.p1sizes = String(bs["1"] ?? "");
         }
       }
       setF(next);
@@ -158,62 +147,13 @@ export default function SpotSetup() {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((p) => ({ ...p, [k]: v }));
 
-  const buildSpot = (): Record<string, unknown> => {
-    const spot: Record<string, unknown> = {
-      board: f.board.join(""),
+  const spotBody = () =>
+    buildSpot({
+      ...f,
       range0: rawRanges && !rangeDirty[0] ? rawRanges[0] : serializeRange(f.range0),
       range1: rawRanges && !rangeDirty[1] ? rawRanges[1] : serializeRange(f.range1),
-      pot: Number(f.pot),
-      stack: Number(f.stack),
-      all_in: f.allIn,
-      raise_cap: f.raiseCap,
-      raise_sizes: f.raiseCap > 0 ? f.raiseSizes.map((r) => [r.kind, Number(r.value)]) : [],
-      dead_cards: f.dead,
-    };
-    if (f.name.trim()) spot.name = f.name.trim();
-    if (f.maxNodes.trim()) spot.max_nodes = Number(f.maxNodes);
-    switch (f.sizeMode) {
-      case "set":
-        spot.bet_sizes = f.sizeSet;
-        break;
-      case "custom":
-        spot.bet_sizes = parseFractions(f.custom);
-        break;
-      case "players":
-        spot.bet_sizes = { "0": parseFractions(f.p0sizes), "1": parseFractions(f.p1sizes) };
-        break;
-      case "streets":
-        spot.bet_sizes = { turn: parseFractions(f.turnSizes), river: parseFractions(f.riverSizes) };
-        break;
-    }
-    return spot;
-  };
-
-  const buildParams = (): Record<string, unknown> => {
-    const params: Record<string, unknown> = { variant: f.variant, dtype: f.dtype };
-    if (f.solverOptions.trim()) {
-      const opts = JSON.parse(f.solverOptions);
-      if (typeof opts !== "object" || opts === null || Array.isArray(opts))
-        throw new Error("solver options must be a JSON object");
-      params.solver_options = opts;
-    }
-    if (f.priority.trim()) params.priority = Number(f.priority);
-    if (f.timeout.trim()) params.timeout_seconds = Number(f.timeout);
-    if (f.progressEvery.trim()) params.progress_every = Number(f.progressEvery);
-    switch (f.stop) {
-      case "iterations":
-        params.iterations = Number(f.iterations);
-        break;
-      case "time_budget":
-        params.time_budget = Number(f.timeBudget);
-        break;
-      case "target_exploitability":
-        params.target_exploitability = Number(f.targetExpl);
-        params.max_iterations = Number(f.maxIterations);
-        break;
-    }
-    return params;
-  };
+    });
+  const paramsBody = () => buildParams(f);
 
   const onError = (err: unknown) => {
     if (err instanceof ApiError && err.status === 422) setErrors(fieldErrors(err.detail));
@@ -225,7 +165,7 @@ export default function SpotSetup() {
     setErrors(null);
     setEstimate(null);
     try {
-      setEstimate(await api.estimate(buildSpot(), f.dtype));
+      setEstimate(await api.estimate(spotBody(), f.dtype));
     } catch (err) {
       onError(err);
     } finally {
@@ -238,10 +178,9 @@ export default function SpotSetup() {
     setErrors(null);
     setInfo(null);
     try {
-      const body = { ...buildSpot(), ...buildParams() };
       const accepted = id
-        ? await api.solveSpot(id, buildParams())
-        : await api.submitSolve(body);
+        ? await api.solveSpot(id, paramsBody())
+        : await api.submitSolve({ ...spotBody(), ...paramsBody() });
       setInfo(`queued ${accepted.id}${accepted.queue_depth != null ? ` (depth ${accepted.queue_depth})` : ""}`);
       nav(`/jobs/${accepted.id}`);
     } catch (err) {
@@ -258,10 +197,10 @@ export default function SpotSetup() {
     try {
       const tags = f.tags.split(",").map((t) => t.trim()).filter(Boolean);
       if (id) {
-        await api.updateSpot(id, { name: f.name, spot: buildSpot(), tags, notes: f.notes });
+        await api.updateSpot(id, { name: f.name, spot: spotBody(), tags, notes: f.notes });
         setInfo("saved");
       } else {
-        const rec = await api.createSpot({ name: f.name || "untitled", spot: buildSpot(), tags, notes: f.notes });
+        const rec = await api.createSpot({ name: f.name || "untitled", spot: spotBody(), tags, notes: f.notes });
         setInfo(`saved ${rec.id}`);
         nav(`/spots`);
       }
@@ -392,7 +331,7 @@ export default function SpotSetup() {
           <div className="row">
             <div>
               <label htmlFor="variant">variant</label>
-              <select id="variant" value={f.variant} onChange={(e) => set("variant", e.target.value)}>
+              <select id="variant" value={f.variant} onChange={(e) => set("variant", e.target.value as FormState["variant"])}>
                 {["cfr", "cfr_plus", "dcfr", "pcfr_plus"].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>

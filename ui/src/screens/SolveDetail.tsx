@@ -82,6 +82,13 @@ export default function SolveDetail() {
   const job = statusQ.data!;
   const cur = stream.current;
   const isDone = done || job.status === "done";
+  // Chart = recorded history seeded from GET /v1/solves/{id}, then live SSE
+  // points appended; an SSE point at an already-recorded iteration is dropped.
+  const seen = new Set<number>();
+  const chartPoints = [...(job.exploitability_history ?? []), ...stream.points]
+    .filter((p) => p.exploitability != null)
+    .filter((p) => !seen.has(p.iteration) && seen.add(p.iteration))
+    .map((p) => ({ iteration: p.iteration, exploitability: p.exploitability }));
 
   return (
     <div>
@@ -105,7 +112,7 @@ export default function SolveDetail() {
           )}
         </div>
         <h3>Exploitability (live)</h3>
-        <ExploitabilityChart points={stream.points} />
+        <ExploitabilityChart points={chartPoints} />
       </div>
 
       {isDone && job.strategy_available === false && !job.strategy_expired_at && (

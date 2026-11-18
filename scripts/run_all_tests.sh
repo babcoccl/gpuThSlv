@@ -40,8 +40,20 @@ if [[ -n "$missing" ]]; then
     exit 1
 fi
 echo "every tests/test_*.py is collected by at least one venv"
-if [[ ${engine_rc:-0} -ne 0 || ${api_rc:-0} -ne 0 ]]; then
-    echo "FAIL: a suite failed (engine=$engine_rc api=$api_rc)"
+
+echo "=== ui contract checks (ui/) ==="
+ui_rc=0
+if [[ "${1:-}" != "--quick" ]]; then
+    (cd ui && npx tsc -b && npx eslint . && node scripts/check-bodies.mjs && node scripts/check-no-fetch.mjs && bash scripts/check-schema.sh) || ui_rc=1
+else
+    (cd ui && npx tsc -b && npx eslint .) || ui_rc=1
+fi
+if [[ $ui_rc -ne 0 ]]; then
+    echo "FAIL: ui contract checks failed"
+fi
+
+if [[ ${engine_rc:-0} -ne 0 || ${api_rc:-0} -ne 0 || $ui_rc -ne 0 ]]; then
+    echo "FAIL: a suite failed (engine=$engine_rc api=$api_rc ui=$ui_rc)"
     exit 1
 fi
 echo "PASS"

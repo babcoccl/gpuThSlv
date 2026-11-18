@@ -40,6 +40,7 @@ export function useJobStream(jobId: string | null): StreamState {
       setState((prev) => {
         const base = replace ? [] : prev.points;
         const pts = payload.exploitability != null && payload.exploitability_iteration != null
+          && !base.some((p) => p.iteration === payload.exploitability_iteration)
           ? [...base, { iteration: payload.exploitability_iteration, exploitability: payload.exploitability }]
           : base;
         return { current: payload, points: pts, stream: prev.stream === "connecting" ? "open" : prev.stream };
