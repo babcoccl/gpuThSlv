@@ -1,0 +1,96 @@
+[
+  {
+    "name": "scale-river-573k",
+    "id": "1099ad85796c",
+    "nodes": 573031,
+    "solve_s": 49.705,
+    "ttfr_ms": 299.48498800001107,
+    "calls": [
+      {
+        "history": "root",
+        "tree_ms": 9.234535000003234,
+        "tree_bytes": 802,
+        "node_ms": 39245.850481,
+        "node_bytes": 21500
+      },
+      {
+        "history": "check",
+        "tree_ms": 7.1365959999966435,
+        "tree_bytes": 737,
+        "node_ms": 682.3677269999898,
+        "node_bytes": 22719
+      },
+      {
+        "history": "check/b10",
+        "tree_ms": 6.183992999998736,
+        "tree_bytes": 487,
+        "node_ms": 184.04626200000348,
+        "node_bytes": 21430
+      }
+    ],
+    "ui_errors": []
+  },
+  {
+    "name": "scale-turn-chance",
+    "id": "fd772f73230d",
+    "nodes": 442891,
+    "solve_s": 65.156,
+    "ttfr_ms": 1610.0860889999894,
+    "calls": [
+      {
+        "history": "root",
+        "tree_ms": 387.0420589999994,
+        "tree_bytes": 796,
+        "node_ms": 32308.532565999994,
+        "node_bytes": 2199
+      },
+      {
+        "history": "check",
+        "tree_ms": 418.4062120000017,
+        "tree_bytes": 736,
+        "node_ms": 18825.959783,
+        "node_bytes": 2312
+      },
+      {
+        "history": "check/check",
+        "tree_ms": 352.99251000001095,
+        "tree_bytes": 5892,
+        "node_ms": null,
+        "node_bytes": null,
+        "node_error": "Error: GET /v1/solves/fd772f73230d/node?history=check%2Ccheck -> 422: {\"detail\":\"this history is a chance node; use /tre"
+      }
+    ],
+    "ui_errors": []
+  },
+  {
+    "name": "scale-raisecap2",
+    "id": "16aed46a6ecf",
+    "nodes": 95743,
+    "solve_s": 39.4,
+    "ttfr_ms": 2041.7913110000081,
+    "calls": [
+      {
+        "history": "root",
+        "tree_ms": 192.20801299999584,
+        "tree_bytes": 918,
+        "node_ms": 14915.920000999991,
+        "node_bytes": 4353
+      },
+      {
+        "history": "check",
+        "tree_ms": 239.05268299998716,
+        "tree_bytes": 853,
+        "node_ms": 8472.636033999996,
+        "node_bytes": 4733
+      },
+      {
+        "history": "check/b10",
+        "tree_ms": 136.95668800000567,
+        "tree_bytes": 989,
+        "node_ms": 3362.2406020000053,
+        "node_bytes": 5609
+      }
+    ],
+    "ui_errors": []
+  }
+]

@@ -28,8 +28,8 @@ export default function CardPicker({ selected, onChange, max, disabled = [], dea
     let next = idx;
     if (e.key === "ArrowRight") next = idx + 1;
     else if (e.key === "ArrowLeft") next = idx - 1;
-    else if (e.key === "ArrowDown") next = idx + 13;
-    else if (e.key === "ArrowUp") next = idx - 13;
+    else if (e.key === "ArrowDown") next = idx + 4;
+    else if (e.key === "ArrowUp") next = idx - 4;
     else if (e.key === " " || e.key === "Enter") {
       const card = el.dataset.card;
       if (card && !deadSet.has(card)) toggle(card);
@@ -46,30 +46,32 @@ export default function CardPicker({ selected, onChange, max, disabled = [], dea
     <div>
       {label && <label>{label}</label>}
       <div className="deck" role="grid" aria-label={label ?? "card picker"} onKeyDown={onKey}>
-        {RANKS.split("").flatMap((rank) =>
-          SUITS.split("").map((suit) => {
-            const card = rank + suit;
-            const isSel = selected.includes(card);
-            const isDead = deadSet.has(card);
-            const blockedCard = blocked.has(card) && !isSel;
-            const atMax = max !== undefined && selected.length >= max && !isSel;
-            return (
-              <button
-                key={card}
-                type="button"
-                role="gridcell"
-                data-card={card}
-                className={`card-${suit}${isSel ? " sel" : ""}${isDead ? " dead" : ""}`}
-                aria-pressed={isSel}
-                aria-label={card}
-                disabled={isDead || blockedCard || atMax}
-                onClick={() => toggle(card)}
-              >
-                {card}
-              </button>
-            );
-          }),
-        )}
+        {RANKS.split("").map((rank) => (
+          <div role="row" key={rank} style={{ display: "contents" }}>
+            {SUITS.split("").map((suit) => {
+              const card = rank + suit;
+              const isSel = selected.includes(card);
+              const isDead = deadSet.has(card);
+              const blockedCard = blocked.has(card) && !isSel;
+              const atMax = max !== undefined && selected.length >= max && !isSel;
+              return (
+                <button
+                  key={card}
+                  type="button"
+                  role="gridcell"
+                  data-card={card}
+                  className={`card-${suit}${isSel ? " sel" : ""}${isDead ? " dead" : ""}`}
+                  aria-selected={isSel}
+                  aria-label={card}
+                  disabled={isDead || blockedCard || atMax}
+                  onClick={() => toggle(card)}
+                >
+                  {card}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

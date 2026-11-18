@@ -91,6 +91,7 @@ from .models import (
     SpotCreate,
     SpotRecord,
     SpotUpdate,
+    StatusResponse,
     StrategyResponse,
     TreeNodeResponse,
 )
@@ -519,10 +520,10 @@ def create_app(
     )
     def estimate(request: EstimateRequest) -> EstimateResponse:
         try:
-            config = SpotConfig.from_dict(request.spot)
+            config = SpotConfig.from_dict(request.spot.spot_dict())
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=f"bad spot: {exc}") from exc
-        num_nodes, est_vram, predicted = _predicted(request.spot, request.dtype)
+        num_nodes, est_vram, predicted = _predicted(request.spot.spot_dict(), request.dtype)
         limit = _vram_limit()
         summary = config.resolve().summary()
         return EstimateResponse(
@@ -644,11 +645,14 @@ def create_app(
         )
         return LoginResponse(expires_at=expires_at, csrf=csrf_value)
 
-    @app.post("/v1/auth/logout", dependencies=[Depends(auth)], responses=examples.LOGOUT)
-    def logout(response: Response) -> dict[str, str]:
+    @app.post(
+        "/v1/auth/logout", response_model=StatusResponse,
+        dependencies=[Depends(auth)], responses=examples.LOGOUT,
+    )
+    def logout(response: Response) -> StatusResponse:
         response.delete_cookie(security.SESSION_COOKIE, path="/")
         response.delete_cookie(security.CSRF_COOKIE, path="/")
-        return {"status": "logged_out"}
+        return StatusResponse(status="logged_out")
 
     # -- Phase 9: tree navigation + per-node values ------------------------------
 
@@ -886,9 +890,10 @@ def create_app(
         dependencies=[Depends(auth), Depends(csrf)], responses=examples.SPOT,
     )
     def create_spot(request: SpotCreate) -> SpotRecord:
-        _validate_spot_dict(request.spot)
+        spot_dict = request.spot.spot_dict()
+        _validate_spot_dict(spot_dict)
         try:
-            spot = store.create_spot(request.name, request.spot, request.tags, request.notes, max_spots=max_spots)
+            spot = store.create_spot(request.name, spot_dict, request.tags, request.notes, max_spots=max_spots)
         except QueueFullError as exc:
             raise HTTPException(
                 status_code=429, detail=str(exc), headers={"Retry-After": "30"}
@@ -911,12 +916,13 @@ def create_app(
         dependencies=[Depends(auth), Depends(csrf)], responses=examples.SPOT_LIST,
     )
     def update_spot(spot_id: str, request: SpotUpdate) -> SpotRecord:
-        if request.spot is not None:
-            _validate_spot_dict(request.spot)
+        spot_dict = request.spot.spot_dict() if request.spot is not None else None
+        if spot_dict is not None:
+            _validate_spot_dict(spot_dict)
         spot = store.update_spot(
             spot_id,
             name=request.name,
-            spot=request.spot,
+            spot=spot_dict,
             tags=request.tags,
             notes=request.notes,
         )
@@ -924,11 +930,14 @@ def create_app(
             raise HTTPException(status_code=404, detail="unknown spot id")
         return SpotRecord(**spot)
 
-    @app.delete("/v1/spots/{spot_id}", dependencies=[Depends(auth), Depends(csrf)], responses=examples.DELETE_SPOT)
-    def delete_spot(spot_id: str) -> dict[str, str]:
+    @app.delete(
+        "/v1/spots/{spot_id}", response_model=StatusResponse,
+        dependencies=[Depends(auth), Depends(csrf)], responses=examples.DELETE_SPOT,
+    )
+    def delete_spot(spot_id: str) -> StatusResponse:
         if not store.delete_spot(spot_id):
             raise HTTPException(status_code=404, detail="unknown spot id")
-        return {"status": "deleted"}
+        return StatusResponse(status="deleted")
 
     @app.post(
         "/v1/spots/{spot_id}/duplicate", status_code=201, response_model=SpotRecord,

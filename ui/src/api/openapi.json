@@ -1,6 +1,128 @@
 {
   "components": {
     "schemas": {
+      "BetSizesPlayers": {
+        "additionalProperties": false,
+        "description": "Per-player bet sizes: ``{\"0\": [...], \"1\": [...]}`` (either optional).",
+        "properties": {
+          "0": {
+            "anyOf": [
+              {
+                "enum": [
+                  "third",
+                  "half",
+                  "pot",
+                  "standard",
+                  "small_big",
+                  "wide",
+                  "polar",
+                  "overbet"
+                ],
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "0"
+          },
+          "1": {
+            "anyOf": [
+              {
+                "enum": [
+                  "third",
+                  "half",
+                  "pot",
+                  "standard",
+                  "small_big",
+                  "wide",
+                  "polar",
+                  "overbet"
+                ],
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "1"
+          }
+        },
+        "title": "BetSizesPlayers",
+        "type": "object"
+      },
+      "BetSizesStreets": {
+        "additionalProperties": false,
+        "description": "Per-street bet sizes for turn spots: ``{\"turn\": [...], \"river\": [...]}``.",
+        "properties": {
+          "river": {
+            "anyOf": [
+              {
+                "enum": [
+                  "third",
+                  "half",
+                  "pot",
+                  "standard",
+                  "small_big",
+                  "wide",
+                  "polar",
+                  "overbet"
+                ],
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "River"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "enum": [
+                  "third",
+                  "half",
+                  "pot",
+                  "standard",
+                  "small_big",
+                  "wide",
+                  "polar",
+                  "overbet"
+                ],
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Turn"
+          }
+        },
+        "required": [
+          "turn",
+          "river"
+        ],
+        "title": "BetSizesStreets",
+        "type": "object"
+      },
       "EstimateRequest": {
         "additionalProperties": false,
         "description": "``POST /v1/estimate`` body (Phase 10): dry-run admission for a spot.\n\nReturns the node count and VRAM prediction a ``POST /v1/solves`` would\ncompute, without queueing a job.",
@@ -15,9 +137,7 @@
             "type": "string"
           },
           "spot": {
-            "additionalProperties": true,
-            "title": "Spot",
-            "type": "object"
+            "$ref": "#/components/schemas/SpotSpec"
           }
         },
         "required": [
@@ -96,6 +216,35 @@
           "bet_fractions"
         ],
         "title": "EstimateResponse",
+        "type": "object"
+      },
+      "ExploitabilityPoint": {
+        "description": "One exploitability measurement of the running average.",
+        "properties": {
+          "elapsed_seconds": {
+            "title": "Elapsed Seconds",
+            "type": "number"
+          },
+          "exploitability": {
+            "title": "Exploitability",
+            "type": "number"
+          },
+          "iteration": {
+            "title": "Iteration",
+            "type": "integer"
+          },
+          "iterations_run": {
+            "title": "Iterations Run",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "iteration",
+          "iterations_run",
+          "elapsed_seconds",
+          "exploitability"
+        ],
+        "title": "ExploitabilityPoint",
         "type": "object"
       },
       "GpuInfo": {
@@ -567,6 +716,27 @@
         "title": "NodeHandRow",
         "type": "object"
       },
+      "NodeRanges": {
+        "description": "Reach/shares per player at a node.",
+        "properties": {
+          "p0": {
+            "items": {
+              "$ref": "#/components/schemas/RangeEntry"
+            },
+            "title": "P0",
+            "type": "array"
+          },
+          "p1": {
+            "items": {
+              "$ref": "#/components/schemas/RangeEntry"
+            },
+            "title": "P1",
+            "type": "array"
+          }
+        },
+        "title": "NodeRanges",
+        "type": "object"
+      },
       "NodeValuesResponse": {
         "properties": {
           "actions": {
@@ -614,14 +784,7 @@
             "type": "number"
           },
           "ranges": {
-            "additionalProperties": {
-              "items": {
-                "$ref": "#/components/schemas/RangeEntry"
-              },
-              "type": "array"
-            },
-            "title": "Ranges",
-            "type": "object"
+            "$ref": "#/components/schemas/NodeRanges"
           },
           "stacks": {
             "additionalProperties": {
@@ -922,6 +1085,16 @@
           "bet_sizes": {
             "anyOf": [
               {
+                "enum": [
+                  "third",
+                  "half",
+                  "pot",
+                  "standard",
+                  "small_big",
+                  "wide",
+                  "polar",
+                  "overbet"
+                ],
                 "type": "string"
               },
               {
@@ -931,18 +1104,14 @@
                 "type": "array"
               },
               {
-                "additionalProperties": {
-                  "items": {
-                    "type": "number"
-                  },
-                  "type": "array"
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/BetSizesPlayers"
+              },
+              {
+                "$ref": "#/components/schemas/BetSizesStreets"
               }
             ],
             "default": "standard",
             "description": "a preset name or pot fractions; a dict gives per-player ({\"0\": [...], \"1\": [...]}) or per-street ({\"turn\": [...], \"river\": [...]}, turn spots only) lists",
-            "maxLength": 64,
             "title": "Bet Sizes"
           },
           "board": {
@@ -1069,7 +1238,20 @@
           "raise_sizes": {
             "description": "raise options as [kind, value]: [\"x\", m] raises to m times the bet faced, [\"p\", f] to the bet plus f times the pot after calling",
             "items": {
-              "items": {},
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "enum": [
+                    "x",
+                    "p"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ],
               "type": "array"
             },
             "title": "Raise Sizes",
@@ -1240,8 +1422,7 @@
           },
           "exploitability_history": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ExploitabilityPoint"
             },
             "title": "Exploitability History",
             "type": "array"
@@ -1495,9 +1676,7 @@
             "type": "string"
           },
           "spot": {
-            "additionalProperties": true,
-            "title": "Spot",
-            "type": "object"
+            "$ref": "#/components/schemas/SpotSpec"
           },
           "tags": {
             "items": {
@@ -1534,9 +1713,7 @@
             "type": "string"
           },
           "spot": {
-            "additionalProperties": true,
-            "title": "Spot",
-            "type": "object"
+            "$ref": "#/components/schemas/SpotSpec"
           },
           "tags": {
             "items": {
@@ -1560,6 +1737,154 @@
           "updated_at"
         ],
         "title": "SpotRecord",
+        "type": "object"
+      },
+      "SpotSpec": {
+        "additionalProperties": false,
+        "description": "The ``SpotConfig`` wire shape (protocol.spot._FIELDS).\n\nStructural validation only; ``SpotConfig.from_dict`` remains the semantic\ncheck (cards, ranges, street/bet-size legality) at admit and save time.",
+        "properties": {
+          "all_in": {
+            "default": false,
+            "title": "All In",
+            "type": "boolean"
+          },
+          "bet_sizes": {
+            "anyOf": [
+              {
+                "enum": [
+                  "third",
+                  "half",
+                  "pot",
+                  "standard",
+                  "small_big",
+                  "wide",
+                  "polar",
+                  "overbet"
+                ],
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "$ref": "#/components/schemas/BetSizesPlayers"
+              },
+              {
+                "$ref": "#/components/schemas/BetSizesStreets"
+              }
+            ],
+            "default": "standard",
+            "description": "a preset name or pot fractions; a dict gives per-player ({\"0\": [...], \"1\": [...]}) or per-street ({\"turn\": [...], \"river\": [...]}, turn spots only) lists",
+            "title": "Bet Sizes"
+          },
+          "board": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "5 river cards (or 4 for a turn spot)",
+            "maxLength": 32,
+            "title": "Board"
+          },
+          "dead_cards": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Dead Cards",
+            "type": "array"
+          },
+          "max_nodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 2000000,
+            "title": "Max Nodes"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pot": {
+            "default": 20.0,
+            "title": "Pot",
+            "type": "number"
+          },
+          "raise_cap": {
+            "default": 0,
+            "description": "max raises per street; 0 disables raises",
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Raise Cap",
+            "type": "integer"
+          },
+          "raise_sizes": {
+            "description": "raise options as [kind, value]: [\"x\", m] raises to m times the bet faced, [\"p\", f] to the bet plus f times the pot after calling",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "enum": [
+                    "x",
+                    "p"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Raise Sizes",
+            "type": "array"
+          },
+          "range0": {
+            "maxLength": 4096,
+            "title": "Range0",
+            "type": "string"
+          },
+          "range1": {
+            "maxLength": 4096,
+            "title": "Range1",
+            "type": "string"
+          },
+          "stack": {
+            "default": 100.0,
+            "title": "Stack",
+            "type": "number"
+          }
+        },
+        "required": [
+          "board",
+          "range0",
+          "range1"
+        ],
+        "title": "SpotSpec",
         "type": "object"
       },
       "SpotUpdate": {
@@ -1593,14 +1918,12 @@
           "spot": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/SpotSpec"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Spot"
+            ]
           },
           "tags": {
             "anyOf": [
@@ -1619,6 +1942,20 @@
           }
         },
         "title": "SpotUpdate",
+        "type": "object"
+      },
+      "StatusResponse": {
+        "description": "Bare ``{\"status\": ...}`` replies (logout, spot delete).",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
         "type": "object"
       },
       "StrategyAction": {
@@ -1994,11 +2331,7 @@
                   "status": "logged_out"
                 },
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Logout V1 Auth Logout Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             },
@@ -3160,11 +3493,7 @@
                   "status": "deleted"
                 },
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Delete Spot V1 Spots  Spot Id  Delete",
-                  "type": "object"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             },

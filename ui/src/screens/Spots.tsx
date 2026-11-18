@@ -1,19 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, ApiError, SpotRecord } from "../api/client";
+import { api, ApiError, SpotRecord, SpotUpdate } from "../api/client";
 
 function SolveDialog({ spot, onClose }: { spot: SpotRecord; onClose: () => void }) {
   const nav = useNavigate();
   const [iterations, setIterations] = useState("1000");
-  const [dtype, setDtype] = useState("float32");
+  const [dtype, setDtype] = useState<"float32" | "float64">("float32");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async () => {
     setBusy(true);
     setErr(null);
     try {
-      const acc = await api.solveSpot(spot.id, { iterations: Number(iterations), dtype });
+      const acc = await api.solveSpot(spot.id, { iterations: Number(iterations), dtype, priority: 0, variant: "cfr_plus" });
       nav(`/jobs/${acc.id}`);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
@@ -27,7 +27,7 @@ function SolveDialog({ spot, onClose }: { spot: SpotRecord; onClose: () => void 
         <div><label htmlFor="sd-iters">iterations</label>
           <input id="sd-iters" type="number" min="1" value={iterations} onChange={(e) => setIterations(e.target.value)} /></div>
         <div><label htmlFor="sd-dtype">dtype</label>
-          <select id="sd-dtype" value={dtype} onChange={(e) => setDtype(e.target.value)}>
+          <select id="sd-dtype" value={dtype} onChange={(e) => setDtype(e.target.value as "float32" | "float64")}>
             <option value="float32">float32</option><option value="float64">float64</option>
           </select></div>
         <button onClick={submit} disabled={busy}>Solve</button>
@@ -57,7 +57,7 @@ export default function Spots() {
   const onErr = (e: unknown) => setErr(e instanceof ApiError ? e.message : String(e));
 
   const update = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api.updateSpot(id, body),
+    mutationFn: ({ id, body }: { id: string; body: SpotUpdate }) => api.updateSpot(id, body),
     onSuccess: () => { invalidate(); setEditId(null); },
     onError: onErr,
   });

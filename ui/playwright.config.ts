@@ -13,6 +13,15 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     screenshot: "only-on-failure",
   },
+  projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "main",
+      testMatch: /(e2e|a11y)\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { storageState: "playwright/.auth/session.json" },
+    },
+  ],
   webServer: {
     command: "bash scripts/serve-fake.sh",
     port,

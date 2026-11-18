@@ -320,6 +320,26 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * BetSizesPlayers
+         * @description Per-player bet sizes: ``{"0": [...], "1": [...]}`` (either optional).
+         */
+        BetSizesPlayers: {
+            /** 0 */
+            0?: ("third" | "half" | "pot" | "standard" | "small_big" | "wide" | "polar" | "overbet") | number[] | null;
+            /** 1 */
+            1?: ("third" | "half" | "pot" | "standard" | "small_big" | "wide" | "polar" | "overbet") | number[] | null;
+        };
+        /**
+         * BetSizesStreets
+         * @description Per-street bet sizes for turn spots: ``{"turn": [...], "river": [...]}``.
+         */
+        BetSizesStreets: {
+            /** River */
+            river: ("third" | "half" | "pot" | "standard" | "small_big" | "wide" | "polar" | "overbet") | number[];
+            /** Turn */
+            turn: ("third" | "half" | "pot" | "standard" | "small_big" | "wide" | "polar" | "overbet") | number[];
+        };
+        /**
          * EstimateRequest
          * @description ``POST /v1/estimate`` body (Phase 10): dry-run admission for a spot.
          *
@@ -333,10 +353,7 @@ export interface components {
              * @enum {string}
              */
             dtype: "float32" | "float64";
-            /** Spot */
-            spot: {
-                [key: string]: unknown;
-            };
+            spot: components["schemas"]["SpotSpec"];
         };
         /** EstimateResponse */
         EstimateResponse: {
@@ -362,6 +379,20 @@ export interface components {
             vram_limit_bytes: number;
             /** Weighted */
             weighted: boolean;
+        };
+        /**
+         * ExploitabilityPoint
+         * @description One exploitability measurement of the running average.
+         */
+        ExploitabilityPoint: {
+            /** Elapsed Seconds */
+            elapsed_seconds: number;
+            /** Exploitability */
+            exploitability: number;
+            /** Iteration */
+            iteration: number;
+            /** Iterations Run */
+            iterations_run: number;
         };
         /** GpuInfo */
         GpuInfo: {
@@ -522,6 +553,16 @@ export interface components {
             /** Weight */
             weight: number;
         };
+        /**
+         * NodeRanges
+         * @description Reach/shares per player at a node.
+         */
+        NodeRanges: {
+            /** P0 */
+            p0?: components["schemas"]["RangeEntry"][];
+            /** P1 */
+            p1?: components["schemas"]["RangeEntry"][];
+        };
         /** NodeValuesResponse */
         NodeValuesResponse: {
             /** Actions */
@@ -540,10 +581,7 @@ export interface components {
             player: number;
             /** Pot */
             pot: number;
-            /** Ranges */
-            ranges: {
-                [key: string]: components["schemas"]["RangeEntry"][];
-            };
+            ranges: components["schemas"]["NodeRanges"];
             /** Stacks */
             stacks: {
                 [key: string]: number;
@@ -663,9 +701,7 @@ export interface components {
              * @description a preset name or pot fractions; a dict gives per-player ({"0": [...], "1": [...]}) or per-street ({"turn": [...], "river": [...]}, turn spots only) lists
              * @default standard
              */
-            bet_sizes: string | number[] | {
-                [key: string]: number[];
-            };
+            bet_sizes: ("third" | "half" | "pot" | "standard" | "small_big" | "wide" | "polar" | "overbet") | number[] | components["schemas"]["BetSizesPlayers"] | components["schemas"]["BetSizesStreets"];
             /**
              * Board
              * @description 5 river cards (or 4 for a turn spot)
@@ -712,7 +748,10 @@ export interface components {
              * Raise Sizes
              * @description raise options as [kind, value]: ["x", m] raises to m times the bet faced, ["p", f] to the bet plus f times the pot after calling
              */
-            raise_sizes?: unknown[][];
+            raise_sizes?: [
+                "x" | "p",
+                number
+            ][];
             /** Range0 */
             range0: string;
             /** Range1 */
@@ -768,9 +807,7 @@ export interface components {
              */
             exploitability?: number | null;
             /** Exploitability History */
-            exploitability_history?: {
-                [key: string]: unknown;
-            }[];
+            exploitability_history?: components["schemas"]["ExploitabilityPoint"][];
             /**
              * Exploitability Iteration
              * @description solver iteration at which `exploitability` was measured
@@ -849,10 +886,7 @@ export interface components {
              * @default
              */
             notes: string;
-            /** Spot */
-            spot: {
-                [key: string]: unknown;
-            };
+            spot: components["schemas"]["SpotSpec"];
             /** Tags */
             tags?: string[];
         };
@@ -866,14 +900,73 @@ export interface components {
             name: string;
             /** Notes */
             notes: string;
-            /** Spot */
-            spot: {
-                [key: string]: unknown;
-            };
+            spot: components["schemas"]["SpotSpec"];
             /** Tags */
             tags: string[];
             /** Updated At */
             updated_at: number;
+        };
+        /**
+         * SpotSpec
+         * @description The ``SpotConfig`` wire shape (protocol.spot._FIELDS).
+         *
+         *     Structural validation only; ``SpotConfig.from_dict`` remains the semantic
+         *     check (cards, ranges, street/bet-size legality) at admit and save time.
+         */
+        SpotSpec: {
+            /**
+             * All In
+             * @default false
+             */
+            all_in: boolean;
+            /**
+             * Bet Sizes
+             * @description a preset name or pot fractions; a dict gives per-player ({"0": [...], "1": [...]}) or per-street ({"turn": [...], "river": [...]}, turn spots only) lists
+             * @default standard
+             */
+            bet_sizes: ("third" | "half" | "pot" | "standard" | "small_big" | "wide" | "polar" | "overbet") | number[] | components["schemas"]["BetSizesPlayers"] | components["schemas"]["BetSizesStreets"];
+            /**
+             * Board
+             * @description 5 river cards (or 4 for a turn spot)
+             */
+            board: string[] | string;
+            /** Dead Cards */
+            dead_cards?: string[];
+            /**
+             * Max Nodes
+             * @default 2000000
+             */
+            max_nodes: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Pot
+             * @default 20
+             */
+            pot: number;
+            /**
+             * Raise Cap
+             * @description max raises per street; 0 disables raises
+             * @default 0
+             */
+            raise_cap: number;
+            /**
+             * Raise Sizes
+             * @description raise options as [kind, value]: ["x", m] raises to m times the bet faced, ["p", f] to the bet plus f times the pot after calling
+             */
+            raise_sizes?: [
+                "x" | "p",
+                number
+            ][];
+            /** Range0 */
+            range0: string;
+            /** Range1 */
+            range1: string;
+            /**
+             * Stack
+             * @default 100
+             */
+            stack: number;
         };
         /**
          * SpotUpdate
@@ -884,12 +977,17 @@ export interface components {
             name?: string | null;
             /** Notes */
             notes?: string | null;
-            /** Spot */
-            spot?: {
-                [key: string]: unknown;
-            } | null;
+            spot?: components["schemas"]["SpotSpec"] | null;
             /** Tags */
             tags?: string[] | null;
+        };
+        /**
+         * StatusResponse
+         * @description Bare ``{"status": ...}`` replies (logout, spot delete).
+         */
+        StatusResponse: {
+            /** Status */
+            status: string;
         };
         /** StrategyAction */
         StrategyAction: {
@@ -1104,9 +1202,7 @@ export interface operations {
                      *       "status": "logged_out"
                      *     }
                      */
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
@@ -2104,9 +2200,7 @@ export interface operations {
                      *       "status": "deleted"
                      *     }
                      */
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
             /** @description Validation Error */

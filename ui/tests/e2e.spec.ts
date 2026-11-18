@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 const KEY = process.env.HOLDEM_UI_TEST_KEY ?? "e2e-ui-key";
 
+// Tests run with a shared session cookie (tests/auth.setup.ts); /ui/login is
+// rate limited so only the login-flow test signs in itself.
 async function login(page: Page) {
-  await page.goto("/ui/login");
-  await page.getByLabel("API key").fill(KEY);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.goto("/ui/jobs");
   await expect(page).toHaveURL(/\/ui\/jobs/);
 }
 
@@ -16,7 +16,7 @@ async function buildRiverSpot(page: Page) {
   for (const card of ["Ks", "Js", "Th", "7d", "2c"]) {
     await deck.getByRole("gridcell", { name: card }).click();
   }
-  await expect(deck.getByRole("gridcell", { name: "Ks" })).toHaveAttribute("aria-pressed", "true");
+  await expect(deck.getByRole("gridcell", { name: "Ks" })).toHaveAttribute("aria-selected", "true");
   // Ranges via the import box.
   const p0 = page.locator('input[id^="range-text-Player 0"]');
   await p0.fill("QQ+, AKs, AKo");
@@ -32,6 +32,7 @@ async function buildRiverSpot(page: Page) {
 }
 
 test("login flow: bad key rejected, good key lands on jobs", async ({ page }) => {
+  await page.context().clearCookies();
   await page.goto("/ui/");
   await expect(page).toHaveURL(/\/ui\/login/);
   await page.getByLabel("API key").fill("wrong-key");

@@ -98,32 +98,35 @@ export default function RangeEditor({ label, weights, onChange }: Props) {
         onPointerUp={() => (dragging.current = false)}
         onPointerLeave={() => (dragging.current = false)}
       >
-        {CLASSES.map((cls, idx) => {
-          const w = weights.get(cls) ?? 0;
-          const row = Math.floor(idx / 13), col = idx % 13;
-          return (
-            <div
-              key={cls}
-              role="gridcell"
-              tabIndex={0}
-              data-cls={cls}
-              data-row={row}
-              data-col={col}
-              className={`cell${w > 0 ? " on" : ""}`}
-              aria-label={`${cls} weight ${w}`}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                (e.currentTarget as HTMLElement).focus();
-                startDrag(cls);
-              }}
-              onPointerEnter={() => dragging.current && setClass(cls, paintValue.current)}
-              onFocus={() => setFocused(cls)}
-            >
-              {w > 0 && <i className="fill" style={{ opacity: Math.min(1, w) }} />}
-              <span>{cls}</span>
-            </div>
-          );
-        })}
+        {Array.from({ length: 13 }, (_, row) => (
+          <div role="row" key={row} style={{ display: "contents" }}>
+            {CLASSES.slice(row * 13, row * 13 + 13).map((cls, col) => {
+              const w = weights.get(cls) ?? 0;
+              return (
+                <div
+                  key={cls}
+                  role="gridcell"
+                  tabIndex={0}
+                  data-cls={cls}
+                  data-row={row}
+                  data-col={col}
+                  className={`cell${w > 0 ? " on" : ""}`}
+                  aria-label={`${cls} weight ${w}`}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    (e.currentTarget as HTMLElement).focus();
+                    startDrag(cls);
+                  }}
+                  onPointerEnter={() => dragging.current && setClass(cls, paintValue.current)}
+                  onFocus={() => setFocused(cls)}
+                >
+                  {w > 0 && <i className="fill" style={{ opacity: Math.min(1, w) }} />}
+                  <span>{cls}</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
       <div className="row" style={{ marginTop: 8 }}>
         <div>

@@ -36,7 +36,9 @@ export default function StrategyGrid({
         ))}
       </div>
       <div className="range-grid strat-grid" role="grid" aria-label="strategy grid" style={{ marginTop: 6 }}>
-        {CLASSES.map((cls) => {
+        {Array.from({ length: 13 }, (_, row) => (
+          <div role="row" key={row} style={{ display: "contents" }}>
+            {CLASSES.slice(row * 13, row * 13 + 13).map((cls) => {
           const cell = byClass.get(cls);
           const total = cell ? Object.values(cell.frequencies).reduce((a, b) => a + b, 0) : 0;
           const stops: string[] = [];
@@ -75,6 +77,8 @@ export default function StrategyGrid({
             </div>
           );
         })}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -2,14 +2,48 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from holdem_solver.protocol import BET_SIZE_SETS, DEFAULT_MAX_NODES
+from holdem_solver.protocol import DEFAULT_MAX_NODES
 
 VARIANTS = ("cfr", "cfr_plus", "dcfr", "pcfr_plus")
 DTYPES = ("float32", "float64")
+
+# Keep in sync with protocol.spot.BET_SIZE_SETS (Literal names inline so the
+# OpenAPI schema enumerates them).
+BetSizePreset = Literal[
+    "third", "half", "pot", "standard", "small_big", "wide", "polar", "overbet"
+]
+
+# A raise option: ["x", m] raises to m times the bet faced, ["p", f] to the
+# bet plus f times the pot after calling.
+RaiseSize = tuple[Literal["x", "p"], float]
+
+# Map values may be a preset name or pot fractions (spot.expand accepts both).
+BetSizeList = Union[BetSizePreset, list[float]]
+
+
+class BetSizesPlayers(BaseModel):
+    """Per-player bet sizes: ``{"0": [...], "1": [...]}`` (either optional)."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    p0: BetSizeList | None = Field(default=None, alias="0")
+    p1: BetSizeList | None = Field(default=None, alias="1")
+
+
+class BetSizesStreets(BaseModel):
+    """Per-street bet sizes for turn spots: ``{"turn": [...], "river": [...]}``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    turn: BetSizeList
+    river: BetSizeList
+
+
+BetSizes = Union[BetSizePreset, list[float], BetSizesPlayers, BetSizesStreets]
 
 SOLVE_REQUEST_EXAMPLE = {
     "board": "KsJsTh7d2c",
@@ -94,19 +128,21 @@ class SolveParams(BaseModel):
         return params
 
 
-class SolveRequest(SolveParams):
-    """Body of ``POST /v1/solves``: a ``SpotConfig`` plus solver parameters."""
+class SpotSpec(BaseModel):
+    """The ``SpotConfig`` wire shape (protocol.spot._FIELDS).
 
-    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [SOLVE_REQUEST_EXAMPLE]})
+    Structural validation only; ``SpotConfig.from_dict`` remains the semantic
+    check (cards, ranges, street/bet-size legality) at admit and save time."""
 
-    # SpotConfig fields
+    model_config = ConfigDict(extra="forbid")
+
     board: list[str] | str = Field(max_length=32, description="5 river cards (or 4 for a turn spot)")
     range0: str = Field(max_length=4096)
     range1: str = Field(max_length=4096)
     pot: float = 20.0
     stack: float = 100.0
-    bet_sizes: str | list[float] | dict[str, list[float]] = Field(
-        default="standard", max_length=64,
+    bet_sizes: BetSizes = Field(
+        default="standard",
         description="a preset name or pot fractions; a dict gives per-player "
         '({"0": [...], "1": [...]}) or per-street ({"turn": [...], "river": [...]}, '
         "turn spots only) lists",
@@ -116,7 +152,7 @@ class SolveRequest(SolveParams):
         default=0, ge=0, le=8,
         description="max raises per street; 0 disables raises",
     )
-    raise_sizes: list[list[Any]] = Field(
+    raise_sizes: list[RaiseSize] = Field(
         default_factory=list,
         description='raise options as [kind, value]: ["x", m] raises to m times the bet '
         'faced, ["p", f] to the bet plus f times the pot after calling',
@@ -126,25 +162,46 @@ class SolveRequest(SolveParams):
     max_nodes: int | None = DEFAULT_MAX_NODES
 
     @model_validator(mode="after")
-    def check_raise_sizes(self) -> "SolveRequest":
-        for entry in self.raise_sizes:
-            if (
-                not isinstance(entry, (list, tuple))
-                or len(entry) != 2
-                or entry[0] not in ("x", "p")
-                or not isinstance(entry[1], (int, float))
-                or entry[1] <= 0
-            ):
-                raise ValueError(
-                    'raise_sizes entries must be ["x", m] or ["p", f] with a positive number'
-                )
+    def check_raise_sizes(self) -> "SpotSpec":
+        for _kind, amount in self.raise_sizes:
+            if amount <= 0:
+                raise ValueError('raise_sizes entries must be ["x", m] or ["p", f] with a positive number')
         if self.raise_sizes and self.raise_cap == 0:
             raise ValueError("raise_sizes requires raise_cap > 0")
         return self
 
+    def spot_dict(self) -> dict[str, Any]:
+        """The spot as a ``SpotConfig.from_dict``-shaped dict."""
+        bet_sizes: Any = self.bet_sizes
+        if isinstance(bet_sizes, BaseModel):
+            bet_sizes = bet_sizes.model_dump(mode="json", by_alias=True, exclude_none=True)
+        return {
+            "board": self.board if isinstance(self.board, str) else list(self.board),
+            "range0": self.range0,
+            "range1": self.range1,
+            "pot": self.pot,
+            "stack": self.stack,
+            "bet_sizes": bet_sizes,
+            "all_in": self.all_in,
+            "raise_cap": self.raise_cap,
+            "raise_sizes": [list(size) for size in self.raise_sizes],
+            "dead_cards": list(self.dead_cards),
+            "name": self.name,
+            "max_nodes": self.max_nodes,
+        }
+
+
+class SolveRequest(SolveParams, SpotSpec):
+    """Body of ``POST /v1/solves``: a ``SpotConfig`` plus solver parameters."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [SOLVE_REQUEST_EXAMPLE]})
+
     def hash_body(self) -> dict[str, Any]:
         """Body for the idempotency hash; an unset dtype hashes as before Phase 5."""
-        body = self.model_dump(mode="json")
+        body = self.model_dump(mode="json", by_alias=True)
+        bet_sizes = body.get("bet_sizes")
+        if isinstance(bet_sizes, dict):
+            body["bet_sizes"] = {key: value for key, value in bet_sizes.items() if value is not None}
         if body.get("dtype") is None:
             body.pop("dtype", None)
         # New in Phase 8.5: keep retries of pre-upgrade keys valid by
@@ -155,22 +212,6 @@ class SolveRequest(SolveParams):
             body.pop("raise_sizes", None)
         return body
 
-    def spot_dict(self) -> dict[str, Any]:
-        return {
-            "board": self.board if isinstance(self.board, str) else list(self.board),
-            "range0": self.range0,
-            "range1": self.range1,
-            "pot": self.pot,
-            "stack": self.stack,
-            "bet_sizes": self.bet_sizes,
-            "all_in": self.all_in,
-            "raise_cap": self.raise_cap,
-            "raise_sizes": [list(size) for size in self.raise_sizes],
-            "dead_cards": list(self.dead_cards),
-            "name": self.name,
-            "max_nodes": self.max_nodes,
-        }
-
 class EstimateRequest(BaseModel):
     """``POST /v1/estimate`` body (Phase 10): dry-run admission for a spot.
 
@@ -179,7 +220,7 @@ class EstimateRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    spot: dict[str, Any]
+    spot: SpotSpec
     dtype: Literal["float32", "float64"] = "float32"
 
 
@@ -203,7 +244,7 @@ class SpotCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(max_length=200)
-    spot: dict[str, Any]
+    spot: SpotSpec
     tags: list[str] = Field(default_factory=list, max_length=32)
     notes: str = Field(default="", max_length=2000)
 
@@ -221,7 +262,7 @@ class SpotUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, max_length=200)
-    spot: dict[str, Any] | None = None
+    spot: SpotSpec | None = None
     tags: list[str] | None = Field(default=None, max_length=32)
     notes: str | None = Field(default=None, max_length=2000)
 
@@ -236,7 +277,7 @@ class SpotUpdate(BaseModel):
 class SpotRecord(BaseModel):
     id: str
     name: str
-    spot: dict[str, Any]
+    spot: SpotSpec
     tags: list[str]
     notes: str
     created_at: float
@@ -257,6 +298,12 @@ class LoginResponse(BaseModel):
 class PinResponse(BaseModel):
     id: str
     pinned: bool
+
+
+class StatusResponse(BaseModel):
+    """Bare ``{"status": ...}`` replies (logout, spot delete)."""
+
+    status: str
 
 
 class TreeChild(BaseModel):
@@ -303,6 +350,13 @@ class RangeEntry(BaseModel):
     share: float
 
 
+class NodeRanges(BaseModel):
+    """Reach/shares per player at a node."""
+
+    p0: list[RangeEntry] = Field(default_factory=list)
+    p1: list[RangeEntry] = Field(default_factory=list)
+
+
 class NodeValuesResponse(BaseModel):
     id: str
     iteration: int
@@ -313,8 +367,17 @@ class NodeValuesResponse(BaseModel):
     stacks: dict[str, float]
     board: list[str]
     actions: list[HandGridAction]
-    ranges: dict[str, list[RangeEntry]]
+    ranges: NodeRanges
     hands: list[NodeHandRow]
+
+
+class ExploitabilityPoint(BaseModel):
+    """One exploitability measurement of the running average."""
+
+    iteration: int
+    iterations_run: int
+    elapsed_seconds: float
+    exploitability: float
 
 
 class SolveAccepted(BaseModel):
@@ -342,7 +405,7 @@ class SolveStatus(BaseModel):
     exploitability_iteration: int | None = Field(
         default=None, description="solver iteration at which `exploitability` was measured"
     )
-    exploitability_history: list[dict[str, Any]] = Field(default_factory=list)
+    exploitability_history: list[ExploitabilityPoint] = Field(default_factory=list)
     dtype: str = Field(default="float32", description="solver precision: float32 or float64")
     num_nodes: int | None = None
     num_infosets: int | None = None
