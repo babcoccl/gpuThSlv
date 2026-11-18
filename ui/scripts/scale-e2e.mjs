@@ -133,11 +133,18 @@ try {
     await page.getByTestId("tree-node").waitFor({ timeout: 60_000 });
     const ttfr = performance.now() - t0;
     await shot(page, `scale-${s.name}`);
+    const stopReason = job.target_reached === true
+      ? "target expl"
+      : job.iterations_run != null && s.body.iterations != null && job.iterations_run >= s.body.iterations
+        ? "iteration cap"
+        : "solve ended";
     results.push({
       name: s.name, id: acc.id, nodes: job.num_nodes,
       build_s: job.build_seconds, solve_s: job.elapsed_seconds,
+      export_s: job.export_seconds,
       scenario_wall_s: (Date.now() - tSubmit) / 1000,
       iterations: job.iterations_run, exploitability: job.exploitability,
+      stop_reason: stopReason,
       ttfr_ms: ttfr, calls: measures, ui_errors: [...uiErrors],
     });
     console.log(`${s.name}: ttfr=${ttfr.toFixed(0)}ms uiErrors=${uiErrors.length}`);

@@ -104,7 +104,7 @@ export default function SolveDetail() {
           <div><label>elapsed</label><span className="mono">{job.elapsed_seconds != null ? `${job.elapsed_seconds.toFixed(1)}s` : "—"}</span></div>
           <div><label>nodes</label><span className="mono">{job.num_nodes ?? "—"}</span></div>
           <div className="grow" />
-          {["queued", "building", "solving"].includes(job.status) && (
+          {["queued", "building", "solving", "exporting"].includes(job.status) && (
             <button className="danger" onClick={() => cancel.mutate()}>Cancel</button>
           )}
           {job.status === "done" && (

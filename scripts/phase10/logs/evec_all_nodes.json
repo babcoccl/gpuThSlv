@@ -1,0 +1,95 @@
+{
+ "scale-river-573k": {
+  "id": "9d9b5166b383",
+  "pot": 20.0,
+  "tol": 1e-09,
+  "hists": 15,
+  "player_nodes": 6,
+  "chance_positions": 0,
+  "checks": {
+   "aggregate_edge_value": {
+    "hists_checked": 15,
+    "max_abs_diff": 1.964508555829525e-10
+   },
+   "parity_split": {
+    "hists_checked": 15,
+    "max_abs_diff": 1.3642420526593924e-10
+   },
+   "persisted_vs_live_evec": {
+    "player_nodes_checked": 6,
+    "cells": 2926,
+    "max_abs_diff": 0.0
+   },
+   "exact_per_combo": {
+    "player_nodes_checked": 6,
+    "cells": 2926,
+    "max_abs_diff": 7.105427357601002e-14,
+    "skipped_hists_over_budget": 0
+   }
+  },
+  "ok": true,
+  "seconds": 71.63
+ },
+ "scale-turn-chance": {
+  "id": "9eb2cec01565",
+  "pot": 20.0,
+  "tol": 1e-09,
+  "hists": 2175,
+  "player_nodes": 966,
+  "chance_positions": 5,
+  "checks": {
+   "aggregate_edge_value": {
+    "hists_checked": 2175,
+    "max_abs_diff": 8.597567102697212e-13
+   },
+   "parity_split": {
+    "hists_checked": 2175,
+    "max_abs_diff": 3.979039320256561e-13
+   },
+   "persisted_vs_live_evec": {
+    "player_nodes_checked": 966,
+    "cells": 33372,
+    "max_abs_diff": 0.0
+   },
+   "exact_per_combo": {
+    "player_nodes_checked": 964,
+    "cells": 33264,
+    "max_abs_diff": 7.247535904753022e-13,
+    "skipped_hists_over_budget": 2
+   }
+  },
+  "ok": true,
+  "seconds": 182.29
+ },
+ "scale-raisecap2": {
+  "id": "4a037014a459",
+  "pot": 20.0,
+  "tol": 1e-09,
+  "hists": 81,
+  "player_nodes": 28,
+  "chance_positions": 0,
+  "checks": {
+   "aggregate_edge_value": {
+    "hists_checked": 81,
+    "max_abs_diff": 4.092726157978177e-12
+   },
+   "parity_split": {
+    "hists_checked": 81,
+    "max_abs_diff": 9.663381206337363e-13
+   },
+   "persisted_vs_live_evec": {
+    "player_nodes_checked": 28,
+    "cells": 3200,
+    "max_abs_diff": 0.0
+   },
+   "exact_per_combo": {
+    "player_nodes_checked": 28,
+    "cells": 3200,
+    "max_abs_diff": 1.8474111129762605e-13,
+    "skipped_hists_over_budget": 0
+   }
+  },
+  "ok": true,
+  "seconds": 18.46
+ }
+}

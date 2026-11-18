@@ -58,7 +58,7 @@ export default function Jobs() {
                   <td className="mono">{fmtElapsed(j.elapsed_seconds)}</td>
                   <td className="mono">{j.dtype}</td>
                   <td>
-                    {["queued", "building", "solving"].includes(j.status) && (
+                    {["queued", "building", "solving", "exporting"].includes(j.status) && (
                       <button className="danger small" onClick={() => cancel.mutate(j.id)}>Cancel</button>
                     )}
                     {j.status === "done" && (

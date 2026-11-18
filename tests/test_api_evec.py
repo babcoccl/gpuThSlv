@@ -142,6 +142,55 @@ def test_load_node_evs_roundtrip_and_stale_keys(tmp_path):
     assert api_nodes.load_node_evs(str(tmp_path / "missing.evs.npz"), keys) is None
 
 
+def test_load_node_evs_corrupt_and_truncated_files(tmp_path):
+    """Stale/corrupt/missing evs.npz must never serve values or crash."""
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    keys = index.keys_list if hasattr(index, "keys_list") else [
+        "p%d|%s|%s" % (pl, hand, "|".join(hist))
+        for (pl, hist), rows in sorted(index.by_node.items())
+        for hand in sorted(rows)
+    ]
+    # not a zip at all
+    garbage = tmp_path / "g.evs.npz"
+    garbage.write_bytes(b"\x89this is not an npz file")
+    assert api_nodes.load_node_evs(str(garbage), keys) is None
+    # a valid npz missing the required members
+    bad = tmp_path / "bad.evs.npz"
+    np.savez(bad, keys=np.array([b"k"]))
+    assert api_nodes.load_node_evs(str(bad), ["k"]) is None
+    # keys match but ev array truncated -> load still parses; members that
+    # are absent raise KeyError inside -> must be caught
+    missing = tmp_path / "missing.evs.npz"
+    assert api_nodes.load_node_evs(str(missing), keys) is None
+
+
+def test_node_values_falls_back_when_persisted_evs_unusable(tmp_path):
+    """Persisted vs live-computed: corrupt/missing companions fall back to
+    the live evec walk and return identical values."""
+    index = fake_index()
+    spot = RIVER_SPOT.to_dict()
+    blocked = tuple(parse_cards(RIVER_SPOT.board))
+    ranges = spot_ranges(spot)
+    evs, _ = evec.all_node_evs(
+        index, tuple(parse_cards(RIVER_SPOT.board)), float(spot["pot"]),
+        ranges[0], ranges[1], blocked,
+    )
+    flat = {hist: table for (player, hist), table in evs.items()}
+    live = api_nodes.node_values(index, spot, ("check",), node_evs=None)
+    persisted = api_nodes.node_values(index, spot, ("check",),
+                                      node_evs=flat)
+    assert live["hands"] == persisted["hands"]
+    # corrupt file -> load_node_evs declines -> caller passes node_evs=None
+    corrupt = tmp_path / "x.evs.npz"
+    corrupt.write_bytes(b"junk")
+    assert api_nodes.load_node_evs(str(corrupt), ["k1", "k2"]) is None
+    missing = tmp_path / "none.evs.npz"
+    assert api_nodes.load_node_evs(str(missing), ["k1", "k2"]) is None
+    assert api_nodes.node_values(index, spot, ("check",),
+                                 node_evs=None)["hands"] == live["hands"]
+
+
 def test_compat_all_clamps_cancellation_residue():
     """Every opponent combo conflicting must yield exactly 0 — not positive
     fp residue that callers would divide by."""

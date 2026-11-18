@@ -702,9 +702,13 @@ class Scheduler:
         vram = result.vram or job.get("measured_vram") or {}
         peak = vram.get("peak_reserved_bytes")
         st.phase = "saving"
+        store.transition(job_id, "exporting", ("solving",))
+        export_started = time.monotonic()
         strategy_path = self._export_strategy(job_id, client)
+        export_seconds = time.monotonic() - export_started
         fields = dict(
             elapsed_seconds=time.time() - started,
+            export_seconds=export_seconds,
             iteration=result.total_iterations,
             iterations_run=result.iterations_run,
             exploitability=result.exploitability,

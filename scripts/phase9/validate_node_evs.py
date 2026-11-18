@@ -21,6 +21,12 @@ counts, the strategy dtype/source of each comparison, and the git commit.
 A partial run can never overwrite the full 6-spot artifact.
 
 Usage: .venv-engine/bin/python -m scripts.phase9.validate_node_evs [spot ...]
+            [--via {evwalk,evec,persisted,all}]
+
+``--via`` selects which evaluator(s) the per-node comparison uses:
+``evwalk`` = the pure-Python reference only; ``evec`` = the vectorized
+API evaluator; ``persisted`` = the ``strategy-*.evs.npz`` table as /node
+serves it; ``all`` (default) runs every path.
 """
 from __future__ import annotations
 
@@ -93,7 +99,7 @@ def our_index(nodes):
     return ts_index(nodes)
 
 
-def main(names=None):
+def main(names=None, via="all"):
     os.makedirs(RUNS, exist_ok=True)
     spots = [s for s in CAP0_RIVER if names is None or s.name in names]
     if names is not None:
@@ -168,6 +174,40 @@ def main(names=None):
         print("  own root ev: evwalk=%r profile_value_p0=%r |d|=%r"
               % (own_root, ours["ev_p0"], status_diff), flush=True)
 
+        # --- 4. API-path EVs on our own tree -------------------------------
+        # (a) live evec.node_action_evs vs evwalk; (b) the persisted
+        # strategy-*.evs.npz values exactly as /node serves them
+        # (export_node_evs -> the npz layout -> per-(combo, action) cells).
+        from holdem_solver.api import evec
+        from holdem_solver.api.nodes import export_node_evs
+
+        api_compared = 0
+        live_max = 0.0
+        persist_max = 0.0
+        if via != "evwalk":
+            evs_persisted, _masses = export_node_evs(
+                own_index, spot.to_dict())
+            for (player, hist), _rows in sorted(own_index.by_node.items()):
+                reach0, reach1 = reach_at(own_index, hist, w0, w1, blocked)
+                board_now = dealt_board(spot.board, hist)
+                ref = our_action_evs(own_index, hist, reach0, reach1,
+                                     board_now, pot)
+                got = evec.node_action_evs(own_index, hist, reach0, reach1,
+                                           board_now, pot)                     if via in ("evec", "all") else {}
+                prow = evs_persisted.get((player, hist), {})                     if via in ("persisted", "all") else {}
+                for combo, ref_evs in ref.items():
+                    for action, ref_ev in ref_evs.items():
+                        api_compared += 1
+                        lv = got.get(combo, {}).get(action)
+                        if lv is not None:
+                            live_max = max(live_max, abs(lv - ref_ev))
+                        pv = prow.get(combo, {}).get(action)
+                        if pv is not None:
+                            persist_max = max(persist_max, abs(pv - ref_ev))
+            print("  api-path node EVs: %d compared, evec max |d|=%r, "
+                  "persisted max |d|=%r"
+                  % (api_compared, live_max, persist_max), flush=True)
+
         limit = tol(pot)
         results[name] = {
             "pot": pot,
@@ -187,6 +227,18 @@ def main(names=None):
                 "abs_diff": status_diff, "ok": status_diff <= limit,
                 "strategy_source": "gpu_cfr average strategy (solve_ours, fresh solve)",
                 "dtype": DTYPE},
+            "node_evs_api_evec": {
+                "compared": api_compared if via in ("evec", "all") else 0,
+                "max_abs_diff": live_max,
+                "ok": via not in ("evec", "all")
+                      or (live_max <= limit and api_compared > 0),
+                "path": "evec.node_action_evs (live vectorized walk)"},
+            "node_evs_api_persisted": {
+                "compared": api_compared if via in ("persisted", "all") else 0,
+                "max_abs_diff": persist_max,
+                "ok": via not in ("persisted", "all")
+                      or (persist_max <= limit and api_compared > 0),
+                "path": "export_node_evs -> strategy-*.evs.npz (as /node serves)"},
             "ok": root_diff <= limit and max_diff <= limit
                   and status_diff <= limit and compared > 0,
         }
@@ -230,4 +282,13 @@ def _write(out, results, requested, complete=False):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or None)
+    argv = list(sys.argv[1:])
+    via = "all"
+    if "--via" in argv:
+        i = argv.index("--via")
+        via = argv[i + 1]
+        del argv[i : i + 2]
+        if via not in ("evwalk", "evec", "persisted", "all"):
+            print("--via must be evwalk|evec|persisted|all")
+            sys.exit(2)
+    main(argv or None, via=via)

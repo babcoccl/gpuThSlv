@@ -560,6 +560,10 @@ def main():
         tree = DumpTree(dump_path)
         hmap = HistMap(tree)
 
+        from holdem_solver.api import evec  # API-path EVs (numpy vectorized)
+        from holdem_solver.api.nodes import export_node_evs
+        evs_persisted, _ = export_node_evs(index, spot.to_dict())
+
         spot_out = {"pot": pot, "tol_chips": limit, "nodes": {}}
         # root node (player 0) + one child node: the check child (player 1)
         targets = [(0, ()), (1, ("check",))]
@@ -569,9 +573,14 @@ def main():
             reach0, reach1 = reach_at(index, hist, w0, w1, blocked)
             board_now = dealt_board(spot.board, hist)
             ref = node_action_evs(index, hist, reach0, reach1, board_now, pot)
+            api_live = evec.node_action_evs(index, hist, reach0, reach1,
+                                            board_now, pot)
+            api_persisted = evs_persisted.get((player, hist), {})
             node_rows = index.rows_at[hist]
             compared = 0
             max_diff = 0.0
+            api_live_max = 0.0
+            api_persisted_max = 0.0
             worst = None
             skipped = {}
             for combo_key in node_rows:
@@ -588,6 +597,23 @@ def main():
                     float(freqs.get(a, 0.0)) * float(ev_parts[a])
                     for a in ev_parts
                 )
+                # API paths: same hand EV from live evec and from the
+                # persisted evs.npz table (as /node serves it)
+                for table, acc in ((api_live, "live"),
+                                   (api_persisted, "persisted")):
+                    parts = api_live.get(combo_key) if acc == "live" \
+                        else api_persisted.get(combo_key)
+                    if parts:
+                        api_hand = sum(
+                            float(freqs.get(a, 0.0)) * float(v)
+                            for a, v in parts.items()
+                        )
+                        if acc == "live":
+                            api_live_max = max(api_live_max,
+                                               abs(api_hand - hand_ev))
+                        else:
+                            api_persisted_max = max(
+                                api_persisted_max, abs(api_hand - hand_ev))
                 brute = brute_hand_ev(
                     hmap, hist, combo_key, my_w0, my_w1, my_board, pot
                 )
@@ -609,7 +635,10 @@ def main():
                 "skipped": skipped,
                 "max_abs_diff": max_diff,
                 "worst_combo": worst,
-                "ok": max_diff <= limit and compared > 0,
+                "api_evec_max_abs_diff": api_live_max,
+                "api_persisted_max_abs_diff": api_persisted_max,
+                "ok": max_diff <= limit and compared > 0
+                      and api_live_max <= limit and api_persisted_max <= limit,
             }
             worst_overall = max(worst_overall, max_diff)
             print("  %s: %d of %d combos compared, max |d|=%r (tol %.3f) "
@@ -642,4 +671,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--api-tree" in sys.argv:
+        from scripts.phase10.brute_turn_ev import main as api_main
+
+        api_main()
+    else:
+        main()

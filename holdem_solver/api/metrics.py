@@ -21,7 +21,7 @@ from . import gpus as gpu_stats
 
 CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 
-STATUSES = ("queued", "building", "solving", "done", "cancelled", "failed")
+STATUSES = ("queued", "building", "solving", "exporting", "done", "cancelled", "failed")
 ERROR_CODES = (
     "cuda_oom", "worker_died", "worker_hung", "timeout", "disk_full", "storage_error",
     "engine_error", "vram", "api_restart", "internal",

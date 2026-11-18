@@ -276,6 +276,211 @@ def test_every_phase_doc_linked_in_progress():
     assert not missing, "PHASE docs not linked from PROGRESS.md: %s" % missing
 
 
+# Phase 10.3: completeness mutations — check_phase10_2 must fail on a
+# changed cell, a deleted row or a bogus added row in either table, and
+# every other table guard must fail on a row deletion and a row addition.
+_P10_2 = "PHASE10_2.md"
+_PHASE10_2_MUTATIONS = {
+    "main_cell": (
+        _P10_2,
+        "| scale-river-573k | 573,031 | 5.9 | 8.1 | 0.23 | 200 | 0.400 |",
+        "| scale-river-573k | 573,031 | 5.9 | 8.1 | 0.23 | 200 | 0.401 |",
+    ),
+    "before_cell": (
+        _P10_2,
+        "| scale-river-573k | 39,246 ms |",
+        "| scale-river-573k | 39,247 ms |",
+    ),
+    "after_cell": (
+        _P10_2,
+        "| scale-river-573k | 39,246 ms | 64 ms |",
+        "| scale-river-573k | 39,246 ms | 65 ms |",
+    ),
+    "delete_main_row": (
+        _P10_2,
+        "\n| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |",
+        "",
+    ),
+    "delete_before_after_row": (
+        _P10_2,
+        "\n| scale-raisecap2 | 14,916 ms | 23 ms |",
+        "",
+    ),
+    "add_bogus_row": (
+        _P10_2,
+        "| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |",
+        "| scale-raisecap2 | 95,743 | 1.1 | 2.7 | 0.63 | 200 | 0.577 | iteration cap | 23 | 3 | 3 | 93 |\n"
+        "| scale-bogus | 1 | 1 | 1 | 1 | 1 | 1 | none | 1 | 1 | 1 | 1 |",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_PHASE10_2_MUTATIONS))
+def test_check_phase10_2_fails_on_mutated_doc(tmp_path, case):
+    doc_name, old, new = _PHASE10_2_MUTATIONS[case]
+    source = (ROOT / "docs" / doc_name).read_text()
+    mutated = tmp_path / doc_name
+    mutated.write_text(source.replace(old, new))
+    assert mutated.read_text() != source, "mutation %s did not change the doc" % case
+    proc = _suites_guard(mutated)
+    assert proc.returncode == 1, (
+        "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+    )
+
+
+# Row-deletion and row-addition mutations for every other checked table.
+_ROW_MUTATIONS = {
+    "phase7_results_del": (
+        "PHASE7.md",
+        "\n| toy-check        | 20 | 10.012 | 10.063 | −0.051 | −0.26 | 1.6  | 6.9  | 0.030 | 0.170 | 1.4 | 0.2 | 29.5 | match |",
+        "",
+    ),
+    "phase7_results_add": (
+        "PHASE7.md",
+        "| river-full       | 20 | −0.529 | −0.539 | 0.010  | 0.05  | 5.5  | 44.2 | 0.334 | 0.120 | 85.7| 15.8| 30.4 | explained |",
+        "| river-full       | 20 | −0.529 | −0.539 | 0.010  | 0.05  | 5.5  | 44.2 | 0.334 | 0.120 | 85.7| 15.8| 30.4 | explained |\n"
+        "| bogus-spot       | 20 | 0.000  | 0.000  | 0.000  | 0.00  | 0.0  | 0.0  | 0.000 | 0.000 | 0.0 | 0.0 | 0.0  | match |",
+    ),
+    "phase8_results_del": (
+        "PHASE8.md",
+        "\n| w-dry-cap0 | 0 | yes | −0.07 | 2.2 | 0.11 | 0.279% | 0.166% | match |",
+        "",
+    ),
+    "phase8_results_add": (
+        "PHASE8.md",
+        "| w-full-cap0 | 0 | yes | +0.00 | 4.4 | 0.24 | 0.180% | 0.074% | match |",
+        "| w-full-cap0 | 0 | yes | +0.00 | 4.4 | 0.24 | 0.180% | 0.074% | match |\n"
+        "| w-bogus | 0 | yes | +0.00 | 0.0 | 0.00 | 0.000% | 0.000% | match |",
+    ),
+    "phase8_xeval_del": (
+        "PHASE8.md",
+        "\n| w-toy-check | 0.170% | 0.170% | 0.030% | 42/42 |",
+        "",
+    ),
+    "phase8_xeval_add": (
+        "PHASE8.md",
+        "| w-full-cap0 | 0.074% | 0.074% | 0.180% | 256/256 |",
+        "| w-full-cap0 | 0.074% | 0.074% | 0.180% | 256/256 |\n"
+        "| w-bogus | 0.000% | 0.000% | 0.000% | 0/0 |",
+    ),
+    "phase8_xeval_p7_del": (
+        "PHASE8.md",
+        "\n| toy-check | 0.170% | 0.170% | 0.030% |",
+        "",
+    ),
+    "phase8_xeval_p7_add": (
+        "PHASE8.md",
+        "| river-full | 0.120% | 0.120% | 0.334% |",
+        "| river-full | 0.120% | 0.120% | 0.334% |\n"
+        "| bogus-spot | 0.000% | 0.000% | 0.000% |",
+    ),
+    "phase8_evgap_del": (
+        "PHASE8.md",
+        "\n| w-toy-check | 42 | 3.69 | 0.14 |",
+        "",
+    ),
+    "phase8_evgap_add": (
+        "PHASE8.md",
+        "| w-full-cap0 | 256 | 4.99 | 0.10 |",
+        "| w-full-cap0 | 256 | 4.99 | 0.10 |\n| w-bogus | 1 | 0.01 | 0.01 |",
+    ),
+    "phase8_5_float32_del": (
+        "PHASE8_5.md",
+        "\n   | toy-check | 2.07e-07 | 3.06e-06 |",
+        "",
+    ),
+    "phase8_5_float32_add": (
+        "PHASE8_5.md",
+        "   | river-wet-cap0 | 1.64e-06 | 3.14e-06 |",
+        "   | river-wet-cap0 | 1.64e-06 | 3.14e-06 |\n   | bogus-spot | 0.0 | 0.0 |",
+    ),
+    "phase8_5_xeval_del": (
+        "PHASE8_5.md",
+        "\n   | turn-narrow-b | 0.034% | 0.063% | match |",
+        "",
+    ),
+    "phase8_5_xeval_add": (
+        "PHASE8_5.md",
+        "   | w-turn-cap0 | 0.018% | 0.069% | **match** — the Phase-8 16.5% xeval gap is closed |",
+        "   | w-turn-cap0 | 0.018% | 0.069% | **match** — the Phase-8 16.5% xeval gap is closed |\n"
+        "   | bogus-spot | 0.000% | 0.000% | match |",
+    ),
+    "phase8_6_del": (
+        "PHASE8_6.md",
+        "\n| river-cap3-eq | 3 | equal (19 nodes) | **0.016%** | explained |",
+        "",
+    ),
+    "phase8_6_add": (
+        "PHASE8_6.md",
+        "| river-cap3-eq | 3 | equal (19 nodes) | **0.016%** | explained |",
+        "| river-cap3-eq | 3 | equal (19 nodes) | **0.016%** | explained |\n"
+        "| bogus-cap9 | 9 | equal (1 nodes) | **0.000%** | match |",
+    ),
+    "validation_verdict_del": (
+        "VALIDATION.md",
+        "\n| Phase 7 (`scripts/phase7/runs/suite.json`) | 15 | 4 | 11 | 0 |",
+        "",
+    ),
+    "validation_verdict_add": (
+        "VALIDATION.md",
+        "| Phase 8.6 equal-tree raises (`scripts/phase8_6/runs/suite8_6.json`) | 4 | 1 | 3 | 0 |",
+        "| Phase 8.6 equal-tree raises (`scripts/phase8_6/runs/suite8_6.json`) | 4 | 1 | 3 | 0 |\n"
+        "| Phase 99 bogus | 1 | 1 | 0 | 0 |",
+    ),
+    "phase10_jobs_del": (
+        "PHASE10.md",
+        "\n| `1da488305561` | 0 | 120 | 0.0931 | 1.22 s | 12,556 |",
+        "",
+    ),
+    "phase10_jobs_add": (
+        "PHASE10.md",
+        "| `08a0453b5a93` | 1 | 120 | 0.2259 | 1.11 s | 9,361 |",
+        "| `08a0453b5a93` | 1 | 120 | 0.2259 | 1.11 s | 9,361 |\n"
+        "| `bogusjob00000` | 0 | 1 | 0.0000 | 0.00 s | 1 |",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_ROW_MUTATIONS))
+def test_table_guards_fail_on_row_mutations(tmp_path, case):
+    doc_name, old, new = _ROW_MUTATIONS[case]
+    source = (ROOT / "docs" / doc_name).read_text()
+    mutated = tmp_path / doc_name
+    mutated.write_text(source.replace(old, new))
+    assert mutated.read_text() != source, "mutation %s did not change the doc" % case
+    proc = _suites_guard(mutated)
+    assert proc.returncode == 1, (
+        "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+    )
+
+
+# check_evidence.py analogs: dropping one element of the per-spot
+# slash-list (row-deletion analog) and adding a bogus max-|Δ| claim
+# beside a citation (row-addition analog) must both fail.
+_EV_MUTATIONS = {
+    "slash_list_row_delete": _SOURCE.replace(
+        "84 / 273 / 392 / 266 / 229 / 512",
+        "84 / 273 / 392 / 266 / 229",
+    ),
+    "bogus_claim_add": _SOURCE.replace(
+        "w-full-cap0 (`runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`).",
+        "w-full-cap0 (`runs/ev_validation_w-toy-check+w-dry-cap0+w-wet-cap0+w-pair-cap0+w-blocker-cap0+w-full-cap0.json`).\n"
+        "On bogus-spot, max |Δ| = 1.5e-03.",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_EV_MUTATIONS))
+def test_check_evidence_fails_on_row_mutations(tmp_path, case):
+    mutated = tmp_path / "PHASE9.md"
+    mutated.write_text(_EV_MUTATIONS[case])
+    assert mutated.read_text() != _SOURCE, "mutation %s did not change the doc" % case
+    proc = _guard(mutated)
+    assert proc.returncode == 1, (
+        "guard passed mutated doc (%s):\n%s" % (case, proc.stdout)
+    )
+
+
 def test_no_in_progress_status_with_recorded_gate(tmp_path):
     """A doc may not carry 'Status: in progress' next to a recorded gate
     result — the recorded outcome means the phase is done."""

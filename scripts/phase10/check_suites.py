@@ -116,19 +116,39 @@ def verdict_of(cell: str) -> str:
     return cell.replace("*", "").strip().split(" ", 1)[0].rstrip("—")
 
 
+def check_rows(
+    doc: Path,
+    rows: list[tuple[int, list[str]]],
+    expected_keys: list,
+    what: str,
+    key=lambda c: c[0].strip("`"),
+) -> None:
+    """The table's row set must equal ``expected_keys`` — no missing, extra
+    or reordered rows. Order is enforced whenever ``expected_keys`` is an
+    ordered list; pass a set to check membership only."""
+    got = [key(c) for _ln, c in rows]
+    expected = list(expected_keys)
+    missing = [k for k in expected if k not in got]
+    extra = [k for k in got if k not in expected]
+    if missing:
+        fail(doc, f"{what}: rows missing from table: {missing}")
+    if extra:
+        fail(doc, f"{what}: unexpected rows in table: {extra}")
+    if not missing and not extra and got != expected:
+        fail(doc, f"{what}: row order {got} != artifact order {expected}")
+
+
 def check_phase7(doc: Path, suite: dict) -> None:
     text = doc.read_text()
     rows = req_table(doc, text, "our EV", "verdict")
     if not rows:
         return
-    seen = set()
+    check_rows(doc, rows, list(suite), "results table")
     for ln, c in rows:
         spot = c[0]
         if spot not in suite:
-            fail(doc, f"line {ln}: spot {spot} not in suite.json")
             continue
         s = suite[spot]
-        seen.add(spot)
         num_close(doc, c[1], s["pot"], f"{spot} pot")
         num_close(doc, c[2], s["ours"]["ev_p0"], f"{spot} our EV")
         num_close(doc, c[3], s["ts"]["ev_p0"], f"{spot} TS EV")
@@ -140,9 +160,6 @@ def check_phase7(doc: Path, suite: dict) -> None:
         num_close(doc, c[9], s["ts"]["exploitability_pct"], f"{spot} TS expl %")
         if verdict_of(c[-1]) != s["verdict"]:
             fail(doc, f"{spot} verdict: doc {c[-1]!r} vs {s['verdict']}")
-    missing = set(suite) - seen
-    if missing:
-        fail(doc, f"spots missing from results table: {sorted(missing)}")
 
     # verdict counts in the notes ("**match (4)**" style)
     for label in ("match", "explained", "unresolved"):
@@ -164,11 +181,11 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
     rows = req_table(doc, text, "tree ok", "verdict")
     if not rows:
         return
+    check_rows(doc, rows, list(suite), "phase8 results table")
     for ln, c in rows:
         spot = c[0]
         s = suite.get(spot)
         if s is None:
-            fail(doc, f"line {ln}: spot {spot} not in suite8.json")
             continue
         ok = c[2].replace("*", "").strip().startswith("yes")
         if ok != s["tree"]["ok"]:
@@ -192,11 +209,11 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
             ),
         ),
     ):
+        check_rows(doc, table_rows, list(src), "xeval table")
         for ln, c in table_rows:
             spot = c[0]
             s = src.get(spot)
             if s is None:
-                fail(doc, f"line {ln}: xeval spot {spot} not in artifact")
                 continue
             xe = s["xeval"] if "xeval" in s else s
             ts_rep = (
@@ -228,11 +245,19 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
                     )
 
     # EV-gap table
-    for ln, c in req_table(doc, text, "EV gap %pot"):
+    gap_rows = req_table(doc, text, "EV gap %pot")
+    check_rows(
+        doc, gap_rows,
+        [
+            k for k, s in suite.items()
+            if "ev_gap" in s and "skipped" not in s["ev_gap"]
+        ],
+        "EV-gap table",
+    )
+    for ln, c in gap_rows:
         spot = c[0]
         s = suite.get(spot)
         if s is None or "ev_gap" not in s:
-            fail(doc, f"line {ln}: no ev_gap for {spot}")
             continue
         g = s["ev_gap"]
         num_close(doc, c[1], g["combos"], f"{spot} combos measured")
@@ -285,11 +310,12 @@ def check_phase8(doc: Path, suite: dict, phase7_xeval: dict, suite7: dict) -> No
 def check_phase8_5(doc: Path, suite: dict, float32: dict) -> None:
     text = doc.read_text()
 
-    for ln, c in req_table(doc, text, "Δexploitability"):
+    f32_rows = req_table(doc, text, "Δexploitability")
+    check_rows(doc, f32_rows, list(float32["spots"]), "float32 table")
+    for ln, c in f32_rows:
         spot = c[0]
         s = float32["spots"].get(spot)
         if s is None:
-            fail(doc, f"line {ln}: float32 spot {spot} not in artifact")
             continue
         dev = abs(float(s["float64"]["ev_p0"]) - float(s["float32"]["ev_p0"]))
         dexpl = abs(
@@ -299,11 +325,17 @@ def check_phase8_5(doc: Path, suite: dict, float32: dict) -> None:
         num_close(doc, c[1], dev, f"{spot} f32 dEV chips")
         num_close(doc, c[2], dexpl, f"{spot} f32 dexpl pp")
 
-    for ln, c in req_table(doc, text, "xeval ts-in-ours"):
+    xeval_rows = req_table(doc, text, "xeval ts-in-ours")
+    # The table intentionally covers only the three turn re-run spots.
+    check_rows(
+        doc, xeval_rows,
+        ["turn-narrow-a", "turn-narrow-b", "w-turn-cap0"],
+        "phase8_5 xeval table",
+    )
+    for ln, c in xeval_rows:
         spot = c[0]
         s = suite.get(spot)
         if s is None:
-            fail(doc, f"line {ln}: spot {spot} not in suite8_5.json")
             continue
         num_close(doc, c[1], abs(s["ev_diff_pct"]), f"{spot} |dEV| %pot")
         num_close(
@@ -359,11 +391,11 @@ def check_phase8_6(doc: Path, suite: dict) -> None:
     rows = req_table(doc, text, "tree check", "xeval")
     if not rows:
         return
+    check_rows(doc, rows, list(suite), "phase8_6 table")
     for ln, c in rows:
         spot = c[0]
         s = suite.get(spot)
         if s is None:
-            fail(doc, f"line {ln}: spot {spot} not in suite8_6.json")
             continue
         m = re.match(r"(\w+) \((\d+) nodes(?:, (\d+) mismatches)?\)", c[2])
         if not m:
@@ -395,18 +427,30 @@ def check_phase8_6(doc: Path, suite: dict) -> None:
 
 def check_validation(doc: Path, suites: dict[str, dict]) -> None:
     text = doc.read_text()
-    for ln, c in req_table(doc, text, "Match", "Unresolved"):
+    rows = req_table(doc, text, "Match", "Unresolved")
+    verdict_rows = []
+    for ln, c in rows:
+        try:
+            int(clean_num(c[2]))
+        except (ValueError, IndexError):
+            continue
+        verdict_rows.append((ln, c))
+    check_rows(
+        doc, verdict_rows,
+        ["Phase 7", "Phase 8", "Phase 8.5", "Phase 8.6"],
+        "VALIDATION verdict table",
+        key=lambda c: re.search(r"Phase \d+(?:\.\d+)?", c[0]).group(0)
+        if re.search(r"Phase \d+(?:\.\d+)?", c[0]) else c[0],
+    )
+    for ln, c in verdict_rows:
         m = re.search(r"Phase (\d+(?:\.\d+)?)", c[0])
         if not m:
             continue
+        m = re.search(r"Phase (\d+(?:\.\d+)?)", c[0])
         name = m.group(1)
         key = {"7": "phase7", "8": "phase8", "8.5": "phase8_5",
                "8.6": "phase8_6"}.get(name)
         if key is None or key not in suites:
-            continue
-        try:
-            int(clean_num(c[2]))  # verdict rows only: integer count cells
-        except ValueError:
             continue
         s = suites[key]
         want = {
@@ -432,14 +476,12 @@ def check_phase10(doc: Path) -> None:
     e2e = load("phase10/logs/real_e2e.json")
 
     rows = req_table(doc, text, "gpu", "exploitability", "elapsed", "nodes")
-    seen = set()
+    check_rows(doc, rows, list(e2e["jobs"]), "Part-1 results table")
     for ln, c in rows:
         jid = c[0].strip("`")
         if jid not in e2e["jobs"]:
-            fail(doc, f"line {ln}: job {jid} not in real_e2e.json")
             continue
         j = e2e["jobs"][jid]
-        seen.add(jid)
         if c[1] != str(j["gpu"]):
             fail(doc, f"{jid} gpu: doc {c[1]} vs {j['gpu']}")
         if c[2] != str(j["iterations_run"]):
@@ -447,9 +489,6 @@ def check_phase10(doc: Path) -> None:
         num_close(doc, c[3], j["exploitability"], f"{jid} exploitability")
         num_close(doc, c[4].replace(" s", ""), j["elapsed_seconds"], f"{jid} elapsed")
         num_close(doc, c[5].replace(",", ""), j["num_nodes"], f"{jid} nodes")
-    missing = set(e2e["jobs"]) - seen
-    if missing:
-        fail(doc, f"jobs missing from Part-1 results table: {sorted(missing)}")
 
     # Playwright suite count vs committed log.
     plog = log_dir / "playwright_e2e.log"
@@ -478,31 +517,57 @@ def check_phase10(doc: Path) -> None:
 
 def check_phase10_2(doc: Path) -> None:
     """Scale table vs committed scale-10-2.json (re-measured columns:
-    nodes, build s, solve s, iterations, exploitability, first/warm
-    /node, /tree, TTFR)."""
+    nodes, build s, solve s, export s, iterations, exploitability,
+    stop reason, first/warm /node, /tree, TTFR); the before/after /node
+    table vs scale-10-1.json (Phase 10.1 baseline) and scale-10-2.json."""
     text = doc.read_text()
     scale = load("phase10/logs/scale-10-2.json")
+    before = load("phase10/logs/scale-10-1.json")
     by_name = {r["name"]: r for r in scale}
+    before_by_name = {r["name"]: r for r in before}
     rows = req_table(doc, text, "build s", "first /node", exclude=("wall",))
+    check_rows(doc, rows, [r["name"] for r in scale], "scale table")
     for ln, c in rows:
         name = c[0].strip("`")
         r = by_name.get(name)
         if r is None:
-            fail(doc, f"line {ln}: spot {name!r} not in scale-10-1.json")
             continue
         num_close(doc, c[1].replace(",", ""), r["nodes"], f"{name} nodes")
         num_close(doc, c[2], r["build_s"], f"{name} build s")
         num_close(doc, c[3], r["solve_s"], f"{name} solve s")
-        num_close(doc, c[4], r["iterations"], f"{name} iterations")
-        num_close(doc, c[5], r["exploitability"], f"{name} exploitability")
+        num_close(doc, c[4], r["export_s"], f"{name} export s")
+        num_close(doc, c[5], r["iterations"], f"{name} iterations")
+        # doc column is expl (% pot); all scale spots use pot=20.
+        num_close(doc, c[6], r["exploitability"] / 20 * 100, f"{name} expl (% pot)")
+        if c[7] != r["stop_reason"]:
+            fail(doc, f"{name} stop reason: doc {c[7]!r} vs {r['stop_reason']!r}")
         root = r["calls"][0]
         if root.get("history") != "root" or "first_node_ms" not in root:
             fail(doc, f"{name}: artifact calls[0] has no root first/warm /node")
             continue
-        num_close(doc, c[6], root["first_node_ms"], f"{name} first /node ms")
-        num_close(doc, c[7], root["warm_node_ms"], f"{name} warm /node ms")
-        num_close(doc, c[8], root["tree_ms"], f"{name} /tree ms")
-        num_close(doc, c[9], r["ttfr_ms"], f"{name} TTFR ms")
+        num_close(doc, c[8], root["first_node_ms"], f"{name} first /node ms")
+        num_close(doc, c[9], root["warm_node_ms"], f"{name} warm /node ms")
+        num_close(doc, c[10], root["tree_ms"], f"{name} /tree ms")
+        num_close(doc, c[11], r["ttfr_ms"], f"{name} TTFR ms")
+
+    ba = req_table(doc, text, "before", "after")
+    check_rows(doc, ba, [r["name"] for r in scale], "before/after table")
+    for ln, c in ba:
+        name = c[0].strip("`")
+        b = before_by_name.get(name)
+        r = by_name.get(name)
+        if b is None:
+            fail(doc, f"line {ln}: spot {name!r} not in scale-10-1.json")
+            continue
+        num_close(
+            doc, c[1].replace(" ms", "").replace(",", ""), b["calls"][0]["node_ms"],
+            f"{name} first /node before",
+        )
+        if r is not None:
+            num_close(
+                doc, c[2].replace(" ms", ""), r["calls"][0]["first_node_ms"],
+                f"{name} first /node after",
+            )
 
 
 def check_doc_status(doc: Path) -> None:

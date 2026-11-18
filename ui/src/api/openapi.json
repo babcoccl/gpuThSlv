@@ -1439,6 +1439,18 @@
             "description": "solver iteration at which `exploitability` was measured",
             "title": "Exploitability Iteration"
           },
+          "export_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "wall time spent exporting the strategy and node-EV npz after the solve finished",
+            "title": "Export Seconds"
+          },
           "finished_at": {
             "anyOf": [
               {
@@ -1595,6 +1607,7 @@
               "queued",
               "building",
               "solving",
+              "exporting",
               "done",
               "cancelled",
               "failed"
@@ -2462,6 +2475,7 @@
                     "queued",
                     "building",
                     "solving",
+                    "exporting",
                     "done",
                     "cancelled",
                     "failed"

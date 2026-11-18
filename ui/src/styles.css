@@ -76,7 +76,7 @@ tr.clickable { cursor: pointer; }
   border: 1px solid var(--line); color: var(--muted);
 }
 .badge.done { color: var(--ok); border-color: var(--ok); }
-.badge.solving, .badge.building { color: var(--accent); border-color: var(--accent); }
+.badge.solving, .badge.building, .badge.exporting { color: var(--accent); border-color: var(--accent); }
 .badge.queued { color: var(--warn); border-color: var(--warn); }
 .badge.failed, .badge.cancelled { color: var(--bad); border-color: var(--bad); }
 .pin { color: var(--warn); }
